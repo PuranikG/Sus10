@@ -96,23 +96,23 @@ export default function ProvidersPage() {
                 data-testid="provider-search-input"
               />
             </div>
-            <Select value={cityFilter} onValueChange={setCityFilter}>
+            <Select value={cityFilter || "all"} onValueChange={(val) => setCityFilter(val === "all" ? "" : val)}>
               <SelectTrigger className="w-full md:w-[180px] h-12" data-testid="city-filter">
                 <SelectValue placeholder="All Cities" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Cities</SelectItem>
+                <SelectItem value="all">All Cities</SelectItem>
                 {cities.map((city) => (
                   <SelectItem key={city} value={city}>{city}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <Select value={typeFilter || "all"} onValueChange={(val) => setTypeFilter(val === "all" ? "" : val)}>
               <SelectTrigger className="w-full md:w-[200px] h-12" data-testid="type-filter">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="all">All Types</SelectItem>
                 {providerTypes.map((type) => (
                   <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                 ))}
