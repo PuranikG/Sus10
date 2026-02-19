@@ -611,7 +611,8 @@ async def admin_create_building(request: Request, building: BuildingCreate):
     }
     
     await db.buildings.insert_one(building_doc)
-    del building_doc["_id"] if "_id" in building_doc else None
+    if "_id" in building_doc:
+        del building_doc["_id"]
     return building_doc
 
 @api_router.put("/admin/buildings/{building_id}/approve")
