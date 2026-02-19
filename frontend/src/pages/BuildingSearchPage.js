@@ -116,12 +116,12 @@ export default function BuildingSearchPage() {
                 data-testid="search-input"
               />
             </div>
-            <Select value={cityFilter} onValueChange={setCityFilter}>
+            <Select value={cityFilter || "all"} onValueChange={(val) => setCityFilter(val === "all" ? "" : val)}>
               <SelectTrigger className="w-full md:w-[180px] h-12" data-testid="city-filter">
                 <SelectValue placeholder="All Cities" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Cities</SelectItem>
+                <SelectItem value="all">All Cities</SelectItem>
                 {cities.map((city) => (
                   <SelectItem key={city} value={city}>{city}</SelectItem>
                 ))}
