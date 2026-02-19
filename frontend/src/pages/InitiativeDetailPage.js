@@ -211,10 +211,7 @@ export default function InitiativeDetailPage() {
                           }}
                         />
                       </Dialog>
-                      <Button variant="outline" className="w-full" size="lg">
-                        <Share2 className="h-5 w-5 mr-2" />
-                        Share Initiative
-                      </Button>
+                      <InitiativeShareDropdown initiative={initiative} />
                     </>
                   ) : (
                     <Button className="w-full" size="lg" disabled>
