@@ -62,6 +62,26 @@ export default function BuildingReportPage() {
     fetchReport();
   }, [buildingId]);
 
+  const handleDownloadPDF = async () => {
+    if (!reportData) return;
+    
+    setGeneratingPDF(true);
+    try {
+      const fileName = await generateBuildingReportPDF(
+        reportData.building,
+        reportData.recommendations,
+        reportData.audit_logs,
+        reportData.providers
+      );
+      toast.success(`Report downloaded: ${fileName}`);
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      toast.error('Failed to generate PDF. Please try again.');
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
   if (loading) {
     return <ReportSkeleton />;
   }
