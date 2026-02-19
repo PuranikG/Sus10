@@ -91,3 +91,38 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 ## Key URLs
 - Frontend: https://eco-rebuild.preview.emergentagent.com
 - Backend API: https://eco-rebuild.preview.emergentagent.com/api
+
+## Recent Updates (Feb 19, 2026 - Feature Addition)
+
+### WhatsApp & Email Sharing ✅
+- Added share dropdown to Building Reports with:
+  - WhatsApp sharing (opens wa.me with pre-formatted message)
+  - Email sharing (mailto: with subject and body)
+  - Copy Link functionality
+- Added share dropdown to Initiative Detail pages
+- Share messages include:
+  - Building: Green potential score, location, AQI, CO2 impact
+  - Initiative: Funding progress, impact goal, call to action
+
+### Share Message Format
+**Building Report:**
+```
+🌿 DLF Cyber City, Tower A has 75.5% green potential!
+📍 Location: Gurugram
+🏢 Type: IT Park
+🌱 Terrace Area: 3,500 sqm
+💨 Current AQI: 156
+🌳 Potential CO2 Sequestration: 12,250 kg/year
+
+Check out the full report on Sus10 AI: [URL]
+```
+
+**Initiative:**
+```
+🌿 Join "Green Gurugram 2025" - a community initiative for climate action!
+📍 Area: Gurugram
+💰 Progress: ₹12,50,000 raised (25% of goal)
+🎯 Goal: 100 rooftops_greened
+
+Every pledge counts! Join us on Sus10 AI: [URL]
+```
