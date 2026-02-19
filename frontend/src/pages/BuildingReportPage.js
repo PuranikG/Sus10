@@ -160,9 +160,23 @@ export default function BuildingReportPage() {
                 </div>
                 <div className="flex gap-2">
                   <ShareDropdown building={building} recommendations={recommendations} />
-                  <Button size="sm" data-testid="download-report-btn">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PDF
+                  <Button 
+                    size="sm" 
+                    data-testid="download-report-btn"
+                    onClick={handleDownloadPDF}
+                    disabled={generatingPDF}
+                  >
+                    {generatingPDF ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Download PDF
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
