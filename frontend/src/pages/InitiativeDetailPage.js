@@ -513,3 +513,80 @@ function InitiativeSkeleton() {
     </div>
   );
 }
+
+function InitiativeShareDropdown({ initiative }) {
+  const [copied, setCopied] = useState(false);
+  
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const fundingProgress = initiative.funding_goal 
+    ? Math.round((initiative.funding_pledged / initiative.funding_goal) * 100)
+    : 0;
+  
+  const shareTitle = `Join ${initiative.title}`;
+  const shareText = `🌿 Join "${initiative.title}" - a community initiative for climate action!\n\n` +
+    `📍 Area: ${initiative.area || 'Multiple locations'}\n` +
+    (initiative.funding_goal ? `💰 Progress: ${formatCurrency(initiative.funding_pledged || 0)} raised (${fundingProgress}% of goal)\n` : '') +
+    `🎯 Goal: ${initiative.impact_goal?.target || 'Make an impact'} ${initiative.impact_goal?.unit || ''}\n\n` +
+    `Every pledge counts! Join us on Sus10 AI:`;
+  
+  const handleWhatsAppShare = () => {
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+  
+  const handleEmailShare = () => {
+    const subject = encodeURIComponent(shareTitle);
+    const body = encodeURIComponent(shareText + '\n\n' + shareUrl);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
+  
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success('Link copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast.error('Failed to copy link');
+    }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className="w-full" size="lg" data-testid="share-initiative-btn">
+          <Share2 className="h-5 w-5 mr-2" />
+          Share Initiative
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="center" className="w-56">
+        <DropdownMenuItem onClick={handleWhatsAppShare} className="cursor-pointer" data-testid="share-initiative-whatsapp">
+          <MessageSquare className="h-4 w-4 mr-3 text-green-500" />
+          <div>
+            <div className="font-medium">WhatsApp</div>
+            <div className="text-xs text-muted-foreground">Rally your contacts</div>
+          </div>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleEmailShare} className="cursor-pointer" data-testid="share-initiative-email">
+          <Mail className="h-4 w-4 mr-3 text-blue-500" />
+          <div>
+            <div className="font-medium">Email</div>
+            <div className="text-xs text-muted-foreground">Invite via email</div>
+          </div>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleCopyLink} className="cursor-pointer" data-testid="share-initiative-copy">
+          {copied ? (
+            <Check className="h-4 w-4 mr-3 text-green-500" />
+          ) : (
+            <Copy className="h-4 w-4 mr-3" />
+          )}
+          <div>
+            <div className="font-medium">{copied ? 'Copied!' : 'Copy Link'}</div>
+            <div className="text-xs text-muted-foreground">Share anywhere</div>
+          </div>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
