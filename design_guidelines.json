@@ -1,0 +1,182 @@
+{
+  "brand_identity": {
+    "persona": "E1: The Anti-AI Designer",
+    "core_philosophy": "Fusion over Imitation. Tech meets Organic. Data meets Emotion.",
+    "emotional_archetype": "The Regenerative Futurist",
+    "voice": "Professional, Hopeful, Scientific, Action-Oriented",
+    "visual_mood": "Deep Ecology x High-Tech Precision. Think 'Solar Glass', 'Moss on Concrete', 'Digital Water'."
+  },
+  "theme_strategy": {
+    "default_mode": "light",
+    "user_preference_enabled": true,
+    "logic": "Light mode uses warm, sandy neutrals (Nature/Wellness). Dark mode uses deep void greens and bioluminescent accents (Data/Tech)."
+  },
+  "colors": {
+    "palette_strategy": "Archetype 1 (Organic) fused with Archetype 4 (Swiss Data)",
+    "primary": {
+      "name": "Vitality Green",
+      "hex_light": "#15803d",
+      "hex_dark": "#22c55e",
+      "tailwind_var": "--primary"
+    },
+    "background": {
+      "light": "#F7F7F5",
+      "dark": "#0A0C0A",
+      "description": "Light mode is 'Warm Paper', Dark mode is 'Deep Forest Void'."
+    },
+    "surface": {
+      "light": "#FFFFFF",
+      "dark": "#141614",
+      "glass_light": "rgba(255, 255, 255, 0.7)",
+      "glass_dark": "rgba(10, 12, 10, 0.6)"
+    },
+    "accents": {
+      "solar_blue": "#0EA5E9",
+      "alert_orange": "#F97316",
+      "earth_brown": "#78350F"
+    },
+    "gradients": {
+      "hero_light": "linear-gradient(135deg, #F7F7F5 0%, #E6E8E6 100%)",
+      "hero_dark": "linear-gradient(135deg, #0A0C0A 0%, #052e16 100%)",
+      "card_border": "linear-gradient(to right, rgba(255,255,255,0.1), rgba(34,197,94,0.2), rgba(255,255,255,0.1))"
+    },
+    "forbidden_colors": [
+      "#7351B7",
+      "#1B93A4"
+    ]
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Outfit, sans-serif",
+      "body": "Manrope, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scaling": {
+      "h1": "text-5xl md:text-7xl font-bold tracking-tight leading-none",
+      "h2": "text-4xl md:text-5xl font-semibold tracking-tight",
+      "h3": "text-2xl md:text-3xl font-medium",
+      "body_lg": "text-lg md:text-xl leading-relaxed",
+      "body_base": "text-base leading-relaxed text-muted-foreground",
+      "caption": "text-xs font-mono tracking-widest uppercase text-muted-foreground"
+    },
+    "rules": [
+      "No 'Inter' for Headings.",
+      "Use 'Outfit' for all Headings (H1-H6).",
+      "Use 'Manrope' for all Body text and UI elements.",
+      "Headings > 32px must have 'tracking-tight'.",
+      "Labels must be Uppercase + Wide Spacing."
+    ]
+  },
+  "layout_system": {
+    "grid_modes": {
+      "mode_a_tetris": {
+        "usage": "Landing Page, Champion Initiatives, Marketplaces",
+        "css_classes": "grid grid-cols-1 md:grid-cols-8 lg:grid-cols-12 gap-8",
+        "rules": "Use asymmetric spans. Never fill 100% perfectly. Leave breathing room."
+      },
+      "mode_b_density": {
+        "usage": "Building Analysis Report, Admin Dashboard, Provider Dashboard",
+        "css_classes": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4",
+        "rules": "Tight gaps. 100% fill. No jagged bottoms. Use h-full."
+      }
+    },
+    "spacing": {
+      "base_unit": "4px",
+      "container_padding": "p-6 md:p-12 lg:p-24",
+      "section_gap": "gap-12 md:gap-24",
+      "card_padding": "p-6 or p-8"
+    },
+    "containers": {
+      "max_width": "max-w-7xl mx-auto",
+      "glass_panel": "bg-white/50 dark:bg-black/40 backdrop-blur-xl border border-white/20 dark:border-white/10"
+    }
+  },
+  "components": {
+    "buttons": {
+      "style": "Pill-shaped or Sharp (choose one consistent). Recommended: 'rounded-full' for Actions, 'rounded-lg' for Form Inputs.",
+      "primary": "bg-primary text-primary-foreground hover:opacity-90 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5",
+      "secondary": "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+      "ghost": "hover:bg-accent hover:text-accent-foreground"
+    },
+    "cards": {
+      "base": "bg-card text-card-foreground rounded-xl border border-border/50 shadow-sm transition-all hover:shadow-md",
+      "interactive": "hover:border-primary/50 cursor-pointer group",
+      "glass": "bg-white/40 dark:bg-black/40 backdrop-blur-lg border border-white/20 shadow-xl"
+    },
+    "inputs": {
+      "style": "h-12 bg-background border-input focus:ring-2 focus:ring-primary/20 transition-all rounded-lg"
+    },
+    "charts": {
+      "library": "recharts (via shadcn/charts)",
+      "style": "Minimal axes. Remove grid lines if possible. Use gradients for areas. Tooltips must be dark mode glass.",
+      "palette": [
+        "var(--chart-1)",
+        "var(--chart-2)",
+        "var(--chart-3)",
+        "var(--chart-4)",
+        "var(--chart-5)"
+      ]
+    },
+    "maps": {
+      "style": "Full width or large bento block. Rounded corners (xl). Custom marker styles (green leaf/pin)."
+    }
+  },
+  "visual_assets": {
+    "icons": {
+      "primary_library": "lucide-react",
+      "feature_icons": "@phosphor-icons/react (Duotone)"
+    },
+    "images": {
+      "hero_bg": "https://images.unsplash.com/photo-1768224123432-729e0a6fed58?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "community_section": "https://images.unsplash.com/photo-1769787641374-cb51b024762a?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "tech_visualization": "https://images.pexels.com/photos/17485679/pexels-photo-17485679.png?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "solar_roof": "https://images.unsplash.com/photo-1765572810664-f2504b7b9dc4?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "green_building": "https://images.pexels.com/photos/29206495/pexels-photo-29206495.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+    },
+    "textures": {
+      "noise": "url('data:image/svg+xml,...') (Optional: Add refined noise texture via CSS)",
+      "grid_pattern": "bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"
+    }
+  },
+  "motion": {
+    "library": "framer-motion",
+    "defaults": {
+      "transition": {
+        "type": "spring",
+        "stiffness": 260,
+        "damping": 20
+      },
+      "hover": {
+        "y": -4,
+        "scale": 1.02
+      }
+    },
+    "scroll_reveal": "initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}"
+  },
+  "accessibility": {
+    "contrast_check": "APCA preferred. Ensure 4.5:1 for normal text.",
+    "interactive_states": "Focus rings must be visible. Hover states must change color/bg, not just cursor.",
+    "data_test_ids": "REQUIRED on all interactive elements. Format: 'data-testid=\"section-element-action\"'."
+  },
+  "instructions_to_main_agent": [
+    "INSTALL DEPENDENCIES: yarn add lucide-react @phosphor-icons/react framer-motion recharts clsx tailwind-merge",
+    "THEME SETUP: Ensure 'next-themes' or a React Context manages the 'dark' class on the html element.",
+    "FONTS: Import 'Outfit' and 'Manrope' from Google Fonts or Fontsource in index.css.",
+    "COMPONENTS: Prioritize Shadcn/UI for logic (Forms, Dialogs) but heavily style them with the classes above.",
+    "PAGES: Landing Page = 'Tetris Grid'. Dashboard = 'Density Grid'. Report = 'Storybook Scrollytelling'.",
+    "FORMS: Use 'react-hook-form' + 'zod' (standard in this stack).",
+    "MAPS: Use a placeholder or 'react-map-gl' if a map token is available. If not, design a stunning 'Empty State' map card.",
+    "DO NOT use generic gradients. Use the 'grid_pattern' background for empty spaces.",
+    "CHECK FILE PATHS: Source code is in '/app/frontend/src'. Shadcn components are in '/app/frontend/src/components/ui'.",
+    "Use 'sonner' for toasts at '/app/frontend/src/components/ui/sonner.tsx'."
+  ],
+  "universal_guidelines": [
+    "Do not use generic centered layouts.",
+    "Avoid 'AI slop' aesthetics (smooth gradients everywhere). Use texture and noise.",
+    "Create depth with z-index and shadows.",
+    "No 'transition: all'. Animate specific properties.",
+    "Never use Emoji icons.",
+    "Components must use named exports.",
+    "Pages must use default exports."
+  ]
+}
