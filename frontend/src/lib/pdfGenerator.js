@@ -240,7 +240,7 @@ export async function generateBuildingReportPDF(building, recommendations, audit
   });
   
   if (impactData.length > 0) {
-    doc.autoTable({
+    autoTable(doc, {
       startY: y,
       head: [['Solution', 'Impact Metric', 'Projected Value', 'Confidence']],
       body: impactData,
