@@ -1338,6 +1338,193 @@ async def seed_initial_data(request: Request):
     
     return {"message": "Initial data seeded successfully", "buildings": len(sample_buildings), "solution_types": len(solution_types)}
 
+# ==================== SEED BLOG CONTENT ====================
+@api_router.post("/admin/seed-blog")
+async def seed_blog_content(request: Request):
+    """Seed blog content and enable blog feature"""
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Check if already seeded
+    existing_posts = await db.blog_posts.count_documents({})
+    if existing_posts > 0:
+        return {"message": "Blog content already seeded"}
+    
+    # Sample blog posts
+    blog_posts = [
+        {
+            "post_id": f"post_{uuid.uuid4().hex[:12]}",
+            "title": "Complete Guide to Rooftop Greening in Indian Cities",
+            "slug": "guide-rooftop-greening-india",
+            "author_id": "user_provider_001",
+            "content": """Rooftop greening is transforming urban landscapes across India. With rising temperatures and deteriorating air quality, green roofs offer a sustainable solution for commercial buildings.
+
+What is Rooftop Greening?
+Rooftop greening involves creating vegetated areas on building rooftops. These can range from simple sedum mats to elaborate gardens with trees and walkways.
+
+Benefits for Indian Buildings:
+1. Temperature Reduction: Green roofs can reduce indoor temperatures by 3-5°C, significantly cutting AC costs.
+2. Air Quality Improvement: Plants absorb pollutants and produce oxygen, improving local air quality.
+3. Rainwater Management: Vegetated roofs retain 60-70% of rainfall, reducing runoff and flooding.
+4. Biodiversity: Urban gardens provide habitat for birds, butterflies, and beneficial insects.
+5. Property Value: Green buildings command 10-15% premium in the market.
+
+Getting Started:
+- Assess your terrace area and structural capacity
+- Choose appropriate plants for your climate zone
+- Work with certified landscapers for installation
+- Plan for maintenance and irrigation
+
+The Sus10 AI platform can help you assess your building's green potential and connect you with verified providers.""",
+            "excerpt": "Transform your building's terrace into a thriving green space. Learn about the benefits, costs, and implementation strategies for rooftop gardens in Indian commercial buildings.",
+            "featured_image_url": "https://images.pexels.com/photos/29206495/pexels-photo-29206495.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "category": "guides",
+            "tags": ["rooftop-greening", "sustainability", "commercial-buildings", "india"],
+            "published": True,
+            "published_at": now,
+            "views_count": 156,
+            "created_at": now
+        },
+        {
+            "post_id": f"post_{uuid.uuid4().hex[:12]}",
+            "title": "Case Study: How DLF Cyber Hub Achieved 40% Energy Savings",
+            "slug": "case-study-dlf-cyber-hub-green-transformation",
+            "author_id": "user_provider_001",
+            "content": """DLF Cyber Hub in Gurugram has become a landmark example of sustainable urban development. Through comprehensive green interventions, the campus achieved remarkable environmental and financial outcomes.
+
+The Challenge:
+With over 50,000 daily visitors and extreme Delhi NCR summers, Cyber Hub faced:
+- High cooling costs (40% of operational budget)
+- Urban heat island effect (5-7°C higher than surroundings)
+- Air quality index regularly exceeding 200
+
+The Solution:
+A multi-pronged sustainability approach:
+1. Terrace Gardens: 2,500 sqm of intensive green roofs across buildings
+2. Vertical Gardens: Living walls on parking structures
+3. Solar Integration: 500 kW rooftop solar installation
+4. Rainwater Harvesting: 1 million liters annual collection capacity
+
+Results After 2 Years:
+- 40% reduction in cooling costs
+- 3°C average temperature reduction on campus
+- 1,500 kg CO2 sequestered annually
+- Property valuations increased 15%
+- Employee satisfaction scores up 25%
+
+Key Learnings:
+Start with a comprehensive building assessment to prioritize interventions based on ROI and impact.""",
+            "excerpt": "Discover how one of India's busiest commercial hubs transformed its environmental footprint while achieving significant cost savings.",
+            "featured_image_url": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=compress&w=800",
+            "category": "case-studies",
+            "tags": ["case-study", "dlf", "gurugram", "energy-savings", "green-building"],
+            "published": True,
+            "published_at": now,
+            "views_count": 234,
+            "created_at": now
+        },
+        {
+            "post_id": f"post_{uuid.uuid4().hex[:12]}",
+            "title": "Understanding AQI: What Building Managers Need to Know",
+            "slug": "understanding-aqi-building-managers",
+            "author_id": "user_provider_001",
+            "content": """Air Quality Index (AQI) directly impacts building occupant health and productivity. Understanding AQI helps building managers make informed decisions about sustainability investments.
+
+What is AQI?
+AQI is a standardized index that communicates how polluted the air is. In India, it's calculated based on eight pollutants including PM2.5, PM10, NO2, SO2, CO, O3, NH3, and Pb.
+
+AQI Categories:
+- 0-50: Good (Minimal impact)
+- 51-100: Satisfactory (Minor discomfort for sensitive people)
+- 101-200: Moderate (Discomfort for all)
+- 201-300: Poor (Health effects for everyone)
+- 301-400: Very Poor (Serious health effects)
+- 401-500: Severe (Emergency conditions)
+
+Impact on Buildings:
+Research shows that indoor AQI is often 2-5x worse than outdoor levels in commercial buildings. This affects:
+- Employee productivity (drops 6% for every 10-point AQI increase)
+- Sick leave (increases 15% in high-AQI environments)
+- HVAC costs (filters clog faster, requiring more maintenance)
+
+Mitigation Strategies:
+1. Green roofs and walls to filter pollutants
+2. Strategic tree planting around building perimeter
+3. Enhanced HVAC filtration systems
+4. Air quality monitoring and alerts
+
+Sus10 AI tracks real-time AQI data for all analyzed buildings, helping you prioritize interventions.""",
+            "excerpt": "Learn how Air Quality Index affects your building's occupants and what steps you can take to improve indoor air quality.",
+            "featured_image_url": "https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=compress&w=800",
+            "category": "sustainability",
+            "tags": ["aqi", "air-quality", "health", "indoor-environment"],
+            "published": True,
+            "published_at": now,
+            "views_count": 189,
+            "created_at": now
+        },
+        {
+            "post_id": f"post_{uuid.uuid4().hex[:12]}",
+            "title": "New Government Incentives for Green Buildings in 2026",
+            "slug": "government-incentives-green-buildings-2026",
+            "author_id": "user_provider_001",
+            "content": """The Indian government has announced significant incentives for green building adoption in 2026. Here's what building owners need to know.
+
+Key Announcements:
+
+1. Tax Benefits:
+- 30% accelerated depreciation for green roof installations
+- GST exemption on eco-friendly building materials
+- Property tax rebates of up to 20% for certified green buildings
+
+2. Subsidies:
+- ₹500/sqm subsidy for rooftop solar installations
+- 50% subsidy on rainwater harvesting systems
+- Interest rate subvention of 2% on green building loans
+
+3. Certification Incentives:
+- Fast-track approvals for IGBC/GRIHA certified projects
+- Floor area ratio (FAR) bonuses for green buildings
+- Priority in municipal tenders
+
+Eligibility Criteria:
+- Building must achieve minimum 3-star IGBC rating
+- Installation must be done by certified contractors
+- Annual audit required for continued benefits
+
+How to Apply:
+1. Get your building assessed on Sus10 AI
+2. Implement recommended solutions
+3. Apply for certification through IGBC/GRIHA
+4. Submit documents to local municipal corporation
+
+These incentives make 2026 the best time to invest in building sustainability.""",
+            "excerpt": "Breaking down the new 2026 government incentives that make green building investments more attractive than ever.",
+            "featured_image_url": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=compress&w=800",
+            "category": "news",
+            "tags": ["government", "incentives", "policy", "tax-benefits", "subsidies"],
+            "published": True,
+            "published_at": now,
+            "views_count": 312,
+            "created_at": now
+        }
+    ]
+    
+    await db.blog_posts.insert_many(blog_posts)
+    
+    # Enable blog feature flag
+    await db.feature_flags.update_one(
+        {"name": "blog"},
+        {"$set": {"is_enabled": True, "updated_at": now}}
+    )
+    
+    # Enable forum feature flag
+    await db.feature_flags.update_one(
+        {"name": "forum"},
+        {"$set": {"is_enabled": True, "updated_at": now}}
+    )
+    
+    return {"message": "Blog content seeded and features enabled", "posts_created": len(blog_posts)}
+
 # ==================== ROOT ====================
 @api_router.get("/")
 async def root():
