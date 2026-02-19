@@ -137,10 +137,7 @@ export default function BuildingReportPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" data-testid="share-report-btn">
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Share
-                  </Button>
+                  <ShareDropdown building={building} recommendations={recommendations} />
                   <Button size="sm" data-testid="download-report-btn">
                     <Download className="h-4 w-4 mr-2" />
                     Download PDF
