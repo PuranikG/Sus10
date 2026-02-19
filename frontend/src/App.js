@@ -62,6 +62,8 @@ function AppRouter() {
       <Route path="/providers/:providerId" element={<ProviderDetailPage />} />
       <Route path="/initiatives" element={<InitiativesPage />} />
       <Route path="/initiatives/:initiativeId" element={<InitiativeDetailPage />} />
+      <Route path="/blog" element={<BlogPage />} />
+      <Route path="/blog/:slug" element={<BlogPostPage />} />
 
       {/* Protected Routes */}
       <Route
