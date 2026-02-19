@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import {
   Users, Target, TrendingUp, MapPin, Calendar,
   ArrowLeft, ChevronRight, Heart, HandHeart, Share2,
-  CheckCircle2, Circle, Clock, MessageSquare
+  CheckCircle2, Circle, Clock, MessageSquare, Mail, Copy, Check
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -21,6 +21,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
