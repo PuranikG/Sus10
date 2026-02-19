@@ -734,7 +734,7 @@ async def provider_signup(request: Request, provider: ProviderCreate):
         {"$set": {"user_type": "provider", "updated_at": now}}
     )
     
-    del provider_doc["_id"] if "_id" in provider_doc else None
+    if "_id" in provider_doc: del provider_doc["_id"]
     return provider_doc
 
 @api_router.get("/admin/providers/pending")
@@ -791,7 +791,7 @@ async def create_lead(request: Request, lead: LeadCreate):
     }
     
     await db.leads.insert_one(lead_doc)
-    del lead_doc["_id"] if "_id" in lead_doc else None
+    if "_id" in lead_doc: del lead_doc["_id"]
     return lead_doc
 
 @api_router.get("/leads/user")
@@ -862,7 +862,7 @@ async def create_initiative(request: Request, initiative: InitiativeCreate):
     }
     
     await db.initiatives.insert_one(initiative_doc)
-    del initiative_doc["_id"] if "_id" in initiative_doc else None
+    if "_id" in initiative_doc: del initiative_doc["_id"]
     return initiative_doc
 
 @api_router.get("/initiatives")
@@ -933,7 +933,7 @@ async def create_pledge(initiative_id: str, request: Request, pledge: PledgeCrea
             {"$inc": {"funding_pledged": pledge.pledge_amount}}
         )
     
-    del pledge_doc["_id"] if "_id" in pledge_doc else None
+    if "_id" in pledge_doc: del pledge_doc["_id"]
     return pledge_doc
 
 @api_router.get("/initiatives/{initiative_id}/progress")
@@ -1038,7 +1038,7 @@ async def create_forum_post(initiative_id: str, request: Request):
     }
     
     await db.forum_posts.insert_one(post_doc)
-    del post_doc["_id"] if "_id" in post_doc else None
+    if "_id" in post_doc: del post_doc["_id"]
     return post_doc
 
 # ==================== GAMIFICATION (Feature Flagged) ====================
