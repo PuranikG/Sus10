@@ -549,7 +549,7 @@ async def get_building_report(building_id: str, report_type: str = "full"):
     
     # Get relevant providers
     providers = await db.solution_providers.find(
-        {"verification_status": "approved", "service_areas": {"$in": [building["city"]}}}, {"_id": 0}
+        {"verification_status": "approved", "service_areas": {"$in": [building["city"]]}}, {"_id": 0}
     ).to_list(10)
     
     return {
