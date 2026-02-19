@@ -6,7 +6,7 @@ import {
   ArrowLeft, Download, Share2, AlertTriangle, CheckCircle2,
   TrendingUp, TrendingDown, Minus, Info, ChevronRight,
   Calculator, FileText, Users, Clock, Mail, Copy, Check,
-  MessageCircle
+  MessageCircle, Loader2
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -34,6 +34,7 @@ import {
   Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, Legend
 } from 'recharts';
 import { apiRequest, formatCurrency, getAQILevel, getBuildingTypeLabel } from '../lib/utils';
+import { generateBuildingReportPDF } from '../lib/pdfGenerator';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import { toast } from 'sonner';
@@ -43,6 +44,7 @@ export default function BuildingReportPage() {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [generatingPDF, setGeneratingPDF] = useState(false);
   const [selectedRecommendation, setSelectedRecommendation] = useState(null);
 
   useEffect(() => {
