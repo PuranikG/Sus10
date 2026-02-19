@@ -126,3 +126,37 @@ Check out the full report on Sus10 AI: [URL]
 
 Every pledge counts! Join us on Sus10 AI: [URL]
 ```
+
+## Feature Addition (Feb 19, 2026)
+
+### PDF Report Generation ✅
+- Professional 5-page PDF reports using jsPDF + jspdf-autotable
+- Pages: Cover/Overview → Solutions → Impact Projections → Explainability → Providers
+- Features:
+  - Building metrics (footprint, terrace area, AQI, data quality)
+  - Green potential score visualization
+  - Solution recommendations with suitability scores
+  - Impact projections table with confidence levels
+  - Full calculation methodology breakdown
+  - Provider recommendations with ratings
+- Download filename: `Sus10_Report_{building_id}_{date}.pdf`
+
+### Blog/Resources Module ✅ (Feature Flag: blog)
+- Sustainability Knowledge Hub with 4 seeded articles
+- Categories: Guides, Case Studies, News, Sustainability
+- Features:
+  - Search and category filtering
+  - Featured images with lazy loading
+  - View counts and publish dates
+  - WhatsApp/Email sharing per article
+  - SEO-friendly slugs
+
+### Seeded Blog Content:
+1. "Complete Guide to Rooftop Greening in Indian Cities" (Guide)
+2. "Case Study: How DLF Cyber Hub Achieved 40% Energy Savings" (Case Study)
+3. "Understanding AQI: What Building Managers Need to Know" (Sustainability)
+4. "New Government Incentives for Green Buildings in 2026" (News)
+
+### Forum Module ✅ (Feature Flag: forum)
+- Initiative-specific discussion forums
+- Enabled but requires authenticated users to post
