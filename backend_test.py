@@ -257,6 +257,7 @@ def main():
     tester.test_health_endpoints()
     tester.test_stats_endpoint()
     tester.test_feature_flags_endpoint()
+    tester.test_blog_endpoints()  # New test for blog functionality
     tester.test_solution_types_endpoint()
     tester.test_buildings_endpoints()
     tester.test_providers_endpoints()
