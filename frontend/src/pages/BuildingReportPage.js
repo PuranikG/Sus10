@@ -684,3 +684,81 @@ function ReportSkeleton() {
     </div>
   );
 }
+
+function ShareDropdown({ building, recommendations }) {
+  const [copied, setCopied] = useState(false);
+  
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const suitabilityScore = recommendations?.[0]?.suitability_score || 75;
+  const co2Impact = recommendations?.[0]?.impact_projections?.co2_sequestration_kg_year || 0;
+  
+  const shareTitle = `Green Potential Report: ${building.address}`;
+  const shareText = `🌿 ${building.address} has ${suitabilityScore}% green potential!\n\n` +
+    `📍 Location: ${building.city}\n` +
+    `🏢 Type: ${getBuildingTypeLabel(building.building_type)}\n` +
+    `🌱 Terrace Area: ${building.usable_terrace_area?.toLocaleString()} sqm\n` +
+    `💨 Current AQI: ${building.current_aqi || 'N/A'}\n` +
+    (co2Impact > 0 ? `🌳 Potential CO2 Sequestration: ${co2Impact.toLocaleString()} kg/year\n\n` : '\n') +
+    `Check out the full report on Sus10 AI:`;
+  
+  const handleWhatsAppShare = () => {
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+  
+  const handleEmailShare = () => {
+    const subject = encodeURIComponent(shareTitle);
+    const body = encodeURIComponent(shareText + '\n\n' + shareUrl);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
+  
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success('Link copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast.error('Failed to copy link');
+    }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" data-testid="share-report-btn">
+          <Share2 className="h-4 w-4 mr-2" />
+          Share
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem onClick={handleWhatsAppShare} className="cursor-pointer" data-testid="share-whatsapp">
+          <MessageCircle className="h-4 w-4 mr-3 text-green-500" />
+          <div>
+            <div className="font-medium">WhatsApp</div>
+            <div className="text-xs text-muted-foreground">Share with contacts</div>
+          </div>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleEmailShare} className="cursor-pointer" data-testid="share-email">
+          <Mail className="h-4 w-4 mr-3 text-blue-500" />
+          <div>
+            <div className="font-medium">Email</div>
+            <div className="text-xs text-muted-foreground">Send via email</div>
+          </div>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleCopyLink} className="cursor-pointer" data-testid="share-copy-link">
+          {copied ? (
+            <Check className="h-4 w-4 mr-3 text-green-500" />
+          ) : (
+            <Copy className="h-4 w-4 mr-3" />
+          )}
+          <div>
+            <div className="font-medium">{copied ? 'Copied!' : 'Copy Link'}</div>
+            <div className="text-xs text-muted-foreground">Copy report URL</div>
+          </div>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
