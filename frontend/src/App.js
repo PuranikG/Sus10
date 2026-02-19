@@ -17,6 +17,8 @@ import InitiativesPage from './pages/InitiativesPage';
 import InitiativeDetailPage from './pages/InitiativeDetailPage';
 import AdminPage from './pages/AdminPage';
 import LeadFormPage from './pages/LeadFormPage';
+import BlogPage from './pages/BlogPage';
+import BlogPostPage from './pages/BlogPostPage';
 
 import './App.css';
 
