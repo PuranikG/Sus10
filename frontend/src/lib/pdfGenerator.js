@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { formatCurrency, getBuildingTypeLabel, getAQILevel } from './utils';
 
 // Color palette
