@@ -158,8 +158,51 @@ class Sus10APITester:
         success, flags = self.run_test("Feature Flags List", "GET", "api/feature-flags", 200)
         if success and flags:
             print(f"   Found {len(flags)} feature flags")
-            for flag in flags[:3]:  # Show first 3 flags
+            for flag in flags:
                 print(f"   - {flag.get('name', 'unknown')}: {flag.get('is_enabled', False)}")
+                
+            # Check specific flags required by the test
+            blog_flag = next((f for f in flags if f.get('name') == 'blog'), None)
+            if blog_flag:
+                print(f"   ✓ Blog flag found: enabled = {blog_flag.get('is_enabled')}")
+                if blog_flag.get('is_enabled'):
+                    print("   ✓ Blog feature is enabled - can test blog endpoints")
+                else:
+                    print("   ⚠ Blog feature is disabled - blog endpoints will return 404")
+
+    def test_blog_endpoints(self):
+        """Test blog-related endpoints"""
+        print("\n=== BLOG ENDPOINTS ===")
+        
+        # Check if blog feature is enabled first
+        success, flags = self.run_test("Check Feature Flags for Blog", "GET", "api/feature-flags", 200)
+        blog_enabled = False
+        if success and flags:
+            blog_flag = next((f for f in flags if f.get('name') == 'blog'), None)
+            blog_enabled = blog_flag.get('is_enabled', False) if blog_flag else False
+            
+        if not blog_enabled:
+            print("   ⚠ Blog feature is disabled, skipping blog tests")
+            return
+            
+        # Test blog posts list
+        success, posts = self.run_test("Blog Posts List", "GET", "api/blog/posts", 200)
+        if success and posts:
+            print(f"   ✓ Found {len(posts)} blog posts")
+            for post in posts[:2]:  # Show first 2 posts
+                print(f"   - {post.get('title', 'Unknown')}: {post.get('category', 'no category')}")
+                
+            # Test with category filter
+            self.run_test("Blog Posts - Guides Category", "GET", "api/blog/posts?category=guides", 200)
+            self.run_test("Blog Posts - Case Studies Category", "GET", "api/blog/posts?category=case-studies", 200)
+            self.run_test("Blog Posts - News Category", "GET", "api/blog/posts?category=news", 200)
+            
+            # Test individual post if available
+            if len(posts) > 0 and posts[0].get('slug'):
+                slug = posts[0]['slug']
+                self.run_test("Blog Post Detail", "GET", f"api/blog/posts/{slug}", 200)
+        else:
+            print("   ⚠ No blog posts found or API failed")
 
     def test_solution_types_endpoint(self):
         """Test solution types endpoint"""
