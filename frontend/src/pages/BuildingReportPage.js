@@ -5,7 +5,8 @@ import {
   Building2, MapPin, Leaf, Sun, Droplets, Wind,
   ArrowLeft, Download, Share2, AlertTriangle, CheckCircle2,
   TrendingUp, TrendingDown, Minus, Info, ChevronRight,
-  Calculator, FileText, Users, Clock
+  Calculator, FileText, Users, Clock, Mail, Copy, Check,
+  MessageCircle
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -22,12 +23,20 @@ import {
   DialogTrigger,
 } from '../components/ui/dialog';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
+import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, Legend
 } from 'recharts';
 import { apiRequest, formatCurrency, getAQILevel, getBuildingTypeLabel } from '../lib/utils';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
+import { toast } from 'sonner';
 
 export default function BuildingReportPage() {
   const { buildingId } = useParams();
