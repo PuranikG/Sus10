@@ -913,6 +913,127 @@ async def admin_discover_buildings(request: Request):
         logger.error(f"Discovery error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Discovery failed: {str(e)}")
 
+# ==================== AIR QUALITY (OpenAQ) ====================
+@api_router.get("/air-quality/location")
+async def get_air_quality_by_coordinates(
+    latitude: float = Query(..., ge=-90, le=90, description="Latitude"),
+    longitude: float = Query(..., ge=-180, le=180, description="Longitude"),
+    radius: int = Query(25000, ge=1000, le=50000, description="Search radius in meters")
+):
+    """
+    Get real-time air quality data from nearest OpenAQ monitoring station
+    Returns PM2.5 measurements and calculated AQI
+    """
+    from services.openaq_service import get_openaq_service
+    
+    service = get_openaq_service()
+    result = await service.get_latest_measurements(latitude, longitude, radius)
+    
+    if not result:
+        # Return fallback data if no live data available
+        return {
+            "aqi_value": None,
+            "aqi_level": "Unknown",
+            "pm25_value": None,
+            "data_source": "No nearby stations",
+            "message": "No air quality monitoring stations found within range"
+        }
+    
+    return result
+
+@api_router.get("/air-quality/city/{city}")
+async def get_air_quality_by_city(city: str):
+    """
+    Get real-time air quality data for an Indian city
+    Supported cities: Delhi, Mumbai, Bangalore, Gurugram, Noida, Pune, etc.
+    """
+    from services.openaq_service import get_openaq_service
+    
+    service = get_openaq_service()
+    result = await service.get_aqi_for_city(city)
+    
+    if not result:
+        return {
+            "city": city,
+            "aqi_value": None,
+            "aqi_level": "Unknown",
+            "data_source": "No data available",
+            "message": f"No air quality data available for {city}"
+        }
+    
+    result["city"] = city
+    return result
+
+@api_router.get("/air-quality/building/{building_id}")
+async def get_air_quality_for_building(building_id: str):
+    """
+    Get real-time air quality data for a specific building location
+    Updates the building's AQI in database if live data available
+    """
+    from services.openaq_service import get_openaq_service
+    
+    # Get building coordinates
+    building = await db.buildings.find_one(
+        {"building_id": building_id},
+        {"_id": 0, "latitude": 1, "longitude": 1, "city": 1, "current_aqi": 1}
+    )
+    
+    if not building:
+        raise HTTPException(status_code=404, detail="Building not found")
+    
+    lat = building.get("latitude")
+    lng = building.get("longitude")
+    
+    if not lat or not lng:
+        # Try city-based lookup
+        city = building.get("city")
+        if city:
+            service = get_openaq_service()
+            result = await service.get_aqi_for_city(city)
+            if result:
+                result["building_id"] = building_id
+                # Update building AQI in database
+                await db.buildings.update_one(
+                    {"building_id": building_id},
+                    {"$set": {
+                        "current_aqi": result.get("aqi_value"),
+                        "aqi_source": "OpenAQ",
+                        "aqi_updated_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
+                return result
+        
+        return {
+            "building_id": building_id,
+            "aqi_value": building.get("current_aqi"),
+            "data_source": "Cached",
+            "message": "Using cached AQI - building coordinates not available"
+        }
+    
+    service = get_openaq_service()
+    result = await service.get_latest_measurements(lat, lng)
+    
+    if result:
+        result["building_id"] = building_id
+        # Update building AQI in database
+        await db.buildings.update_one(
+            {"building_id": building_id},
+            {"$set": {
+                "current_aqi": result.get("aqi_value"),
+                "aqi_source": "OpenAQ",
+                "aqi_updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        return result
+    
+    # Return cached value if no live data
+    return {
+        "building_id": building_id,
+        "aqi_value": building.get("current_aqi"),
+        "data_source": "Cached",
+        "message": "No live data available - using cached AQI"
+    }
+
 # ==================== SOLUTION TYPES ====================
 @api_router.get("/solution-types")
 async def list_solution_types(category: Optional[str] = None):
