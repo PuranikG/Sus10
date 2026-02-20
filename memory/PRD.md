@@ -59,9 +59,10 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 ## Prioritized Backlog
 
 ### P0 - Critical (Next Sprint)
-- [ ] Google APIs integration (Places autocomplete, Air Quality, Open Buildings)
-- [ ] PDF report generation
-- [ ] Real-time AQI data fetching
+- [x] Google Places API integration (Address Autocomplete) ✅ Feb 20, 2026
+- [ ] Google Air Quality API integration (Real-time AQI)
+- [ ] Google Maps JavaScript API (Map view for search results)
+- [x] PDF report generation ✅
 
 ### P1 - High Priority
 - [ ] Provider onboarding wizard
