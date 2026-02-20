@@ -374,35 +374,15 @@ export default function AdminBuildingDiscoveryPage() {
                                     {BUILDING_TYPES.find(t => t.value === building.building_type)?.label || building.building_type}
                                   </Badge>
                                 </div>
-                                <div className="flex gap-4 mt-3 text-sm">
+                                <div className="flex gap-6 mt-3 text-sm">
                                   <div>
                                     <span className="text-muted-foreground">Footprint:</span>
-                                    <Input
-                                      type="number"
-                                      value={building.estimated_footprint}
-                                      onChange={(e) => updateBuildingEstimate(building.temp_id, 'estimated_footprint', parseInt(e.target.value) || 0)}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="w-24 h-7 mt-1 text-sm"
-                                    />
-                                    <span className="text-xs text-muted-foreground ml-1">sqm</span>
+                                    <span className="ml-2 font-semibold text-green-600">{building.estimated_footprint?.toLocaleString()} sqm</span>
                                   </div>
                                   <div>
                                     <span className="text-muted-foreground">Terrace:</span>
-                                    <Input
-                                      type="number"
-                                      value={building.estimated_terrace}
-                                      onChange={(e) => updateBuildingEstimate(building.temp_id, 'estimated_terrace', parseInt(e.target.value) || 0)}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="w-24 h-7 mt-1 text-sm"
-                                    />
-                                    <span className="text-xs text-muted-foreground ml-1">sqm</span>
+                                    <span className="ml-2 font-semibold text-blue-600">{building.estimated_terrace?.toLocaleString()} sqm</span>
                                   </div>
-                                  {building.pincode && (
-                                    <div>
-                                      <span className="text-muted-foreground">Pincode:</span>
-                                      <span className="ml-2 font-medium">{building.pincode}</span>
-                                    </div>
-                                  )}
                                 </div>
                               </div>
                             </div>
@@ -419,43 +399,4 @@ export default function AdminBuildingDiscoveryPage() {
       </div>
     </div>
   );
-}
-
-// Helper: Get Google Place type from our building type
-function getGooglePlaceType(buildingType) {
-  const typeMap = {
-    'it_park': 'office',
-    'commercial': 'establishment',
-    'mall': 'shopping_mall',
-    'hospital': 'hospital',
-    'college': 'university',
-    'government': 'local_government_office',
-    'industrial': 'establishment',
-    'hotel': 'lodging',
-    'residential': 'apartment_complex',
-  };
-  return typeMap[buildingType] || 'establishment';
-}
-
-// Helper: Get city center coordinates
-function getCityCenter(city) {
-  const centers = {
-    'Mumbai': { lat: 19.0760, lng: 72.8777 },
-    'Delhi': { lat: 28.6139, lng: 77.2090 },
-    'Gurugram': { lat: 28.4595, lng: 77.0266 },
-    'Noida': { lat: 28.5355, lng: 77.3910 },
-    'Faridabad': { lat: 28.4089, lng: 77.3178 },
-    'Ghaziabad': { lat: 28.6692, lng: 77.4538 },
-    'Pune': { lat: 18.5204, lng: 73.8567 },
-    'Navi Mumbai': { lat: 19.0330, lng: 73.0297 },
-    'Amravati': { lat: 20.9374, lng: 77.7796 },
-  };
-  return centers[city] || { lat: 20.5937, lng: 78.9629 }; // Default to India center
-}
-
-// Helper: Extract pincode from address
-function extractPincode(address) {
-  if (!address) return '';
-  const match = address.match(/\b\d{6}\b/);
-  return match ? match[0] : '';
 }
