@@ -54,10 +54,10 @@ export default function AdminBuildingDiscoveryPage() {
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  // Discover buildings using Google Places API
+  // Discover buildings using backend API (OSM + Google Places enrichment)
   const discoverBuildings = useCallback(async () => {
-    if (!selectedCity || !selectedType) {
-      toast.error('Please select both city and building type');
+    if (!selectedCity) {
+      toast.error('Please select a city');
       return;
     }
 
@@ -66,63 +66,44 @@ export default function AdminBuildingDiscoveryPage() {
     setSelectedBuildings(new Set());
 
     try {
-      // Use Google Places API to search
-      const buildingTypeConfig = BUILDING_TYPES.find(t => t.value === selectedType);
-      const searchQuery = `${buildingTypeConfig.query} in ${selectedCity}${pincode ? ` ${pincode}` : ''} India`;
+      // Call backend discovery API
+      const result = await apiRequest('/admin/buildings/discover', {
+        method: 'POST',
+        body: JSON.stringify({
+          city: selectedCity,
+          building_type: selectedType || undefined,
+          min_area: minArea,
+          limit: 30,
+        })
+      });
       
-      // Import Places library
-      const { Place } = await window.google.maps.importLibrary('places');
-      
-      // Use Text Search
-      const request = {
-        textQuery: searchQuery,
-        fields: ['displayName', 'formattedAddress', 'location', 'types', 'id'],
-        includedType: getGooglePlaceType(selectedType),
-        locationBias: {
-          circle: {
-            center: getCityCenter(selectedCity),
-            radius: 30000 // 30km radius
-          }
-        },
-        maxResultCount: 20,
-      };
-
-      const { places } = await Place.searchByText(request);
-      
-      if (!places || places.length === 0) {
-        toast.info('No buildings found matching your criteria');
+      if (!result.buildings || result.buildings.length === 0) {
+        toast.info(`No new buildings found. Discovered: ${result.discovered}, Skipped (duplicates): ${result.skipped}`);
         setLoading(false);
         return;
       }
 
-      // Transform to our format with estimated data
-      const buildings = places.map((place, index) => ({
-        temp_id: `temp_${Date.now()}_${index}`,
-        place_id: place.id,
-        name: place.displayName || 'Unknown Building',
-        address: place.formattedAddress || '',
-        city: selectedCity,
-        building_type: selectedType,
-        lat: place.location?.lat() || 0,
-        lng: place.location?.lng() || 0,
-        // Estimated values - admin can adjust
-        estimated_footprint: Math.floor(Math.random() * 10000) + 2000, // Random 2000-12000 sqm
-        estimated_terrace: Math.floor(Math.random() * 3000) + 500, // Random 500-3500 sqm
-        pincode: extractPincode(place.formattedAddress),
+      // Transform to display format
+      const buildings = result.buildings.map((building, index) => ({
+        temp_id: building.building_id,
+        building_id: building.building_id,
+        name: building.name,
+        city: building.city,
+        building_type: building.type,
+        estimated_footprint: building.footprint,
+        estimated_terrace: building.terrace,
+        already_imported: true, // These are already in DB
       }));
-
-      // Filter by minimum area
-      const filteredBuildings = buildings.filter(b => b.estimated_footprint >= minArea);
       
-      setDiscoveredBuildings(filteredBuildings);
-      toast.success(`Found ${filteredBuildings.length} buildings`);
+      setDiscoveredBuildings(buildings);
+      toast.success(`Imported ${result.imported} buildings! (${result.discovered} discovered, ${result.skipped} duplicates skipped)`);
     } catch (error) {
       console.error('Discovery error:', error);
       toast.error('Failed to discover buildings. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [selectedCity, selectedType, pincode, minArea]);
+  }, [selectedCity, selectedType, minArea]);
 
   // Toggle building selection
   const toggleBuildingSelection = (tempId) => {
