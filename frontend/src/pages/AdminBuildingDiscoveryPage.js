@@ -315,50 +315,35 @@ export default function AdminBuildingDiscoveryPage() {
           <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Discovered Buildings</CardTitle>
+                <CardTitle>Imported Buildings</CardTitle>
                 <CardDescription>
                   {discoveredBuildings.length > 0 
-                    ? `Found ${discoveredBuildings.length} buildings • ${selectedBuildings.size} selected`
-                    : 'Use filters to discover buildings'
+                    ? `${discoveredBuildings.length} buildings imported (pending approval)`
+                    : 'Select a city and click "Discover & Import" to fetch buildings'
                   }
                 </CardDescription>
               </div>
               {discoveredBuildings.length > 0 && (
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={selectAll}>
-                    Select All
+                <Link to="/admin">
+                  <Button size="sm" variant="outline">
+                    Go to Admin → Approve Buildings
                   </Button>
-                  <Button variant="outline" size="sm" onClick={deselectAll}>
-                    Deselect All
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    onClick={importBuildings}
-                    disabled={importing || selectedBuildings.size === 0}
-                    data-testid="import-btn"
-                  >
-                    {importing ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4 mr-2" />
-                    )}
-                    Import ({selectedBuildings.size})
-                  </Button>
-                </div>
+                </Link>
               )}
             </CardHeader>
             <CardContent>
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-12">
                   <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
-                  <p className="text-muted-foreground">Searching for buildings...</p>
+                  <p className="text-muted-foreground">Fetching from OpenStreetMap & enriching with Google Places...</p>
+                  <p className="text-xs text-muted-foreground mt-2">This may take 30-60 seconds</p>
                 </div>
               ) : discoveredBuildings.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Building2 className="h-16 w-16 text-muted-foreground/30 mb-4" />
                   <h3 className="text-lg font-medium mb-2">No Buildings Yet</h3>
                   <p className="text-muted-foreground max-w-md">
-                    Select a city and building type, then click "Discover Buildings" to find buildings matching your criteria.
+                    Select a city and click "Discover & Import Buildings" to fetch buildings from OpenStreetMap and auto-enrich with Google Places data.
                   </p>
                 </div>
               ) : (
@@ -372,32 +357,21 @@ export default function AdminBuildingDiscoveryPage() {
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ delay: index * 0.05 }}
                       >
-                        <Card 
-                          className={`cursor-pointer transition-all ${
-                            selectedBuildings.has(building.temp_id) 
-                              ? 'ring-2 ring-primary bg-primary/5' 
-                              : 'hover:bg-accent/50'
-                          }`}
-                          onClick={() => toggleBuildingSelection(building.temp_id)}
-                        >
+                        <Card className="bg-green-500/5 border-green-500/20">
                           <CardContent className="p-4">
                             <div className="flex items-start gap-4">
-                              <Checkbox
-                                checked={selectedBuildings.has(building.temp_id)}
-                                onCheckedChange={() => toggleBuildingSelection(building.temp_id)}
-                                onClick={(e) => e.stopPropagation()}
-                              />
+                              <Check className="h-5 w-5 text-green-500 mt-1" />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-4">
                                   <div>
                                     <h4 className="font-medium truncate">{building.name}</h4>
-                                    <p className="text-sm text-muted-foreground truncate">
+                                    <p className="text-sm text-muted-foreground">
                                       <MapPin className="h-3 w-3 inline mr-1" />
-                                      {building.address}
+                                      {building.city}
                                     </p>
                                   </div>
                                   <Badge variant="secondary" className="shrink-0">
-                                    {BUILDING_TYPES.find(t => t.value === building.building_type)?.label}
+                                    {BUILDING_TYPES.find(t => t.value === building.building_type)?.label || building.building_type}
                                   </Badge>
                                 </div>
                                 <div className="flex gap-4 mt-3 text-sm">
