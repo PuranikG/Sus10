@@ -96,21 +96,14 @@ export default function BuildingSearchPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchContainerRef = useRef(null);
 
-  // Google Places Autocomplete hook
-  const {
-    ready: placesReady,
-    value: placesValue,
-    suggestions: { status, data: suggestions },
-    setValue: setPlacesValue,
-    clearSuggestions,
-  } = usePlacesAutocomplete({
-    requestOptions: {
-      componentRestrictions: { country: 'in' }, // Restrict to India
-      types: ['address', 'establishment'],
-    },
-    debounce: 300,
-    cache: 24 * 60 * 60, // Cache for 24 hours
-  });
+  // Google Places Autocomplete (New API)
+  const { 
+    ready: placesReady, 
+    suggestions, 
+    loading: suggestionsLoading,
+    fetchSuggestions, 
+    clearSuggestions 
+  } = usePlacesAutocompleteNew();
 
   // Handle click outside to close suggestions
   useEffect(() => {
