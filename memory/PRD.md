@@ -161,3 +161,19 @@ Every pledge counts! Join us on Sus10 AI: [URL]
 ### Forum Module ✅ (Feature Flag: forum)
 - Initiative-specific discussion forums
 - Enabled but requires authenticated users to post
+
+## Feature Addition (Feb 20, 2026)
+
+### Google Places API Address Autocomplete ✅
+- Integrated new Google Places API (AutocompleteSuggestion.fetchAutocompleteSuggestions)
+- Features:
+  - Real-time address suggestions as user types (3+ characters)
+  - Results restricted to India
+  - Auto-detects city from selected address and updates filter
+  - "Powered by Google" branding displayed
+  - Debounced API calls (300ms) for performance
+  - Smooth dropdown animation with Framer Motion
+- Implementation notes:
+  - Uses new Places API (legacy AutocompleteService deprecated for new customers as of March 2025)
+  - Custom React hook `usePlacesAutocompleteNew()` in BuildingSearchPage.js
+  - API key loaded via script tag in index.html
