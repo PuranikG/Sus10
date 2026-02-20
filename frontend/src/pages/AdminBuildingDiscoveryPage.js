@@ -273,14 +273,6 @@ export default function AdminBuildingDiscoveryPage() {
               </div>
 
               {/* Minimum Area Filter */}
-                  value={pincode}
-                  onChange={(e) => setPincode(e.target.value)}
-                  maxLength={6}
-                  data-testid="pincode-input"
-                />
-              </div>
-
-              {/* Minimum Area Filter */}
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <Label>Minimum Footprint</Label>
@@ -304,18 +296,18 @@ export default function AdminBuildingDiscoveryPage() {
               <Button
                 className="w-full"
                 onClick={discoverBuildings}
-                disabled={loading || !selectedCity || !selectedType}
+                disabled={loading || !selectedCity}
                 data-testid="discover-btn"
               >
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Discovering...
+                    Discovering & Importing...
                   </>
                 ) : (
                   <>
                     <Search className="h-4 w-4 mr-2" />
-                    Discover Buildings
+                    Discover & Import Buildings
                   </>
                 )}
               </Button>
