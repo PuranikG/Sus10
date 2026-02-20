@@ -577,15 +577,11 @@ export default function BuildingReportPage() {
                   label="Usable Terrace"
                   value={`${(building.usable_terrace_area || 0).toLocaleString()} sqm`}
                 />
-                {aqiInfo && (
-                  <MetricCard
-                    icon={Wind}
-                    label="Current AQI"
-                    value={building.current_aqi}
-                    valueColor={aqiInfo.color}
-                    trend={building.aqi_trend}
-                  />
-                )}
+                <LiveAQICard 
+                  liveAQI={liveAQI} 
+                  aqiLoading={aqiLoading} 
+                  fallbackAQI={building.current_aqi}
+                />
                 <MetricCard
                   icon={CheckCircle2}
                   label="Data Quality"
