@@ -29,7 +29,7 @@ const CITIES = [
 ];
 
 const BUILDING_TYPES = [
-  { value: '', label: 'All Types' },
+  { value: 'all', label: 'All Types' },
   { value: 'it_park', label: 'IT Park / Tech Park' },
   { value: 'commercial', label: 'Commercial Complex' },
   { value: 'mall', label: 'Shopping Mall' },
