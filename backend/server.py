@@ -1151,7 +1151,8 @@ async def create_lead(request: Request, lead: LeadCreate):
     }
     
     await db.leads.insert_one(lead_doc)
-    if "_id" in lead_doc: del lead_doc["_id"]
+    if "_id" in lead_doc:
+        del lead_doc["_id"]
     return lead_doc
 
 @api_router.get("/leads/user")
