@@ -214,7 +214,7 @@ Every pledge counts! Join us on Sus10 AI: [URL]
 ### P0 - Critical
 - [x] Admin Building Discovery Bug Fix ✅
 - [x] Google Places API integration ✅
-- [ ] Live Air Quality API integration (OpenAQ or similar)
+- [x] Live Air Quality API integration ✅ (Open-Meteo API)
 
 ### P1 - High Priority
 - [ ] Editable map polygon for custom terrace area measurements
@@ -232,3 +232,19 @@ Every pledge counts! Join us on Sus10 AI: [URL]
 - [ ] Refactor server.py monolith into /routes, /models, /services structure
 - [ ] Fix Babel plugin workaround in frontend/config-overrides.js
 
+## Feature Addition (Feb 20, 2026)
+
+### Real-Time Air Quality API Integration ✅
+- **Provider**: Open-Meteo Air Quality API (free, no API key required)
+- **Why Open-Meteo over OpenAQ**: OpenAQ v3 has no stations near Indian cities; Open-Meteo provides CAMS-based forecast data globally
+- **Endpoints Added**:
+  - `GET /api/air-quality/location?latitude=XX&longitude=YY` - Get AQI by coordinates
+  - `GET /api/air-quality/city/{city}` - Get AQI for predefined Indian cities
+  - `GET /api/air-quality/building/{building_id}` - Get & update AQI for a building
+- **Data Returned**:
+  - US AQI value and level (Good/Moderate/Unhealthy/etc.)
+  - PM2.5, PM10 concentrations
+  - Other pollutants: CO, NO2, SO2, O3
+  - Health implications
+  - Timezone-aware timestamps
+- **Supported Cities**: Delhi, Mumbai, Bangalore, Gurugram, Noida, Pune, Hyderabad, Chennai, Kolkata, Jaipur, Lucknow, Ahmedabad, etc.
