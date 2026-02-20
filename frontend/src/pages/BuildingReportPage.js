@@ -295,6 +295,9 @@ export default function BuildingReportPage() {
       methodology: `Based on ${Math.round(greenCoverRatio * 100)}% green cover ratio (${plantedArea.toLocaleString()} sqm planted / ${footprintArea.toLocaleString()} sqm footprint)`,
     };
   };
+
+  // Calculate plant recommendations based on plantable area and city
+  const calculatePlantRecommendations = (terraceArea, plantablePercent, gardenType, city = 'default') => {
     const plantableArea = (terraceArea * plantablePercent) / 100;
     
     // Reserve areas for different purposes
