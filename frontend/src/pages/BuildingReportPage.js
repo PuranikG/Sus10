@@ -627,35 +627,104 @@ export default function BuildingReportPage() {
                 </CardContent>
               </Card>
 
-              {/* Impact Summary */}
+              {/* CO2 Sequestration Potential - Speedometer */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    Potential Impact
+                    <Leaf className="h-5 w-5 text-primary" />
+                    CO₂ Sequestration Potential
                   </CardTitle>
                   <CardDescription>
-                    Projected environmental benefits from implementing recommended solutions
+                    Estimated annual carbon capture from your terrace garden
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={impactData}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                        <YAxis tick={{ fontSize: 12 }} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px',
-                          }}
-                        />
-                        <Bar dataKey="co2" name="CO2 Sequestration (kg/year)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                  {(() => {
+                    const terraceArea = customTerraceArea || building.usable_terrace_area || 0;
+                    const plantPlan = calculatePlantRecommendations(terraceArea, plantablePercent, gardenType, building.city);
+                    const maxCO2 = 5000; // Max scale for gauge
+                    const co2Percent = Math.min((plantPlan.totalCO2 / maxCO2) * 100, 100);
+                    
+                    return (
+                      <div className="flex flex-col lg:flex-row items-center gap-8">
+                        {/* Speedometer Gauge */}
+                        <div className="relative w-64 h-40">
+                          <svg viewBox="0 0 200 120" className="w-full h-full">
+                            {/* Background arc */}
+                            <path
+                              d="M 20 100 A 80 80 0 0 1 180 100"
+                              fill="none"
+                              stroke="hsl(var(--muted))"
+                              strokeWidth="16"
+                              strokeLinecap="round"
+                            />
+                            {/* Colored gradient arc */}
+                            <defs>
+                              <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stopColor="#ef4444" />
+                                <stop offset="25%" stopColor="#f59e0b" />
+                                <stop offset="50%" stopColor="#eab308" />
+                                <stop offset="75%" stopColor="#22c55e" />
+                                <stop offset="100%" stopColor="#10b981" />
+                              </linearGradient>
+                            </defs>
+                            <path
+                              d="M 20 100 A 80 80 0 0 1 180 100"
+                              fill="none"
+                              stroke="url(#gaugeGradient)"
+                              strokeWidth="16"
+                              strokeLinecap="round"
+                              strokeDasharray={`${co2Percent * 2.51} 251`}
+                            />
+                            {/* Needle */}
+                            <line
+                              x1="100"
+                              y1="100"
+                              x2={100 + 60 * Math.cos((180 - co2Percent * 1.8) * Math.PI / 180)}
+                              y2={100 - 60 * Math.sin((180 - co2Percent * 1.8) * Math.PI / 180)}
+                              stroke="hsl(var(--foreground))"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                            />
+                            <circle cx="100" cy="100" r="8" fill="hsl(var(--foreground))" />
+                            {/* Value text */}
+                            <text x="100" y="85" textAnchor="middle" className="fill-current text-3xl font-bold">
+                              {Math.floor(plantPlan.totalCO2).toLocaleString()}
+                            </text>
+                            <text x="100" y="102" textAnchor="middle" className="fill-muted-foreground text-xs">
+                              kg CO₂/year
+                            </text>
+                          </svg>
+                          {/* Scale labels */}
+                          <div className="absolute bottom-0 left-0 text-xs text-muted-foreground">0</div>
+                          <div className="absolute bottom-0 right-0 text-xs text-muted-foreground">5,000</div>
+                        </div>
+                        
+                        {/* Impact breakdown */}
+                        <div className="flex-1 space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 bg-green-500/10 rounded-lg text-center">
+                              <div className="text-3xl font-bold text-green-500">
+                                {Math.floor(plantPlan.totalCO2 / 12)}
+                              </div>
+                              <div className="text-sm text-muted-foreground">Trees equivalent</div>
+                            </div>
+                            <div className="p-4 bg-blue-500/10 rounded-lg text-center">
+                              <div className="text-3xl font-bold text-blue-500">
+                                {Math.floor(plantPlan.totalCO2 * 2.5)}
+                              </div>
+                              <div className="text-sm text-muted-foreground">km car offset</div>
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            With <strong>{plantPlan.actualPlantableArea.toLocaleString()} sqm</strong> of planted area,
+                            your terrace garden will absorb approximately <strong>{Math.floor(plantPlan.totalCO2).toLocaleString()} kg</strong> of 
+                            CO₂ annually - equivalent to planting <strong>{Math.floor(plantPlan.totalCO2 / 12)} mature trees</strong>.
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             </TabsContent>
