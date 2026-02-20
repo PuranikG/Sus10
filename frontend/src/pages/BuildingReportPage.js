@@ -132,6 +132,7 @@ export default function BuildingReportPage() {
   // Plantable area controls
   const [plantablePercent, setPlantablePercent] = useState(70);
   const [gardenType, setGardenType] = useState('mixed'); // mixed, ornamental, vegetable
+  const [customTerraceArea, setCustomTerraceArea] = useState(null); // User-adjusted area from polygon
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
 
