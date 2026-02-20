@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, MapPin, Building2, Filter, ChevronRight, 
   Leaf, Sun, Droplets, Wind, AlertTriangle, CheckCircle2,
-  ArrowUpRight, Grid3X3, List, Loader2
+  ArrowUpRight, Grid3X3, List, Loader2, Map
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -15,6 +15,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { apiRequest, getAQILevel, getBuildingTypeLabel } from '../lib/utils';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
+import BuildingMap from '../components/BuildingMap';
 
 // Custom hook for Google Places Autocomplete (New API)
 function usePlacesAutocompleteNew() {
