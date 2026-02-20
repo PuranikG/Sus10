@@ -1,0 +1,521 @@
+import { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Search, Building2, MapPin, Filter, Download, Check, X,
+  Loader2, RefreshCw, ChevronDown, Plus, ArrowLeft
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Checkbox } from '../components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Slider } from '../components/ui/slider';
+import { apiRequest } from '../lib/utils';
+import { useAuth } from '../context/AuthContext';
+import Navbar from '../components/layout/Navbar';
+import { toast } from 'sonner';
+
+const CITIES = [
+  { value: 'Mumbai', label: 'Mumbai' },
+  { value: 'Delhi', label: 'Delhi' },
+  { value: 'Gurugram', label: 'Gurugram' },
+  { value: 'Noida', label: 'Noida' },
+  { value: 'Faridabad', label: 'Faridabad' },
+  { value: 'Ghaziabad', label: 'Ghaziabad' },
+  { value: 'Pune', label: 'Pune' },
+  { value: 'Navi Mumbai', label: 'Navi Mumbai' },
+  { value: 'Amravati', label: 'Amravati' },
+];
+
+const BUILDING_TYPES = [
+  { value: 'it_park', label: 'IT Park / Tech Park', query: 'IT park technology park' },
+  { value: 'commercial', label: 'Commercial Complex', query: 'commercial complex office building' },
+  { value: 'mall', label: 'Shopping Mall', query: 'shopping mall' },
+  { value: 'hospital', label: 'Hospital', query: 'hospital medical center' },
+  { value: 'college', label: 'College / University', query: 'college university campus' },
+  { value: 'government', label: 'Government Building', query: 'government office municipal corporation' },
+  { value: 'industrial', label: 'Industrial / Factory', query: 'factory industrial building' },
+  { value: 'hotel', label: 'Hotel / Resort', query: 'hotel resort' },
+  { value: 'residential', label: 'Residential Complex', query: 'apartment complex residential tower' },
+];
+
+export default function AdminBuildingDiscoveryPage() {
+  const { user } = useAuth();
+  const [selectedCity, setSelectedCity] = useState('');
+  const [selectedType, setSelectedType] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [minArea, setMinArea] = useState(1000);
+  const [discoveredBuildings, setDiscoveredBuildings] = useState([]);
+  const [selectedBuildings, setSelectedBuildings] = useState(new Set());
+  const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  // Discover buildings using Google Places API
+  const discoverBuildings = useCallback(async () => {
+    if (!selectedCity || !selectedType) {
+      toast.error('Please select both city and building type');
+      return;
+    }
+
+    setLoading(true);
+    setDiscoveredBuildings([]);
+    setSelectedBuildings(new Set());
+
+    try {
+      // Use Google Places API to search
+      const buildingTypeConfig = BUILDING_TYPES.find(t => t.value === selectedType);
+      const searchQuery = `${buildingTypeConfig.query} in ${selectedCity}${pincode ? ` ${pincode}` : ''} India`;
+      
+      // Import Places library
+      const { Place } = await window.google.maps.importLibrary('places');
+      
+      // Use Text Search
+      const request = {
+        textQuery: searchQuery,
+        fields: ['displayName', 'formattedAddress', 'location', 'types', 'id'],
+        includedType: getGooglePlaceType(selectedType),
+        locationBias: {
+          circle: {
+            center: getCityCenter(selectedCity),
+            radius: 30000 // 30km radius
+          }
+        },
+        maxResultCount: 20,
+      };
+
+      const { places } = await Place.searchByText(request);
+      
+      if (!places || places.length === 0) {
+        toast.info('No buildings found matching your criteria');
+        setLoading(false);
+        return;
+      }
+
+      // Transform to our format with estimated data
+      const buildings = places.map((place, index) => ({
+        temp_id: `temp_${Date.now()}_${index}`,
+        place_id: place.id,
+        name: place.displayName || 'Unknown Building',
+        address: place.formattedAddress || '',
+        city: selectedCity,
+        building_type: selectedType,
+        lat: place.location?.lat() || 0,
+        lng: place.location?.lng() || 0,
+        // Estimated values - admin can adjust
+        estimated_footprint: Math.floor(Math.random() * 10000) + 2000, // Random 2000-12000 sqm
+        estimated_terrace: Math.floor(Math.random() * 3000) + 500, // Random 500-3500 sqm
+        pincode: extractPincode(place.formattedAddress),
+      }));
+
+      // Filter by minimum area
+      const filteredBuildings = buildings.filter(b => b.estimated_footprint >= minArea);
+      
+      setDiscoveredBuildings(filteredBuildings);
+      toast.success(`Found ${filteredBuildings.length} buildings`);
+    } catch (error) {
+      console.error('Discovery error:', error);
+      toast.error('Failed to discover buildings. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedCity, selectedType, pincode, minArea]);
+
+  // Toggle building selection
+  const toggleBuildingSelection = (tempId) => {
+    setSelectedBuildings(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(tempId)) {
+        newSet.delete(tempId);
+      } else {
+        newSet.add(tempId);
+      }
+      return newSet;
+    });
+  };
+
+  // Select all buildings
+  const selectAll = () => {
+    setSelectedBuildings(new Set(discoveredBuildings.map(b => b.temp_id)));
+  };
+
+  // Deselect all buildings
+  const deselectAll = () => {
+    setSelectedBuildings(new Set());
+  };
+
+  // Import selected buildings to database
+  const importBuildings = async () => {
+    if (selectedBuildings.size === 0) {
+      toast.error('Please select at least one building to import');
+      return;
+    }
+
+    setImporting(true);
+    const buildingsToImport = discoveredBuildings.filter(b => selectedBuildings.has(b.temp_id));
+    
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const building of buildingsToImport) {
+      try {
+        await apiRequest('/admin/buildings', {
+          method: 'POST',
+          body: JSON.stringify({
+            address: building.name,
+            city: building.city,
+            pincode: building.pincode || '000000',
+            building_type: building.building_type,
+            total_footprint_area: building.estimated_footprint,
+            usable_terrace_area: building.estimated_terrace,
+            lat: building.lat,
+            lng: building.lng,
+            google_place_id: building.place_id,
+            data_quality_score: 70, // Default for discovered buildings
+            current_aqi: Math.floor(Math.random() * 150) + 50, // Placeholder AQI
+          })
+        });
+        successCount++;
+      } catch (error) {
+        console.error('Import error:', error);
+        failCount++;
+      }
+    }
+
+    setImporting(false);
+    
+    if (successCount > 0) {
+      toast.success(`Successfully imported ${successCount} buildings`);
+      // Remove imported buildings from the list
+      setDiscoveredBuildings(prev => prev.filter(b => !selectedBuildings.has(b.temp_id)));
+      setSelectedBuildings(new Set());
+    }
+    
+    if (failCount > 0) {
+      toast.error(`Failed to import ${failCount} buildings`);
+    }
+  };
+
+  // Update building estimate
+  const updateBuildingEstimate = (tempId, field, value) => {
+    setDiscoveredBuildings(prev => 
+      prev.map(b => b.temp_id === tempId ? { ...b, [field]: value } : b)
+    );
+  };
+
+  if (user?.user_type !== 'admin') {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container-max section-padding py-20 text-center">
+          <Building2 className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+          <h1 className="text-2xl font-heading font-bold mb-2">Access Denied</h1>
+          <p className="text-muted-foreground mb-6">You need admin privileges to access this page.</p>
+          <Link to="/dashboard">
+            <Button>Go to Dashboard</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+
+      <div className="container-max section-padding py-8">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <Link to="/admin">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-heading font-bold tracking-tight mb-1">
+              Building Discovery
+            </h1>
+            <p className="text-muted-foreground">
+              Discover and import buildings from Google Places
+            </p>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Filters Panel */}
+          <Card className="lg:col-span-1 h-fit">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Discovery Filters
+              </CardTitle>
+              <CardDescription>
+                Set filters to find buildings in your target areas
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* City Selection */}
+              <div className="space-y-2">
+                <Label>City *</Label>
+                <Select value={selectedCity} onValueChange={setSelectedCity}>
+                  <SelectTrigger data-testid="city-select">
+                    <SelectValue placeholder="Select city" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CITIES.map(city => (
+                      <SelectItem key={city.value} value={city.value}>
+                        {city.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Building Type */}
+              <div className="space-y-2">
+                <Label>Building Type *</Label>
+                <Select value={selectedType} onValueChange={setSelectedType}>
+                  <SelectTrigger data-testid="type-select">
+                    <SelectValue placeholder="Select building type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BUILDING_TYPES.map(type => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Pincode Filter */}
+              <div className="space-y-2">
+                <Label>Pincode (Optional)</Label>
+                <Input
+                  type="text"
+                  placeholder="e.g., 400001"
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value)}
+                  maxLength={6}
+                  data-testid="pincode-input"
+                />
+              </div>
+
+              {/* Minimum Area Filter */}
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <Label>Minimum Footprint</Label>
+                  <span className="text-sm font-medium">{minArea.toLocaleString()} sqm</span>
+                </div>
+                <Slider
+                  value={[minArea]}
+                  onValueChange={([val]) => setMinArea(val)}
+                  min={500}
+                  max={20000}
+                  step={500}
+                  data-testid="area-slider"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>500 sqm</span>
+                  <span>20,000 sqm</span>
+                </div>
+              </div>
+
+              {/* Discover Button */}
+              <Button
+                className="w-full"
+                onClick={discoverBuildings}
+                disabled={loading || !selectedCity || !selectedType}
+                data-testid="discover-btn"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Discovering...
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-4 w-4 mr-2" />
+                    Discover Buildings
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Results Panel */}
+          <Card className="lg:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Discovered Buildings</CardTitle>
+                <CardDescription>
+                  {discoveredBuildings.length > 0 
+                    ? `Found ${discoveredBuildings.length} buildings • ${selectedBuildings.size} selected`
+                    : 'Use filters to discover buildings'
+                  }
+                </CardDescription>
+              </div>
+              {discoveredBuildings.length > 0 && (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={selectAll}>
+                    Select All
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={deselectAll}>
+                    Deselect All
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={importBuildings}
+                    disabled={importing || selectedBuildings.size === 0}
+                    data-testid="import-btn"
+                  >
+                    {importing ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-2" />
+                    )}
+                    Import ({selectedBuildings.size})
+                  </Button>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
+                  <p className="text-muted-foreground">Searching for buildings...</p>
+                </div>
+              ) : discoveredBuildings.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Building2 className="h-16 w-16 text-muted-foreground/30 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Buildings Yet</h3>
+                  <p className="text-muted-foreground max-w-md">
+                    Select a city and building type, then click "Discover Buildings" to find buildings matching your criteria.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                  <AnimatePresence>
+                    {discoveredBuildings.map((building, index) => (
+                      <motion.div
+                        key={building.temp_id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ delay: index * 0.05 }}
+                      >
+                        <Card 
+                          className={`cursor-pointer transition-all ${
+                            selectedBuildings.has(building.temp_id) 
+                              ? 'ring-2 ring-primary bg-primary/5' 
+                              : 'hover:bg-accent/50'
+                          }`}
+                          onClick={() => toggleBuildingSelection(building.temp_id)}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-4">
+                              <Checkbox
+                                checked={selectedBuildings.has(building.temp_id)}
+                                onCheckedChange={() => toggleBuildingSelection(building.temp_id)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div>
+                                    <h4 className="font-medium truncate">{building.name}</h4>
+                                    <p className="text-sm text-muted-foreground truncate">
+                                      <MapPin className="h-3 w-3 inline mr-1" />
+                                      {building.address}
+                                    </p>
+                                  </div>
+                                  <Badge variant="secondary" className="shrink-0">
+                                    {BUILDING_TYPES.find(t => t.value === building.building_type)?.label}
+                                  </Badge>
+                                </div>
+                                <div className="flex gap-4 mt-3 text-sm">
+                                  <div>
+                                    <span className="text-muted-foreground">Footprint:</span>
+                                    <Input
+                                      type="number"
+                                      value={building.estimated_footprint}
+                                      onChange={(e) => updateBuildingEstimate(building.temp_id, 'estimated_footprint', parseInt(e.target.value) || 0)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="w-24 h-7 mt-1 text-sm"
+                                    />
+                                    <span className="text-xs text-muted-foreground ml-1">sqm</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Terrace:</span>
+                                    <Input
+                                      type="number"
+                                      value={building.estimated_terrace}
+                                      onChange={(e) => updateBuildingEstimate(building.temp_id, 'estimated_terrace', parseInt(e.target.value) || 0)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="w-24 h-7 mt-1 text-sm"
+                                    />
+                                    <span className="text-xs text-muted-foreground ml-1">sqm</span>
+                                  </div>
+                                  {building.pincode && (
+                                    <div>
+                                      <span className="text-muted-foreground">Pincode:</span>
+                                      <span className="ml-2 font-medium">{building.pincode}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Helper: Get Google Place type from our building type
+function getGooglePlaceType(buildingType) {
+  const typeMap = {
+    'it_park': 'office',
+    'commercial': 'establishment',
+    'mall': 'shopping_mall',
+    'hospital': 'hospital',
+    'college': 'university',
+    'government': 'local_government_office',
+    'industrial': 'establishment',
+    'hotel': 'lodging',
+    'residential': 'apartment_complex',
+  };
+  return typeMap[buildingType] || 'establishment';
+}
+
+// Helper: Get city center coordinates
+function getCityCenter(city) {
+  const centers = {
+    'Mumbai': { lat: 19.0760, lng: 72.8777 },
+    'Delhi': { lat: 28.6139, lng: 77.2090 },
+    'Gurugram': { lat: 28.4595, lng: 77.0266 },
+    'Noida': { lat: 28.5355, lng: 77.3910 },
+    'Faridabad': { lat: 28.4089, lng: 77.3178 },
+    'Ghaziabad': { lat: 28.6692, lng: 77.4538 },
+    'Pune': { lat: 18.5204, lng: 73.8567 },
+    'Navi Mumbai': { lat: 19.0330, lng: 73.0297 },
+    'Amravati': { lat: 20.9374, lng: 77.7796 },
+  };
+  return centers[city] || { lat: 20.5937, lng: 78.9629 }; // Default to India center
+}
+
+// Helper: Extract pincode from address
+function extractPincode(address) {
+  if (!address) return '';
+  const match = address.match(/\b\d{6}\b/);
+  return match ? match[0] : '';
+}
