@@ -671,18 +671,105 @@ export default function BuildingReportPage() {
                         <div className="text-sm text-muted-foreground">Current AQI</div>
                       </CardContent>
                     </Card>
-                    <Card className="bg-orange-500/10 border-orange-500/20">
-                      <CardContent className="p-4 text-center">
-                        <Sun className="h-8 w-8 mx-auto text-orange-500 mb-2" />
-                        <div className="text-2xl font-bold text-orange-500">+3-5°C</div>
-                        <div className="text-sm text-muted-foreground">Heat Island Effect</div>
-                      </CardContent>
-                    </Card>
+                    
+                    {/* Temperature Reduction - Calculated with Explainability */}
+                    {(() => {
+                      const tempReduction = calculateTemperatureReduction(
+                        customTerraceArea || building.usable_terrace_area || 0,
+                        building.building_footprint_area || 5000,
+                        plantablePercent,
+                        gardenType
+                      );
+                      
+                      return (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Card className="bg-green-500/10 border-green-500/20 cursor-pointer hover:bg-green-500/20 transition-colors">
+                              <CardContent className="p-4 text-center">
+                                <Sun className="h-8 w-8 mx-auto text-green-500 mb-2" />
+                                <div className="text-2xl font-bold text-green-500">
+                                  -{tempReduction.ambientReduction}°C
+                                </div>
+                                <div className="text-sm text-muted-foreground">Est. Cooling Effect</div>
+                                <div className="text-xs text-primary mt-1 flex items-center justify-center gap-1">
+                                  <Info className="h-3 w-3" />
+                                  How is this calculated?
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-lg">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center gap-2">
+                                <Sun className="h-5 w-5 text-green-500" />
+                                Temperature Reduction Methodology
+                              </DialogTitle>
+                              <DialogDescription>
+                                Scientific basis for our cooling effect estimates
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                              <div className="p-4 bg-muted rounded-lg">
+                                <div className="text-sm text-muted-foreground mb-2">{tempReduction.methodology}</div>
+                                <div className="text-3xl font-bold text-green-500">-{tempReduction.ambientReduction}°C</div>
+                                <div className="text-sm">Estimated ambient air temperature reduction</div>
+                              </div>
+                              
+                              <div className="space-y-3">
+                                <h4 className="font-medium">Calculation Breakdown:</h4>
+                                
+                                <div className="flex justify-between items-center p-3 bg-blue-500/10 rounded-lg">
+                                  <div>
+                                    <div className="font-medium">Evapotranspiration</div>
+                                    <div className="text-xs text-muted-foreground">Plant water vapor release</div>
+                                  </div>
+                                  <div className="text-lg font-semibold text-blue-500">-{tempReduction.breakdown.evapotranspiration}°C</div>
+                                </div>
+                                
+                                <div className="flex justify-between items-center p-3 bg-green-500/10 rounded-lg">
+                                  <div>
+                                    <div className="font-medium">Shading Effect</div>
+                                    <div className="text-xs text-muted-foreground">Reduced solar radiation</div>
+                                  </div>
+                                  <div className="text-lg font-semibold text-green-500">-{tempReduction.breakdown.shading}°C</div>
+                                </div>
+                                
+                                <div className="flex justify-between items-center p-3 bg-amber-500/10 rounded-lg">
+                                  <div>
+                                    <div className="font-medium">Albedo Change</div>
+                                    <div className="text-xs text-muted-foreground">Increased solar reflection</div>
+                                  </div>
+                                  <div className="text-lg font-semibold text-amber-500">-{tempReduction.breakdown.albedo}°C</div>
+                                </div>
+                              </div>
+                              
+                              <div className="p-3 bg-muted/50 rounded-lg">
+                                <div className="text-sm">
+                                  <strong>Surface Temperature:</strong> Green roofs can reduce roof surface temperature by up to <strong>{tempReduction.surfaceReduction}°C</strong> compared to conventional roofs (60-80°C → 25-35°C).
+                                </div>
+                              </div>
+                              
+                              <div className="text-xs text-muted-foreground border-t pt-3">
+                                <strong>Research References:</strong>
+                                <ul className="list-disc list-inside mt-1 space-y-1">
+                                  <li>EPA Urban Heat Island Mitigation (2008)</li>
+                                  <li>Santamouris et al. (2014) - Impact of urban heat island</li>
+                                  <li>Alexandri & Jones (2008) - Temperature decreases from urban greening</li>
+                                </ul>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      );
+                    })()}
+                    
                     <Card className="bg-blue-500/10 border-blue-500/20">
                       <CardContent className="p-4 text-center">
                         <Droplets className="h-8 w-8 mx-auto text-blue-500 mb-2" />
-                        <div className="text-2xl font-bold text-blue-500">60%</div>
-                        <div className="text-sm text-muted-foreground">Water Runoff</div>
+                        <div className="text-2xl font-bold text-blue-500">
+                          -{Math.round(plantablePercent * 0.7)}%
+                        </div>
+                        <div className="text-sm text-muted-foreground">Water Runoff Reduction</div>
                       </CardContent>
                     </Card>
                   </div>
