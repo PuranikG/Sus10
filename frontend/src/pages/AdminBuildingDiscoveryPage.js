@@ -220,7 +220,7 @@ export default function AdminBuildingDiscoveryPage() {
               Building Discovery
             </h1>
             <p className="text-muted-foreground">
-              Discover and import buildings from Google Places
+              Discover buildings from OpenStreetMap, auto-enriched with Google Places
             </p>
           </div>
         </div>
