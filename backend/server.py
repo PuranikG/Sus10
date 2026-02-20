@@ -1223,7 +1223,8 @@ async def create_initiative(request: Request, initiative: InitiativeCreate):
     }
     
     await db.initiatives.insert_one(initiative_doc)
-    if "_id" in initiative_doc: del initiative_doc["_id"]
+    if "_id" in initiative_doc:
+        del initiative_doc["_id"]
     return initiative_doc
 
 @api_router.get("/initiatives")
