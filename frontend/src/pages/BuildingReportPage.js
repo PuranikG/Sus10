@@ -500,27 +500,217 @@ export default function BuildingReportPage() {
               </Card>
             </TabsContent>
 
-            {/* Solutions Tab */}
+            {/* Solutions Tab - Terrace Garden Planner */}
             <TabsContent value="solutions" className="space-y-6">
-              {recommendations.length === 0 ? (
-                <Card className="p-12 text-center">
-                  <Leaf className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-                  <h3 className="text-xl font-heading font-medium mb-2">No recommendations yet</h3>
-                  <p className="text-muted-foreground">
-                    Analysis is in progress. Check back soon for personalized solutions.
-                  </p>
-                </Card>
-              ) : (
-                recommendations.map((rec, index) => (
-                  <SolutionCard
-                    key={rec.recommendation_id}
-                    recommendation={rec}
-                    index={index}
-                    onViewDetails={() => setSelectedRecommendation(rec)}
-                    auditLog={audit_logs.find(a => a.recommendation_id === rec.recommendation_id)}
-                  />
-                ))
-              )}
+              {/* Plantable Area Configurator */}
+              <Card className="border-primary/20 bg-primary/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Leaf className="h-5 w-5 text-primary" />
+                    Terrace Garden Planner
+                  </CardTitle>
+                  <CardDescription>
+                    Customize your terrace garden layout and get personalized plant recommendations
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Terrace Area Slider */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-medium">Plantable Area</Label>
+                      <span className="text-2xl font-bold text-primary">
+                        {Math.floor((building.usable_terrace_area || 0) * plantablePercent / 100).toLocaleString()} sqm
+                      </span>
+                    </div>
+                    <Slider
+                      value={[plantablePercent]}
+                      onValueChange={([val]) => setPlantablePercent(val)}
+                      min={30}
+                      max={90}
+                      step={5}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>30% (Minimal)</span>
+                      <span className="font-medium">{plantablePercent}% of {building.usable_terrace_area?.toLocaleString() || 0} sqm terrace</span>
+                      <span>90% (Maximum)</span>
+                    </div>
+                  </div>
+
+                  {/* Garden Type Selection */}
+                  <div className="space-y-3">
+                    <Label className="text-base font-medium">Garden Type</Label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { value: 'mixed', label: 'Mixed Garden', desc: 'Trees, shrubs & vegetables', icon: Leaf },
+                        { value: 'ornamental', label: 'Ornamental', desc: 'Decorative plants & flowers', icon: Flower2 },
+                        { value: 'vegetable', label: 'Kitchen Garden', desc: 'Vegetables & herbs', icon: Sprout },
+                      ].map(type => (
+                        <button
+                          key={type.value}
+                          onClick={() => setGardenType(type.value)}
+                          className={`p-4 rounded-lg border-2 transition-all text-left ${
+                            gardenType === type.value 
+                              ? 'border-primary bg-primary/10' 
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                        >
+                          <type.icon className={`h-6 w-6 mb-2 ${gardenType === type.value ? 'text-primary' : 'text-muted-foreground'}`} />
+                          <div className="font-medium">{type.label}</div>
+                          <div className="text-xs text-muted-foreground">{type.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Plant Recommendations */}
+              {(() => {
+                const plantPlan = calculatePlantRecommendations(
+                  building.usable_terrace_area || 0,
+                  plantablePercent,
+                  gardenType
+                );
+                
+                return (
+                  <>
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <Card className="bg-green-500/10 border-green-500/20">
+                        <CardContent className="p-4 text-center">
+                          <TreePine className="h-8 w-8 mx-auto text-green-500 mb-2" />
+                          <div className="text-2xl font-bold text-green-500">
+                            {plantPlan.actualPlantableArea.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-muted-foreground">sqm Plantable</div>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-emerald-500/10 border-emerald-500/20">
+                        <CardContent className="p-4 text-center">
+                          <Leaf className="h-8 w-8 mx-auto text-emerald-500 mb-2" />
+                          <div className="text-2xl font-bold text-emerald-500">
+                            {Math.floor(plantPlan.totalCO2).toLocaleString()}
+                          </div>
+                          <div className="text-sm text-muted-foreground">kg CO₂/year</div>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-blue-500/10 border-blue-500/20">
+                        <CardContent className="p-4 text-center">
+                          <Droplets className="h-8 w-8 mx-auto text-blue-500 mb-2" />
+                          <div className="text-2xl font-bold text-blue-500">
+                            {plantPlan.waterRequirement.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-muted-foreground">L/day water</div>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-amber-500/10 border-amber-500/20">
+                        <CardContent className="p-4 text-center">
+                          <Calculator className="h-8 w-8 mx-auto text-amber-500 mb-2" />
+                          <div className="text-2xl font-bold text-amber-500">
+                            ₹{(plantPlan.estimatedCost / 1000).toFixed(0)}K
+                          </div>
+                          <div className="text-sm text-muted-foreground">Est. Setup Cost</div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Detailed Plant Recommendations */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-heading font-semibold">Recommended Plants</h3>
+                      
+                      {plantPlan.recommendations.map((rec, idx) => (
+                        <Card key={idx}>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                              <rec.icon className="h-5 w-5 text-primary" />
+                              {rec.category}
+                              <Badge variant="secondary" className="ml-auto">
+                                {rec.area.toFixed(0)} sqm
+                              </Badge>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {rec.plants.filter(p => p.count > 0).map((plant, pIdx) => (
+                                <div key={pIdx} className="p-3 bg-muted/50 rounded-lg">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="font-medium">{plant.name}</span>
+                                    <Badge variant="outline">{plant.count} plants</Badge>
+                                  </div>
+                                  {plant.botanical && (
+                                    <div className="text-xs text-muted-foreground italic mb-1">{plant.botanical}</div>
+                                  )}
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {plant.benefits?.slice(0, 2).map((b, bIdx) => (
+                                      <span key={bIdx} className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">
+                                        {b}
+                                      </span>
+                                    ))}
+                                    {plant.yield && (
+                                      <span className="text-xs px-2 py-0.5 bg-green-500/10 text-green-600 rounded-full">
+                                        Yield: {plant.yield}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-2">
+                                    Water: {plant.waterNeed}
+                                    {plant.co2 && ` • CO₂: ${plant.co2}kg/year`}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {rec.monthlyYield && (
+                              <div className="mt-4 p-3 bg-green-500/10 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                  <Sprout className="h-4 w-4 text-green-600" />
+                                  <span className="text-sm font-medium text-green-600">
+                                    Estimated Monthly Yield: {rec.monthlyYield} kg vegetables
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+
+                    {/* Area Distribution Chart */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Area Distribution</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  ...plantPlan.recommendations.map(r => ({ name: r.category, value: r.area })),
+                                  { name: 'Walkways', value: plantPlan.walkwayArea },
+                                ]}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                paddingAngle={2}
+                                dataKey="value"
+                                label={({ name, value }) => `${name}: ${value.toFixed(0)} sqm`}
+                              >
+                                {plantPlan.recommendations.map((_, idx) => (
+                                  <Cell key={idx} fill={['#22c55e', '#10b981', '#14b8a6', '#06b6d4'][idx % 4]} />
+                                ))}
+                                <Cell fill="#94a3b8" />
+                              </Pie>
+                              <Tooltip />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </>
+                );
+              })()}
             </TabsContent>
 
             {/* Explainability Tab */}
