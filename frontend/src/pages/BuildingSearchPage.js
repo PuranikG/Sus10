@@ -25,6 +25,35 @@ export default function BuildingSearchPage() {
   const [cityFilter, setCityFilter] = useState(searchParams.get('city') || '');
   const [typeFilter, setTypeFilter] = useState(searchParams.get('type') || '');
   const [viewMode, setViewMode] = useState('grid');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchContainerRef = useRef(null);
+
+  // Google Places Autocomplete hook
+  const {
+    ready: placesReady,
+    value: placesValue,
+    suggestions: { status, data: suggestions },
+    setValue: setPlacesValue,
+    clearSuggestions,
+  } = usePlacesAutocomplete({
+    requestOptions: {
+      componentRestrictions: { country: 'in' }, // Restrict to India
+      types: ['address', 'establishment'],
+    },
+    debounce: 300,
+    cache: 24 * 60 * 60, // Cache for 24 hours
+  });
+
+  // Handle click outside to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const fetchBuildings = async () => {
