@@ -96,7 +96,7 @@ export default function AdminBuildingDiscoveryPage() {
       toast.success(`Imported ${result.imported} buildings! (${result.discovered} discovered, ${result.skipped} duplicates skipped)`);
     } catch (error) {
       console.error('Discovery error:', error);
-      toast.error('Failed to discover buildings. Please try again.');
+      toast.error(error.message || 'Failed to discover buildings. Please try again.');
     } finally {
       setLoading(false);
     }
