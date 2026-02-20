@@ -248,3 +248,16 @@ Every pledge counts! Join us on Sus10 AI: [URL]
   - Health implications
   - Timezone-aware timestamps
 - **Supported Cities**: Delhi, Mumbai, Bangalore, Gurugram, Noida, Pune, Hyderabad, Chennai, Kolkata, Jaipur, Lucknow, Ahmedabad, etc.
+
+### Live AQI Display on Building Report Page ✅
+- **LiveAQICard Component**: New card component with pulsing "LIVE" indicator
+- **Features**:
+  - Color-coded card background based on AQI level (green/yellow/orange/red)
+  - Displays AQI value, level (Good/Moderate/Unhealthy/etc.)
+  - Shows PM2.5 and PM10 concentrations
+  - Health implications message
+  - Auto-refreshes every 10 minutes
+- **Integration Points**:
+  - Overview metrics section (replaces static AQI card)
+  - Environmental Impact section in Terrace Garden tab
+
