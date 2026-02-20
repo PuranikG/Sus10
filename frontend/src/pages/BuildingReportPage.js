@@ -1035,11 +1035,11 @@ export default function BuildingReportPage() {
                       </Card>
                       <Card className="bg-amber-500/10 border-amber-500/20">
                         <CardContent className="p-4 text-center">
-                          <Calculator className="h-8 w-8 mx-auto text-amber-500 mb-2" />
-                          <div className="text-2xl font-bold text-amber-500">
-                            ₹{(plantPlan.estimatedCost / 1000).toFixed(0)}K
+                          <Users className="h-8 w-8 mx-auto text-amber-500 mb-2" />
+                          <div className="text-lg font-bold text-amber-500">
+                            Get Quote
                           </div>
-                          <div className="text-sm text-muted-foreground">Est. Setup Cost</div>
+                          <div className="text-sm text-muted-foreground">From providers</div>
                         </CardContent>
                       </Card>
                     </div>
