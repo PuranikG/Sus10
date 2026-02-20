@@ -173,7 +173,7 @@ export default function BuildingSearchPage() {
     }
   };
 
-  const cities = ['Delhi', 'Mumbai', 'Pune', 'Gurugram', 'Noida'];
+  const cities = ['Delhi', 'Mumbai', 'Pune', 'Gurugram', 'Noida', 'Faridabad', 'Ghaziabad', 'Navi Mumbai', 'Amravati'];
   const buildingTypes = [
     { value: 'it_park', label: 'IT Park' },
     { value: 'hospital', label: 'Hospital' },
@@ -181,6 +181,9 @@ export default function BuildingSearchPage() {
     { value: 'commercial', label: 'Commercial' },
     { value: 'residential', label: 'Residential' },
     { value: 'industrial', label: 'Industrial' },
+    { value: 'mall', label: 'Mall' },
+    { value: 'government', label: 'Government' },
+    { value: 'hotel', label: 'Hotel' },
   ];
 
   return (
@@ -215,6 +218,14 @@ export default function BuildingSearchPage() {
                 data-testid="view-list"
               >
                 <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'map' ? 'secondary' : 'ghost'}
+                size="icon"
+                onClick={() => setViewMode('map')}
+                data-testid="view-map"
+              >
+                <Map className="h-4 w-4" />
               </Button>
             </div>
           </div>
