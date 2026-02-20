@@ -76,6 +76,12 @@ export default function BuildingReportPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [selectedRecommendation, setSelectedRecommendation] = useState(null);
+  
+  // Plantable area controls
+  const [plantablePercent, setPlantablePercent] = useState(70);
+  const [gardenType, setGardenType] = useState('mixed'); // mixed, ornamental, vegetable
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
 
   useEffect(() => {
     const fetchReport = async () => {
