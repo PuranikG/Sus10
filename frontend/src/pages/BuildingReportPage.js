@@ -672,24 +672,35 @@ export default function BuildingReportPage() {
                 <CardContent className="space-y-4">
                   <p className="text-muted-foreground">
                     {building.city} faces significant air quality challenges with current AQI at{' '}
-                    <span className={`font-medium ${aqiInfo?.color || ''}`}>
-                      {building.current_aqi || 'N/A'}
+                    <span className={`font-medium ${liveAQI?.aqi_color ? '' : (aqiInfo?.color || '')}`} style={liveAQI?.aqi_color ? {color: liveAQI.aqi_color} : {}}>
+                      {liveAQI?.aqi_value || building.current_aqi || 'N/A'}
                     </span>
-                    {building.aqi_trend && (
+                    {liveAQI?.aqi_level && (
                       <span className="text-sm">
-                        {' '}({building.aqi_trend === 'rising' ? 'trending up' : 
-                              building.aqi_trend === 'improving' ? 'improving' : 'stable'})
+                        {' '}({liveAQI.aqi_level})
                       </span>
                     )}.
                     Urban heat island effect and limited green cover contribute to elevated temperatures
                     and poor air quality in commercial zones.
                   </p>
                   <div className="grid md:grid-cols-3 gap-4 pt-4">
-                    <Card className="bg-red-500/10 border-red-500/20">
+                    <Card className={`${liveAQI?.aqi_color === '#00e400' ? 'bg-green-500/10 border-green-500/20' : 
+                                       liveAQI?.aqi_color === '#ffff00' ? 'bg-yellow-500/10 border-yellow-500/20' : 
+                                       liveAQI?.aqi_color === '#ff7e00' ? 'bg-orange-500/10 border-orange-500/20' : 
+                                       'bg-red-500/10 border-red-500/20'}`}>
                       <CardContent className="p-4 text-center">
-                        <Wind className="h-8 w-8 mx-auto text-red-500 mb-2" />
-                        <div className="text-2xl font-bold text-red-500">{building.current_aqi || 'N/A'}</div>
-                        <div className="text-sm text-muted-foreground">Current AQI</div>
+                        <Wind className="h-8 w-8 mx-auto mb-2" style={{color: liveAQI?.aqi_color || '#ef4444'}} />
+                        <div className="text-2xl font-bold" style={{color: liveAQI?.aqi_color || '#ef4444'}}>
+                          {liveAQI?.aqi_value || building.current_aqi || 'N/A'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {liveAQI?.data_source === 'Open-Meteo' ? 'Live AQI' : 'Current AQI'}
+                        </div>
+                        {liveAQI?.pm25_value && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            PM2.5: {liveAQI.pm25_value} µg/m³
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                     
