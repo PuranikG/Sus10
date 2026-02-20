@@ -129,12 +129,37 @@ export default function BuildingReportPage() {
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [selectedRecommendation, setSelectedRecommendation] = useState(null);
   
+  // Live AQI state
+  const [liveAQI, setLiveAQI] = useState(null);
+  const [aqiLoading, setAqiLoading] = useState(false);
+  
   // Plantable area controls
   const [plantablePercent, setPlantablePercent] = useState(70);
   const [gardenType, setGardenType] = useState('mixed'); // mixed, ornamental, vegetable
   const [customTerraceArea, setCustomTerraceArea] = useState(null); // User-adjusted area from polygon
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+
+  // Fetch live AQI data
+  useEffect(() => {
+    const fetchLiveAQI = async () => {
+      if (!buildingId) return;
+      setAqiLoading(true);
+      try {
+        const data = await apiRequest(`/air-quality/building/${buildingId}`);
+        setLiveAQI(data);
+      } catch (error) {
+        console.error('Failed to fetch live AQI:', error);
+      } finally {
+        setAqiLoading(false);
+      }
+    };
+    
+    fetchLiveAQI();
+    // Refresh AQI every 10 minutes
+    const interval = setInterval(fetchLiveAQI, 10 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [buildingId]);
 
   useEffect(() => {
     const fetchReport = async () => {
