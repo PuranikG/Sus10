@@ -68,7 +68,7 @@ export default function AdminBuildingDiscoveryPage() {
         method: 'POST',
         body: JSON.stringify({
           city: selectedCity,
-          building_type: selectedType || undefined,
+          building_type: selectedType && selectedType !== 'all' ? selectedType : undefined,
           min_area: minArea,
           limit: 30,
         })
