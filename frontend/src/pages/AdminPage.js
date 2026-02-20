@@ -206,10 +206,12 @@ export default function AdminPage() {
                     Approve and manage buildings in the platform
                   </CardDescription>
                 </div>
-                <Button data-testid="add-building-btn">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Building
-                </Button>
+                <Link to="/admin/discover">
+                  <Button data-testid="add-building-btn">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Discover Buildings
+                  </Button>
+                </Link>
               </CardHeader>
               <CardContent>
                 {loading ? (
