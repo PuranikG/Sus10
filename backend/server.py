@@ -1401,7 +1401,8 @@ async def create_forum_post(initiative_id: str, request: Request):
     }
     
     await db.forum_posts.insert_one(post_doc)
-    if "_id" in post_doc: del post_doc["_id"]
+    if "_id" in post_doc:
+        del post_doc["_id"]
     return post_doc
 
 # ==================== GAMIFICATION (Feature Flagged) ====================
