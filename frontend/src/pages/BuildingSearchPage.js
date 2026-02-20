@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import usePlacesAutocomplete, { getGeocode, getLatLng } from 'use-places-autocomplete';
 import { 
   Search, MapPin, Building2, Filter, ChevronRight, 
   Leaf, Sun, Droplets, Wind, AlertTriangle, CheckCircle2,
-  ArrowUpRight, Grid3X3, List
+  ArrowUpRight, Grid3X3, List, Loader2
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
