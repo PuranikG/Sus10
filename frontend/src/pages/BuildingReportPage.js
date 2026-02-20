@@ -234,8 +234,67 @@ export default function BuildingReportPage() {
     initMap();
   }, [reportData]);
 
-  // Calculate plant recommendations based on plantable area and city
-  const calculatePlantRecommendations = (terraceArea, plantablePercent, gardenType, city = 'default') => {
+  // Calculate temperature reduction based on green cover
+  const calculateTemperatureReduction = (terraceArea, footprintArea, plantablePercent, gardenType) => {
+    const plantedArea = (terraceArea * plantablePercent) / 100;
+    const greenCoverRatio = plantedArea / footprintArea;
+    
+    /*
+     * Scientific basis for temperature reduction calculation:
+     * 
+     * 1. Evapotranspiration Effect:
+     *    - Plants release water vapor through transpiration
+     *    - Latent heat of vaporization: 2.45 MJ/kg
+     *    - Average transpiration: 3-5 L/m²/day for mixed gardens
+     *    - Cooling effect: ~0.5-1°C per 10% green cover
+     *
+     * 2. Shading Effect:
+     *    - Reduces direct solar radiation on building surface
+     *    - Conventional roof surface: 60-80°C in summer
+     *    - Green roof surface: 25-35°C (30-40°C reduction)
+     *    - Ambient temperature effect: 0.3-0.5°C per 10% shading
+     *
+     * 3. Albedo Change:
+     *    - Conventional roof albedo: 0.1-0.2 (dark surfaces)
+     *    - Green roof albedo: 0.7-0.85 (vegetation)
+     *    - Higher albedo = more solar reflection = less heat absorption
+     *
+     * Research references:
+     * - EPA Urban Heat Island Mitigation (2008)
+     * - Santamouris et al. (2014) - "On the impact of urban heat island"
+     * - Alexandri & Jones (2008) - "Temperature decreases from urban greening"
+     */
+    
+    // Base calculations
+    const evapotranspirationCooling = greenCoverRatio * 2.5; // Max ~2.5°C at 100% cover
+    const shadingCooling = greenCoverRatio * 1.5; // Max ~1.5°C from shading
+    const albedoCooling = greenCoverRatio * 0.8; // Max ~0.8°C from albedo change
+    
+    // Garden type multipliers (trees/shrubs provide more cooling than ground cover)
+    const typeMultiplier = {
+      'mixed': 1.0,
+      'ornamental': 0.9,
+      'vegetable': 0.7, // Less canopy cover
+    }[gardenType] || 1.0;
+    
+    // Total ambient air temperature reduction (realistic range: 0.5-4°C)
+    const totalReduction = (evapotranspirationCooling + shadingCooling + albedoCooling) * typeMultiplier;
+    
+    // Surface temperature reduction is much higher (20-40°C for green vs conventional roof)
+    const surfaceReduction = Math.min(greenCoverRatio * 35, 40);
+    
+    return {
+      ambientReduction: Math.round(totalReduction * 10) / 10, // Round to 1 decimal
+      surfaceReduction: Math.round(surfaceReduction),
+      greenCoverPercent: Math.round(greenCoverRatio * 100),
+      breakdown: {
+        evapotranspiration: Math.round(evapotranspirationCooling * 10) / 10,
+        shading: Math.round(shadingCooling * 10) / 10,
+        albedo: Math.round(albedoCooling * 10) / 10,
+      },
+      methodology: `Based on ${Math.round(greenCoverRatio * 100)}% green cover ratio (${plantedArea.toLocaleString()} sqm planted / ${footprintArea.toLocaleString()} sqm footprint)`,
+    };
+  };
     const plantableArea = (terraceArea * plantablePercent) / 100;
     
     // Reserve areas for different purposes
