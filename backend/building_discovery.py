@@ -376,7 +376,7 @@ async def discover_and_import_buildings(
             }
             
             # Check for duplicates
-            if db:
+            if db is not None:
                 existing = await db.buildings.find_one({
                     "$or": [
                         {"osm_id": osm_building.get("osm_id")},
