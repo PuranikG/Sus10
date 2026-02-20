@@ -261,7 +261,7 @@ export default function AdminBuildingDiscoveryPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {BUILDING_TYPES.map(type => (
-                      <SelectItem key={type.value || 'all'} value={type.value}>
+                      <SelectItem key={type.value} value={type.value}>
                         {type.label}
                       </SelectItem>
                     ))}
