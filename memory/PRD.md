@@ -89,8 +89,8 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 - **Hosting**: Emergent Platform
 
 ## Key URLs
-- Frontend: https://eco-rebuild.preview.emergentagent.com
-- Backend API: https://eco-rebuild.preview.emergentagent.com/api
+- Frontend: https://sustainability-ai-1.preview.emergentagent.com
+- Backend API: https://sustainability-ai-1.preview.emergentagent.com/api
 
 ## Recent Updates (Feb 19, 2026 - Feature Addition)
 
