@@ -366,25 +366,6 @@ export default function BuildingReportPage() {
               </div>
             </div>
 
-            {/* Map & Suitability Score */}
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Building Map */}
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2">
-                  <Map className="h-5 w-5" />
-                  Building Location
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div 
-                  ref={mapRef} 
-                  className="w-full h-64 rounded-lg bg-muted"
-                  data-testid="building-map"
-                />
-              </CardContent>
-            </Card>
-
             {/* Suitability Score */}
             <Card>
               <CardContent className="p-6 text-center">
@@ -418,6 +399,25 @@ export default function BuildingReportPage() {
                 <p className="text-sm text-muted-foreground mt-4">
                   Based on terrace area, AQI, and local climate data
                 </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Building Map */}
+          <div className="mt-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2">
+                  <Map className="h-5 w-5" />
+                  Building Location (Satellite View)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div 
+                  ref={mapRef} 
+                  className="w-full h-72 rounded-lg bg-muted"
+                  data-testid="building-map"
+                />
               </CardContent>
             </Card>
           </div>
