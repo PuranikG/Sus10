@@ -607,9 +607,23 @@ async def admin_create_building(request: Request, building: BuildingCreate):
     building_id = f"bld_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc).isoformat()
     
+    building_data = building.model_dump()
+    
+    # Handle field aliases
+    if building_data.get('total_footprint_area') and not building_data.get('building_footprint_area'):
+        building_data['building_footprint_area'] = building_data['total_footprint_area']
+    if building_data.get('lat') and not building_data.get('latitude'):
+        building_data['latitude'] = building_data['lat']
+    if building_data.get('lng') and not building_data.get('longitude'):
+        building_data['longitude'] = building_data['lng']
+    
+    # Remove alias fields
+    for key in ['total_footprint_area', 'lat', 'lng']:
+        building_data.pop(key, None)
+    
     building_doc = {
         "building_id": building_id,
-        **building.model_dump(),
+        **building_data,
         "curated_by_admin_id": user.user_id,
         "is_approved": False,
         "created_at": now,
