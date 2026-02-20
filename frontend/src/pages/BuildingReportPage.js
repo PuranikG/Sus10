@@ -168,17 +168,63 @@ export default function BuildingReportPage() {
         
         mapInstanceRef.current = new Map(mapRef.current, {
           center: position,
-          zoom: 17,
+          zoom: 18,
           mapId: 'building_map',
           mapTypeId: 'satellite',
+          tilt: 0,
         });
         
-        // Add marker
-        new AdvancedMarkerElement({
-          map: mapInstanceRef.current,
-          position: position,
-          title: reportData.building.address,
+        // Draw building footprint polygon (approximate square based on footprint area)
+        const footprintArea = reportData.building.building_footprint_area || 5000;
+        const sideLength = Math.sqrt(footprintArea); // Approximate side in meters
+        const latOffset = sideLength / 111000; // ~111km per degree latitude
+        const lngOffset = sideLength / (111000 * Math.cos(position.lat * Math.PI / 180));
+        
+        // Create polygon coordinates (rectangle approximation)
+        const polygonCoords = [
+          { lat: position.lat - latOffset/2, lng: position.lng - lngOffset/2 },
+          { lat: position.lat - latOffset/2, lng: position.lng + lngOffset/2 },
+          { lat: position.lat + latOffset/2, lng: position.lng + lngOffset/2 },
+          { lat: position.lat + latOffset/2, lng: position.lng - lngOffset/2 },
+        ];
+        
+        // Draw the building footprint
+        const buildingPolygon = new window.google.maps.Polygon({
+          paths: polygonCoords,
+          strokeColor: '#22c55e',
+          strokeOpacity: 0.9,
+          strokeWeight: 3,
+          fillColor: '#22c55e',
+          fillOpacity: 0.25,
+          editable: true, // Allow user to adjust
+          draggable: false,
         });
+        
+        buildingPolygon.setMap(mapInstanceRef.current);
+        
+        // Listen for polygon changes
+        window.google.maps.event.addListener(buildingPolygon.getPath(), 'set_at', () => {
+          const newArea = window.google.maps.geometry.spherical.computeArea(buildingPolygon.getPath());
+          setCustomTerraceArea(Math.round(newArea));
+        });
+        
+        window.google.maps.event.addListener(buildingPolygon.getPath(), 'insert_at', () => {
+          const newArea = window.google.maps.geometry.spherical.computeArea(buildingPolygon.getPath());
+          setCustomTerraceArea(Math.round(newArea));
+        });
+        
+        // Add info window
+        const infoWindow = new window.google.maps.InfoWindow({
+          content: `<div style="padding: 8px; font-family: system-ui;">
+            <strong>${reportData.building.address}</strong><br/>
+            <span style="color: #666;">Footprint: ${footprintArea.toLocaleString()} sqm</span><br/>
+            <span style="color: #22c55e; font-size: 12px;">Drag corners to adjust terrace area</span>
+          </div>`,
+          position: position,
+        });
+        
+        infoWindow.open(mapInstanceRef.current);
+        
       } catch (error) {
         console.error('Map init error:', error);
       }
