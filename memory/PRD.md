@@ -177,3 +177,58 @@ Every pledge counts! Join us on Sus10 AI: [URL]
   - Uses new Places API (legacy AutocompleteService deprecated for new customers as of March 2025)
   - Custom React hook `usePlacesAutocompleteNew()` in BuildingSearchPage.js
   - API key loaded via script tag in index.html
+
+### Admin Building Discovery ✅ (Feb 20, 2026)
+- **P0 Bug Fixed**: Admin building discovery feature now works
+- **Root Cause**: Motor/PyMongo database objects don't implement `__bool__()`, causing error with `if db:` check
+- **Fix Applied**: Changed `if db:` to `if db is not None:` in building_discovery.py
+- **Features**:
+  - Discovers buildings from OpenStreetMap Overpass API
+  - Auto-enriches with Google Places API (name, address, place_id)
+  - Calculates terrace area based on building type ratios
+  - Deduplicates by OSM ID and lat/lng proximity
+  - Supported cities: Gurugram, Delhi, Noida, Faridabad, Ghaziabad, Mumbai, Navi Mumbai, Pune, Amravati
+
+### Building Report Page Enhancements ✅ (Feb 20, 2026)
+- **Interactive Map with Polygon**: Shows building footprint as editable polygon (not just a pin)
+- **CO₂ Speedometer Gauge**: Recharts-based visualization of CO₂ sequestration potential
+- **Terrace Garden Planner**: 
+  - Slider to adjust plantable area percentage
+  - Dynamic impact cards (CO₂, water usage, cost estimates)
+  - City-specific, terrace-appropriate plant recommendations (small trees/shrubs only)
+- **Temperature Reduction Model**: 
+  - Calculated based on plant coverage (not hardcoded)
+  - "How is this calculated?" modal with scientific methodology
+
+## Research Notes
+
+### Google Solar API - India Coverage (Feb 20, 2026)
+- **Finding**: Google Solar API does NOT currently have data for Indian cities
+- **Test Results**: All major Indian cities return 404 NOT_FOUND (Delhi, Mumbai, Bangalore, Gurugram, Hyderabad, Pune, Chennai, Noida)
+- **Confirmed Working**: US locations (e.g., San Francisco) return full building insights data
+- **Status**: Despite Google's announcement of Global South expansion (including India), Solar API data appears to be experimental/limited rollout only
+- **Recommendation**: Continue using OpenStreetMap + Google Places for building data. Monitor Solar API coverage expansion for future integration
+
+## Prioritized Backlog (Updated Feb 20, 2026)
+
+### P0 - Critical
+- [x] Admin Building Discovery Bug Fix ✅
+- [x] Google Places API integration ✅
+- [ ] Live Air Quality API integration (OpenAQ or similar)
+
+### P1 - High Priority
+- [ ] Editable map polygon for custom terrace area measurements
+- [ ] Provider onboarding wizard
+- [ ] Email notifications for leads
+
+### P2 - Medium Priority
+- [ ] Google Solar API integration (when India coverage available)
+- [ ] PDF/DWG file parsing for building footprints
+- [ ] Crowdsourcing model for user-submitted buildings
+- [ ] Provider Dashboard for lead management
+- [ ] Gamification features
+
+### Technical Debt
+- [ ] Refactor server.py monolith into /routes, /models, /services structure
+- [ ] Fix Babel plugin workaround in frontend/config-overrides.js
+
