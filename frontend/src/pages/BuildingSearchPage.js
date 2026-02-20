@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import usePlacesAutocomplete, { getGeocode, getLatLng } from 'use-places-autocomplete';
 import { 
   Search, MapPin, Building2, Filter, ChevronRight, 
   Leaf, Sun, Droplets, Wind, AlertTriangle, CheckCircle2,
@@ -16,6 +15,75 @@ import { Skeleton } from '../components/ui/skeleton';
 import { apiRequest, getAQILevel, getBuildingTypeLabel } from '../lib/utils';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
+
+// Custom hook for Google Places Autocomplete (New API)
+function usePlacesAutocompleteNew() {
+  const [ready, setReady] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef(null);
+
+  useEffect(() => {
+    // Check if Google Maps API is loaded
+    const checkGoogleMaps = () => {
+      if (window.google && window.google.maps) {
+        setReady(true);
+      } else {
+        setTimeout(checkGoogleMaps, 100);
+      }
+    };
+    checkGoogleMaps();
+  }, []);
+
+  const fetchSuggestions = useCallback(async (input) => {
+    if (!input || input.length < 3 || !ready) {
+      setSuggestions([]);
+      return;
+    }
+
+    // Debounce
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        // Use the new Places API
+        const { AutocompleteSuggestion } = await window.google.maps.importLibrary('places');
+        
+        const { suggestions: results } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
+          input: input,
+          includedRegionCodes: ['in'], // Restrict to India
+        });
+
+        // Transform suggestions to a usable format
+        const formattedSuggestions = results.map((suggestion) => {
+          const prediction = suggestion.placePrediction;
+          return {
+            place_id: prediction.placeId,
+            description: prediction.text?.text || '',
+            main_text: prediction.mainText?.text || '',
+            secondary_text: prediction.secondaryText?.text || '',
+          };
+        });
+
+        setSuggestions(formattedSuggestions);
+      } catch (error) {
+        console.error('Places API error:', error);
+        setSuggestions([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  }, [ready]);
+
+  const clearSuggestions = useCallback(() => {
+    setSuggestions([]);
+  }, []);
+
+  return { ready, suggestions, loading, fetchSuggestions, clearSuggestions };
+}
 
 export default function BuildingSearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
