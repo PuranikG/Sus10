@@ -56,7 +56,7 @@ await page.context.add_cookies([{
     "secure": true,
     "sameSite": "None"
 }]);
-await page.goto("https://sustainability-ai-1.preview.emergentagent.com/dashboard");
+await page.goto("https://sus10-preview.preview.emergentagent.com/dashboard");
 ```
 
 ## Quick Debug
