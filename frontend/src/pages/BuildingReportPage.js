@@ -41,32 +41,84 @@ import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import { toast } from 'sonner';
 
-// Plant database for recommendations
-const PLANT_DATABASE = {
-  trees: [
-    { name: 'Neem', botanical: 'Azadirachta indica', co2: 20, height: '15-20m', spacing: 25, waterNeed: 'Low', benefits: ['Air purification', 'Medicinal', 'Shade'] },
-    { name: 'Peepal', botanical: 'Ficus religiosa', co2: 25, height: '20-30m', spacing: 36, waterNeed: 'Low', benefits: ['High O2 production', 'Shade', 'Religious significance'] },
-    { name: 'Gulmohar', botanical: 'Delonix regia', co2: 15, height: '10-15m', spacing: 20, waterNeed: 'Moderate', benefits: ['Ornamental', 'Shade', 'Wildlife'] },
-    { name: 'Ashoka', botanical: 'Saraca asoca', co2: 12, height: '8-10m', spacing: 12, waterNeed: 'Moderate', benefits: ['Ornamental', 'Privacy', 'Low maintenance'] },
-  ],
-  shrubs: [
-    { name: 'Bougainvillea', co2: 3, spacing: 2, waterNeed: 'Low', benefits: ['Colorful flowers', 'Drought resistant', 'Privacy'] },
-    { name: 'Hibiscus', co2: 2, spacing: 1.5, waterNeed: 'Moderate', benefits: ['Flowers', 'Attracts pollinators', 'Medicinal'] },
-    { name: 'Croton', co2: 2, spacing: 1, waterNeed: 'Moderate', benefits: ['Colorful foliage', 'Low maintenance'] },
-    { name: 'Ixora', co2: 2, spacing: 1, waterNeed: 'Moderate', benefits: ['Flowering', 'Compact growth', 'Attracts butterflies'] },
-  ],
-  groundcover: [
-    { name: 'Duranta', co2: 1, spacing: 0.5, waterNeed: 'Low', benefits: ['Dense coverage', 'Purple flowers'] },
-    { name: 'Lantana', co2: 1, spacing: 0.5, waterNeed: 'Low', benefits: ['Colorful', 'Attracts butterflies', 'Hardy'] },
-    { name: 'Portulaca', co2: 0.5, spacing: 0.3, waterNeed: 'Very Low', benefits: ['Succulent', 'Colorful', 'Heat tolerant'] },
-  ],
-  vegetables: [
-    { name: 'Tomato', spacing: 0.5, harvestDays: 60, yield: '4-5 kg/plant', waterNeed: 'Moderate' },
-    { name: 'Chili', spacing: 0.4, harvestDays: 75, yield: '1-2 kg/plant', waterNeed: 'Moderate' },
-    { name: 'Brinjal', spacing: 0.6, harvestDays: 70, yield: '3-4 kg/plant', waterNeed: 'Moderate' },
-    { name: 'Spinach', spacing: 0.2, harvestDays: 40, yield: '0.5 kg/sqm', waterNeed: 'Moderate' },
-    { name: 'Methi (Fenugreek)', spacing: 0.15, harvestDays: 30, yield: '0.3 kg/sqm', waterNeed: 'Moderate' },
-  ],
+// Terrace-suitable plant database (max height 6-8 feet) with city-wise native species
+const TERRACE_PLANT_DATABASE = {
+  // Small trees/large shrubs suitable for terraces (max 6-8 feet in containers)
+  smallTrees: {
+    // Plants that grow well in specific cities
+    'Gurugram': [
+      { name: 'Dwarf Pomegranate', botanical: 'Punica granatum nana', co2: 8, height: '4-6 ft', spacing: 4, waterNeed: 'Low', benefits: ['Fruit bearing', 'Ornamental flowers', 'Heat tolerant'], native: true },
+      { name: 'Curry Leaf', botanical: 'Murraya koenigii', co2: 6, height: '4-6 ft', spacing: 3, waterNeed: 'Moderate', benefits: ['Culinary use', 'Medicinal', 'Aromatic'], native: true },
+      { name: 'Lemon', botanical: 'Citrus limon', co2: 7, height: '5-7 ft', spacing: 4, waterNeed: 'Moderate', benefits: ['Fruit bearing', 'Fragrant flowers', 'Vitamin C'], native: false },
+    ],
+    'Delhi': [
+      { name: 'Dwarf Pomegranate', botanical: 'Punica granatum nana', co2: 8, height: '4-6 ft', spacing: 4, waterNeed: 'Low', benefits: ['Fruit bearing', 'Ornamental flowers', 'Heat tolerant'], native: true },
+      { name: 'Jamun (Dwarf)', botanical: 'Syzygium cumini', co2: 9, height: '6-8 ft', spacing: 5, waterNeed: 'Moderate', benefits: ['Fruit bearing', 'Medicinal', 'Shade'], native: true },
+      { name: 'Indian Jasmine Tree', botanical: 'Millingtonia hortensis', co2: 7, height: '6-8 ft', spacing: 4, waterNeed: 'Low', benefits: ['Fragrant flowers', 'Air purification'], native: true },
+    ],
+    'Mumbai': [
+      { name: 'Dwarf Coconut', botanical: 'Cocos nucifera (dwarf)', co2: 10, height: '6-8 ft', spacing: 6, waterNeed: 'Moderate', benefits: ['Coconut production', 'Coastal tolerant'], native: true },
+      { name: 'Curry Leaf', botanical: 'Murraya koenigii', co2: 6, height: '4-6 ft', spacing: 3, waterNeed: 'Moderate', benefits: ['Culinary use', 'Medicinal'], native: true },
+      { name: 'Paan/Betel Leaf', botanical: 'Piper betle', co2: 4, height: '4-5 ft', spacing: 2, waterNeed: 'High', benefits: ['Traditional use', 'Medicinal'], native: true },
+    ],
+    'Pune': [
+      { name: 'Dwarf Mango', botanical: 'Mangifera indica (dwarf)', co2: 9, height: '6-8 ft', spacing: 5, waterNeed: 'Moderate', benefits: ['Fruit bearing', 'Alphonso variety available'], native: true },
+      { name: 'Lemon', botanical: 'Citrus limon', co2: 7, height: '5-7 ft', spacing: 4, waterNeed: 'Moderate', benefits: ['Fruit bearing', 'Year-round fruiting'], native: false },
+      { name: 'Curry Leaf', botanical: 'Murraya koenigii', co2: 6, height: '4-6 ft', spacing: 3, waterNeed: 'Moderate', benefits: ['Culinary use', 'Aromatic'], native: true },
+    ],
+    'default': [
+      { name: 'Dwarf Pomegranate', botanical: 'Punica granatum nana', co2: 8, height: '4-6 ft', spacing: 4, waterNeed: 'Low', benefits: ['Fruit bearing', 'Heat tolerant'], native: true },
+      { name: 'Curry Leaf', botanical: 'Murraya koenigii', co2: 6, height: '4-6 ft', spacing: 3, waterNeed: 'Moderate', benefits: ['Culinary use', 'Medicinal'], native: true },
+      { name: 'Lemon', botanical: 'Citrus limon', co2: 7, height: '5-7 ft', spacing: 4, waterNeed: 'Moderate', benefits: ['Fruit bearing'], native: false },
+    ],
+  },
+  
+  shrubs: {
+    'Gurugram': [
+      { name: 'Bougainvillea', botanical: 'Bougainvillea spectabilis', co2: 3, height: '3-5 ft', spacing: 2, waterNeed: 'Very Low', benefits: ['Colorful bracts', 'Drought resistant', 'Year-round color'], native: false },
+      { name: 'Desert Rose', botanical: 'Adenium obesum', co2: 2, height: '2-4 ft', spacing: 1.5, waterNeed: 'Very Low', benefits: ['Stunning flowers', 'Succulent', 'Heat tolerant'], native: false },
+      { name: 'Lantana', botanical: 'Lantana camara', co2: 2, height: '2-4 ft', spacing: 1.5, waterNeed: 'Low', benefits: ['Butterfly attractor', 'Hardy', 'Colorful'], native: true },
+    ],
+    'Mumbai': [
+      { name: 'Hibiscus', botanical: 'Hibiscus rosa-sinensis', co2: 3, height: '4-6 ft', spacing: 2, waterNeed: 'Moderate', benefits: ['Large flowers', 'Medicinal', 'Year-round blooms'], native: true },
+      { name: 'Ixora', botanical: 'Ixora coccinea', co2: 2, height: '3-5 ft', spacing: 1.5, waterNeed: 'Moderate', benefits: ['Cluster flowers', 'Low maintenance'], native: true },
+      { name: 'Croton', botanical: 'Codiaeum variegatum', co2: 2, height: '3-5 ft', spacing: 1.5, waterNeed: 'Moderate', benefits: ['Colorful foliage', 'Humidity tolerant'], native: false },
+    ],
+    'default': [
+      { name: 'Hibiscus', botanical: 'Hibiscus rosa-sinensis', co2: 3, height: '4-6 ft', spacing: 2, waterNeed: 'Moderate', benefits: ['Large flowers', 'Medicinal'], native: true },
+      { name: 'Bougainvillea', botanical: 'Bougainvillea spectabilis', co2: 3, height: '3-5 ft', spacing: 2, waterNeed: 'Very Low', benefits: ['Colorful', 'Drought resistant'], native: false },
+      { name: 'Ixora', botanical: 'Ixora coccinea', co2: 2, height: '3-5 ft', spacing: 1.5, waterNeed: 'Moderate', benefits: ['Flowering'], native: true },
+      { name: 'Croton', botanical: 'Codiaeum variegatum', co2: 2, height: '3-5 ft', spacing: 1.5, waterNeed: 'Moderate', benefits: ['Colorful foliage'], native: false },
+    ],
+  },
+  
+  groundcover: {
+    'all': [
+      { name: 'Portulaca', botanical: 'Portulaca grandiflora', co2: 0.5, height: '6 inches', spacing: 0.3, waterNeed: 'Very Low', benefits: ['Succulent', 'Colorful', 'Heat tolerant'], native: false },
+      { name: 'Ajwain', botanical: 'Trachyspermum ammi', co2: 0.5, height: '1-2 ft', spacing: 0.3, waterNeed: 'Low', benefits: ['Culinary herb', 'Medicinal', 'Aromatic'], native: true },
+      { name: 'Tulsi (Holy Basil)', botanical: 'Ocimum tenuiflorum', co2: 1, height: '1-2 ft', spacing: 0.4, waterNeed: 'Moderate', benefits: ['Sacred plant', 'Medicinal', 'Mosquito repellent'], native: true },
+      { name: 'Aloe Vera', botanical: 'Aloe barbadensis', co2: 0.8, height: '1-2 ft', spacing: 0.5, waterNeed: 'Very Low', benefits: ['Medicinal', 'Skin care', 'Air purifier'], native: false },
+    ],
+  },
+  
+  vegetables: {
+    'summer': [
+      { name: 'Tomato', spacing: 0.5, harvestDays: 60, yield: '4-5 kg/plant', waterNeed: 'Moderate', season: 'Summer' },
+      { name: 'Chili', spacing: 0.4, harvestDays: 75, yield: '1-2 kg/plant', waterNeed: 'Moderate', season: 'Year-round' },
+      { name: 'Brinjal (Eggplant)', spacing: 0.6, harvestDays: 70, yield: '3-4 kg/plant', waterNeed: 'Moderate', season: 'Summer' },
+      { name: 'Okra (Bhindi)', spacing: 0.4, harvestDays: 50, yield: '2-3 kg/plant', waterNeed: 'Moderate', season: 'Summer' },
+    ],
+    'winter': [
+      { name: 'Spinach (Palak)', spacing: 0.2, harvestDays: 40, yield: '0.5 kg/sqm', waterNeed: 'Moderate', season: 'Winter' },
+      { name: 'Methi (Fenugreek)', spacing: 0.15, harvestDays: 30, yield: '0.3 kg/sqm', waterNeed: 'Moderate', season: 'Winter' },
+      { name: 'Coriander', spacing: 0.15, harvestDays: 35, yield: '0.3 kg/sqm', waterNeed: 'Moderate', season: 'Winter' },
+      { name: 'Radish', spacing: 0.2, harvestDays: 30, yield: '1 kg/sqm', waterNeed: 'Moderate', season: 'Winter' },
+    ],
+    'yearRound': [
+      { name: 'Mint', spacing: 0.3, harvestDays: 30, yield: 'Continuous', waterNeed: 'High', season: 'Year-round' },
+      { name: 'Curry Leaves', spacing: 0.5, harvestDays: 60, yield: 'Continuous', waterNeed: 'Moderate', season: 'Year-round' },
+    ],
+  },
 };
 
 export default function BuildingReportPage() {
