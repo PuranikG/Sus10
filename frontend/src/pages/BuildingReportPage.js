@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -6,7 +6,7 @@ import {
   ArrowLeft, Download, Share2, AlertTriangle, CheckCircle2,
   TrendingUp, TrendingDown, Minus, Info, ChevronRight,
   Calculator, FileText, Users, Clock, Mail, Copy, Check,
-  MessageCircle, Loader2
+  MessageCircle, Loader2, TreePine, Flower2, Sprout, Map
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -14,6 +14,8 @@ import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Skeleton } from '../components/ui/skeleton';
+import { Slider } from '../components/ui/slider';
+import { Label } from '../components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -31,13 +33,41 @@ import {
 } from '../components/ui/dropdown-menu';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, Legend
+  Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, Legend, PieChart, Pie, Cell
 } from 'recharts';
 import { apiRequest, formatCurrency, getAQILevel, getBuildingTypeLabel } from '../lib/utils';
 import { generateBuildingReportPDF } from '../lib/pdfGenerator';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import { toast } from 'sonner';
+
+// Plant database for recommendations
+const PLANT_DATABASE = {
+  trees: [
+    { name: 'Neem', botanical: 'Azadirachta indica', co2: 20, height: '15-20m', spacing: 25, waterNeed: 'Low', benefits: ['Air purification', 'Medicinal', 'Shade'] },
+    { name: 'Peepal', botanical: 'Ficus religiosa', co2: 25, height: '20-30m', spacing: 36, waterNeed: 'Low', benefits: ['High O2 production', 'Shade', 'Religious significance'] },
+    { name: 'Gulmohar', botanical: 'Delonix regia', co2: 15, height: '10-15m', spacing: 20, waterNeed: 'Moderate', benefits: ['Ornamental', 'Shade', 'Wildlife'] },
+    { name: 'Ashoka', botanical: 'Saraca asoca', co2: 12, height: '8-10m', spacing: 12, waterNeed: 'Moderate', benefits: ['Ornamental', 'Privacy', 'Low maintenance'] },
+  ],
+  shrubs: [
+    { name: 'Bougainvillea', co2: 3, spacing: 2, waterNeed: 'Low', benefits: ['Colorful flowers', 'Drought resistant', 'Privacy'] },
+    { name: 'Hibiscus', co2: 2, spacing: 1.5, waterNeed: 'Moderate', benefits: ['Flowers', 'Attracts pollinators', 'Medicinal'] },
+    { name: 'Croton', co2: 2, spacing: 1, waterNeed: 'Moderate', benefits: ['Colorful foliage', 'Low maintenance'] },
+    { name: 'Ixora', co2: 2, spacing: 1, waterNeed: 'Moderate', benefits: ['Flowering', 'Compact growth', 'Attracts butterflies'] },
+  ],
+  groundcover: [
+    { name: 'Duranta', co2: 1, spacing: 0.5, waterNeed: 'Low', benefits: ['Dense coverage', 'Purple flowers'] },
+    { name: 'Lantana', co2: 1, spacing: 0.5, waterNeed: 'Low', benefits: ['Colorful', 'Attracts butterflies', 'Hardy'] },
+    { name: 'Portulaca', co2: 0.5, spacing: 0.3, waterNeed: 'Very Low', benefits: ['Succulent', 'Colorful', 'Heat tolerant'] },
+  ],
+  vegetables: [
+    { name: 'Tomato', spacing: 0.5, harvestDays: 60, yield: '4-5 kg/plant', waterNeed: 'Moderate' },
+    { name: 'Chili', spacing: 0.4, harvestDays: 75, yield: '1-2 kg/plant', waterNeed: 'Moderate' },
+    { name: 'Brinjal', spacing: 0.6, harvestDays: 70, yield: '3-4 kg/plant', waterNeed: 'Moderate' },
+    { name: 'Spinach', spacing: 0.2, harvestDays: 40, yield: '0.5 kg/sqm', waterNeed: 'Moderate' },
+    { name: 'Methi (Fenugreek)', spacing: 0.15, harvestDays: 30, yield: '0.3 kg/sqm', waterNeed: 'Moderate' },
+  ],
+};
 
 export default function BuildingReportPage() {
   const { buildingId } = useParams();
