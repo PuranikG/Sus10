@@ -1093,7 +1093,8 @@ async def provider_signup(request: Request, provider: ProviderCreate):
         {"$set": {"user_type": "provider", "updated_at": now}}
     )
     
-    if "_id" in provider_doc: del provider_doc["_id"]
+    if "_id" in provider_doc:
+        del provider_doc["_id"]
     return provider_doc
 
 @api_router.get("/admin/providers/pending")
