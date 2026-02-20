@@ -48,6 +48,8 @@ export default function AdminBuildingDiscoveryPage() {
   const [minArea, setMinArea] = useState(1000);
   const [discoveredBuildings, setDiscoveredBuildings] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [selectedBuildings, setSelectedBuildings] = useState(new Set());
+  const [importing, setImporting] = useState(false);
 
   // Discover buildings using backend API (OSM + Google Places enrichment)
   const discoverBuildings = useCallback(async () => {
