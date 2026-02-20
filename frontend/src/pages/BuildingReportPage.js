@@ -366,8 +366,27 @@ export default function BuildingReportPage() {
               </div>
             </div>
 
+            {/* Map & Suitability Score */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Building Map */}
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2">
+                  <Map className="h-5 w-5" />
+                  Building Location
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div 
+                  ref={mapRef} 
+                  className="w-full h-64 rounded-lg bg-muted"
+                  data-testid="building-map"
+                />
+              </CardContent>
+            </Card>
+
             {/* Suitability Score */}
-            <Card className="lg:row-span-1">
+            <Card>
               <CardContent className="p-6 text-center">
                 <h3 className="text-sm font-medium text-muted-foreground mb-4">Overall Green Potential</h3>
                 <div className="relative w-40 h-40 mx-auto">
