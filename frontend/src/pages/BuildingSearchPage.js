@@ -365,6 +365,13 @@ export default function BuildingSearchPage() {
                 Clear Filters
               </Button>
             </Card>
+          ) : viewMode === 'map' ? (
+            <div className="h-[600px]">
+              <BuildingMap 
+                buildings={buildings}
+                center={cityFilter ? undefined : { lat: 28.4595, lng: 77.0266 }}
+              />
+            </div>
           ) : (
             <div className={viewMode === 'grid'
               ? "grid md:grid-cols-2 lg:grid-cols-3 gap-6"
