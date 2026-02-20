@@ -80,11 +80,55 @@ export default function BuildingSearchPage() {
 
   const handleSearch = (e) => {
     e.preventDefault();
+    setShowSuggestions(false);
     const params = new URLSearchParams();
     if (searchQuery) params.set('q', searchQuery);
     if (cityFilter) params.set('city', cityFilter);
     if (typeFilter) params.set('type', typeFilter);
     setSearchParams(params);
+  };
+
+  // Handle Places Autocomplete input change
+  const handlePlacesInput = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    setPlacesValue(value);
+    setShowSuggestions(true);
+  };
+
+  // Handle suggestion selection
+  const handleSelectSuggestion = async (suggestion) => {
+    const address = suggestion.description;
+    setSearchQuery(address);
+    setPlacesValue(address, false);
+    clearSuggestions();
+    setShowSuggestions(false);
+    
+    // Extract city from the selected address if possible
+    try {
+      const results = await getGeocode({ address });
+      if (results && results[0]) {
+        const addressComponents = results[0].address_components;
+        const cityComponent = addressComponents.find(
+          (component) => 
+            component.types.includes('locality') || 
+            component.types.includes('administrative_area_level_2')
+        );
+        if (cityComponent) {
+          const detectedCity = cityComponent.long_name;
+          // Check if detected city matches our filter options
+          const matchedCity = cities.find(
+            c => detectedCity.toLowerCase().includes(c.toLowerCase()) ||
+                 c.toLowerCase().includes(detectedCity.toLowerCase())
+          );
+          if (matchedCity) {
+            setCityFilter(matchedCity);
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Geocode error:', error);
+    }
   };
 
   const cities = ['Delhi', 'Mumbai', 'Pune', 'Gurugram', 'Noida'];
