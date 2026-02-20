@@ -257,14 +257,14 @@ export default function AdminBuildingDiscoveryPage() {
 
               {/* Building Type */}
               <div className="space-y-2">
-                <Label>Building Type *</Label>
+                <Label>Building Type (Optional)</Label>
                 <Select value={selectedType} onValueChange={setSelectedType}>
                   <SelectTrigger data-testid="type-select">
-                    <SelectValue placeholder="Select building type" />
+                    <SelectValue placeholder="All building types" />
                   </SelectTrigger>
                   <SelectContent>
                     {BUILDING_TYPES.map(type => (
-                      <SelectItem key={type.value} value={type.value}>
+                      <SelectItem key={type.value || 'all'} value={type.value}>
                         {type.label}
                       </SelectItem>
                     ))}
@@ -272,12 +272,7 @@ export default function AdminBuildingDiscoveryPage() {
                 </Select>
               </div>
 
-              {/* Pincode Filter */}
-              <div className="space-y-2">
-                <Label>Pincode (Optional)</Label>
-                <Input
-                  type="text"
-                  placeholder="e.g., 400001"
+              {/* Minimum Area Filter */}
                   value={pincode}
                   onChange={(e) => setPincode(e.target.value)}
                   maxLength={6}
