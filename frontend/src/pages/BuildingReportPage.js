@@ -1270,6 +1270,91 @@ export default function BuildingReportPage() {
   );
 }
 
+function LiveAQICard({ liveAQI, aqiLoading, fallbackAQI }) {
+  const displayAQI = liveAQI?.aqi_value || fallbackAQI;
+  const aqiLevel = liveAQI?.aqi_level || (displayAQI ? getAQILevel(displayAQI).level : 'Unknown');
+  const aqiColor = liveAQI?.aqi_color || (displayAQI ? getAQILevel(displayAQI).color : 'text-muted-foreground');
+  const isLive = liveAQI?.data_source === 'Open-Meteo';
+  
+  // Convert hex color to tailwind class
+  const getColorClass = (color) => {
+    if (color?.startsWith('#')) {
+      // Map hex colors to closest tailwind
+      if (color === '#00e400') return 'text-green-500';
+      if (color === '#ffff00') return 'text-yellow-500';
+      if (color === '#ff7e00') return 'text-orange-500';
+      if (color === '#ff0000') return 'text-red-500';
+      if (color === '#8f3f97') return 'text-purple-500';
+      if (color === '#7e0023') return 'text-red-900';
+    }
+    return color || 'text-muted-foreground';
+  };
+  
+  const getBgClass = (color) => {
+    if (color === '#00e400') return 'bg-green-500/10 border-green-500/30';
+    if (color === '#ffff00') return 'bg-yellow-500/10 border-yellow-500/30';
+    if (color === '#ff7e00') return 'bg-orange-500/10 border-orange-500/30';
+    if (color === '#ff0000') return 'bg-red-500/10 border-red-500/30';
+    if (color === '#8f3f97') return 'bg-purple-500/10 border-purple-500/30';
+    if (color === '#7e0023') return 'bg-red-900/10 border-red-900/30';
+    return 'bg-muted/30 border-muted';
+  };
+
+  return (
+    <Card className={`border ${getBgClass(liveAQI?.aqi_color)}`}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between">
+          <Wind className="h-5 w-5 text-muted-foreground" />
+          {isLive && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-green-500/10 text-green-600 border-green-500/30">
+              <span className="relative flex h-2 w-2 mr-1">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              </span>
+              LIVE
+            </Badge>
+          )}
+          {aqiLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
+        </div>
+        
+        <div className={`text-2xl font-heading font-bold mt-2 ${getColorClass(liveAQI?.aqi_color)}`}>
+          {displayAQI || 'N/A'}
+        </div>
+        <div className="text-xs text-muted-foreground">Current AQI</div>
+        
+        {aqiLevel && (
+          <div className={`text-xs font-medium mt-1 ${getColorClass(liveAQI?.aqi_color)}`}>
+            {aqiLevel}
+          </div>
+        )}
+        
+        {liveAQI?.pm25_value && (
+          <div className="mt-2 pt-2 border-t border-border/50">
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">PM2.5</span>
+              <span className="font-medium">{liveAQI.pm25_value} µg/m³</span>
+            </div>
+            {liveAQI?.pm10_value && (
+              <div className="flex justify-between text-xs mt-1">
+                <span className="text-muted-foreground">PM10</span>
+                <span className="font-medium">{liveAQI.pm10_value} µg/m³</span>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {liveAQI?.health_implications && (
+          <div className="mt-2 text-[10px] text-muted-foreground leading-tight">
+            {liveAQI.health_implications}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function MetricCard({ icon: Icon, label, value, valueColor, trend }) {
   return (
     <Card>
