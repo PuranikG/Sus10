@@ -128,6 +128,12 @@ class BuildingCreate(BaseModel):
     building_type: BuildingType
     building_footprint_area: Optional[float] = None
     usable_terrace_area: Optional[float] = None
+    total_footprint_area: Optional[float] = None  # Alias for building_footprint_area
+    lat: Optional[float] = None  # Alias for latitude
+    lng: Optional[float] = None  # Alias for longitude
+    google_place_id: Optional[str] = None
+    data_quality_score: Optional[float] = None
+    current_aqi: Optional[float] = None
 
 class SolutionType(BaseModel):
     model_config = ConfigDict(extra="ignore")
