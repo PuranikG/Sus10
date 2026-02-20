@@ -815,9 +815,10 @@ export default function BuildingReportPage() {
               {/* Plant Recommendations */}
               {(() => {
                 const plantPlan = calculatePlantRecommendations(
-                  building.usable_terrace_area || 0,
+                  customTerraceArea || building.usable_terrace_area || 0,
                   plantablePercent,
-                  gardenType
+                  gardenType,
+                  building.city
                 );
                 
                 return (
