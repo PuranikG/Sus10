@@ -179,16 +179,68 @@ export default function BuildingSearchPage() {
 
           {/* Search & Filters */}
           <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <div className="relative flex-1" ref={searchContainerRef}>
+              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground z-10" />
               <Input
                 type="text"
                 placeholder="Search by address or building name..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={handlePlacesInput}
+                onFocus={() => setShowSuggestions(true)}
                 className="pl-12 h-12 bg-background"
                 data-testid="search-input"
+                disabled={!placesReady}
               />
+              {!placesReady && (
+                <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
+              )}
+              
+              {/* Autocomplete Suggestions Dropdown */}
+              <AnimatePresence>
+                {showSuggestions && status === 'OK' && suggestions.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden"
+                    data-testid="places-suggestions"
+                  >
+                    {suggestions.map((suggestion) => {
+                      const {
+                        place_id,
+                        structured_formatting: { main_text, secondary_text },
+                      } = suggestion;
+                      return (
+                        <button
+                          key={place_id}
+                          type="button"
+                          onClick={() => handleSelectSuggestion(suggestion)}
+                          className="w-full px-4 py-3 flex items-start gap-3 hover:bg-accent/50 transition-colors text-left border-b border-border/50 last:border-b-0"
+                          data-testid={`suggestion-${place_id}`}
+                        >
+                          <MapPin className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground truncate">
+                              {main_text}
+                            </p>
+                            <p className="text-sm text-muted-foreground truncate">
+                              {secondary_text}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                    <div className="px-4 py-2 bg-muted/50 text-xs text-muted-foreground flex items-center gap-2">
+                      <img 
+                        src="https://maps.gstatic.com/mapfiles/api-3/images/powered-by-google-on-white3_hdpi.png" 
+                        alt="Powered by Google"
+                        className="h-4 dark:invert"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
             <Select value={cityFilter || "all"} onValueChange={(val) => setCityFilter(val === "all" ? "" : val)}>
               <SelectTrigger className="w-full md:w-[180px] h-12" data-testid="city-filter">
