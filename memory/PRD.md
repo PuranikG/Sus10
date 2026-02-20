@@ -261,3 +261,11 @@ Every pledge counts! Join us on Sus10 AI: [URL]
   - Overview metrics section (replaces static AQI card)
   - Environmental Impact section in Terrace Garden tab
 
+### Solutions Tab Cost Display Hidden ✅ (Feb 20, 2026)
+- **Removed**: Hardcoded cost estimates from Solutions tab
+- **Reason**: Cost varies by solution type, materials, vendor - should be provider-quoted
+- **Changes**:
+  - SolutionCard: Removed cost_estimate display
+  - Impact Cards: Replaced "Est. Setup Cost" with "Get Quote - From providers"
+- **Future**: Will revive with solution-specific depth when provider quoting is implemented
+
