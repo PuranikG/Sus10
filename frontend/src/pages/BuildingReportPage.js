@@ -98,6 +98,126 @@ export default function BuildingReportPage() {
     fetchReport();
   }, [buildingId]);
 
+  // Initialize map when building data is loaded
+  useEffect(() => {
+    if (!reportData?.building?.latitude || !mapRef.current) return;
+    
+    const initMap = async () => {
+      if (!window.google) return;
+      
+      try {
+        const { Map } = await window.google.maps.importLibrary('maps');
+        const { AdvancedMarkerElement } = await window.google.maps.importLibrary('marker');
+        
+        const position = {
+          lat: reportData.building.latitude,
+          lng: reportData.building.longitude
+        };
+        
+        mapInstanceRef.current = new Map(mapRef.current, {
+          center: position,
+          zoom: 17,
+          mapId: 'building_map',
+          mapTypeId: 'satellite',
+        });
+        
+        // Add marker
+        new AdvancedMarkerElement({
+          map: mapInstanceRef.current,
+          position: position,
+          title: reportData.building.address,
+        });
+      } catch (error) {
+        console.error('Map init error:', error);
+      }
+    };
+    
+    initMap();
+  }, [reportData]);
+
+  // Calculate plant recommendations based on plantable area
+  const calculatePlantRecommendations = (terraceArea, plantablePercent, gardenType) => {
+    const plantableArea = (terraceArea * plantablePercent) / 100;
+    
+    // Reserve areas for different purposes
+    const walkwayArea = plantableArea * 0.15; // 15% for walkways
+    const actualPlantableArea = plantableArea - walkwayArea;
+    
+    let recommendations = [];
+    let totalCO2 = 0;
+    
+    if (gardenType === 'mixed' || gardenType === 'ornamental') {
+      // Trees (10% of area for large planters)
+      const treeArea = actualPlantableArea * 0.15;
+      const treesCount = Math.floor(treeArea / 25); // 25 sqm per tree
+      if (treesCount > 0) {
+        const tree = PLANT_DATABASE.trees[0]; // Neem as default
+        recommendations.push({
+          category: 'Trees',
+          icon: TreePine,
+          plants: [{ ...tree, count: treesCount }],
+          area: treeArea,
+          co2: treesCount * tree.co2,
+        });
+        totalCO2 += treesCount * tree.co2;
+      }
+      
+      // Shrubs (30% of area)
+      const shrubArea = actualPlantableArea * 0.30;
+      const shrubsCount = Math.floor(shrubArea / 2); // 2 sqm per shrub
+      if (shrubsCount > 0) {
+        recommendations.push({
+          category: 'Shrubs & Flowering Plants',
+          icon: Flower2,
+          plants: PLANT_DATABASE.shrubs.map(s => ({ ...s, count: Math.floor(shrubsCount / PLANT_DATABASE.shrubs.length) })),
+          area: shrubArea,
+          co2: shrubsCount * 2.5,
+        });
+        totalCO2 += shrubsCount * 2.5;
+      }
+      
+      // Ground cover (25% of area)
+      const groundArea = actualPlantableArea * 0.25;
+      recommendations.push({
+        category: 'Ground Cover',
+        icon: Sprout,
+        plants: PLANT_DATABASE.groundcover.map(g => ({ ...g, count: Math.floor(groundArea / g.spacing / PLANT_DATABASE.groundcover.length) })),
+        area: groundArea,
+        co2: groundArea * 2, // 2 kg CO2 per sqm ground cover
+      });
+      totalCO2 += groundArea * 2;
+    }
+    
+    if (gardenType === 'mixed' || gardenType === 'vegetable') {
+      // Vegetables (20-50% depending on garden type)
+      const vegPercent = gardenType === 'vegetable' ? 0.70 : 0.20;
+      const vegArea = actualPlantableArea * vegPercent;
+      
+      recommendations.push({
+        category: 'Vegetable Garden',
+        icon: Leaf,
+        plants: PLANT_DATABASE.vegetables.map(v => ({ 
+          ...v, 
+          count: Math.floor((vegArea / PLANT_DATABASE.vegetables.length) / (v.spacing * v.spacing)),
+        })),
+        area: vegArea,
+        co2: vegArea * 1.5,
+        monthlyYield: Math.floor(vegArea * 0.8), // ~0.8 kg per sqm per month
+      });
+      totalCO2 += vegArea * 1.5;
+    }
+    
+    return {
+      plantableArea,
+      actualPlantableArea,
+      walkwayArea,
+      recommendations,
+      totalCO2,
+      waterRequirement: Math.floor(actualPlantableArea * 3), // 3 liters per sqm per day
+      estimatedCost: Math.floor(actualPlantableArea * 150), // ₹150 per sqm
+    };
+  };
+
   const handleDownloadPDF = async () => {
     if (!reportData) return;
     
