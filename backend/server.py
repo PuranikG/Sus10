@@ -483,6 +483,19 @@ async def toggle_feature_flag(name: str, request: Request):
     
     return {"name": name, "is_enabled": is_enabled}
 
+@api_router.post("/admin/make-admin/{email}")
+async def make_user_admin(email: str):
+    """Make a user admin by email (for initial setup only)"""
+    result = await db.users.update_one(
+        {"email": email},
+        {"$set": {"user_type": "admin", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"message": f"User {email} is now an admin"}
+
 # ==================== BUILDINGS ENDPOINTS ====================
 @api_router.get("/buildings/search")
 async def search_buildings(
