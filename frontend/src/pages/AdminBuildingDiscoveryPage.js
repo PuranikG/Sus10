@@ -31,15 +31,16 @@ const CITIES = [
 ];
 
 const BUILDING_TYPES = [
-  { value: 'it_park', label: 'IT Park / Tech Park', query: 'IT park technology park' },
-  { value: 'commercial', label: 'Commercial Complex', query: 'commercial complex office building' },
-  { value: 'mall', label: 'Shopping Mall', query: 'shopping mall' },
-  { value: 'hospital', label: 'Hospital', query: 'hospital medical center' },
-  { value: 'college', label: 'College / University', query: 'college university campus' },
-  { value: 'government', label: 'Government Building', query: 'government office municipal corporation' },
-  { value: 'industrial', label: 'Industrial / Factory', query: 'factory industrial building' },
-  { value: 'hotel', label: 'Hotel / Resort', query: 'hotel resort' },
-  { value: 'residential', label: 'Residential Complex', query: 'apartment complex residential tower' },
+  { value: '', label: 'All Types' },
+  { value: 'it_park', label: 'IT Park / Tech Park' },
+  { value: 'commercial', label: 'Commercial Complex' },
+  { value: 'mall', label: 'Shopping Mall' },
+  { value: 'hospital', label: 'Hospital' },
+  { value: 'college', label: 'College / University' },
+  { value: 'government', label: 'Government Building' },
+  { value: 'industrial', label: 'Industrial / Factory' },
+  { value: 'hotel', label: 'Hotel / Resort' },
+  { value: 'residential', label: 'Residential Complex' },
 ];
 
 export default function AdminBuildingDiscoveryPage() {
