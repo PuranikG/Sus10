@@ -687,6 +687,181 @@ async def admin_update_building(building_id: str, request: Request):
     building = await db.buildings.find_one({"building_id": building_id}, {"_id": 0})
     return building
 
+@api_router.delete("/admin/buildings/{building_id}")
+async def admin_delete_building(building_id: str, request: Request):
+    """Admin: Delete/reject a building"""
+    await require_admin(request)
+    
+    result = await db.buildings.delete_one({"building_id": building_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Building not found")
+    
+    return {"message": "Building deleted", "building_id": building_id}
+
+@api_router.post("/admin/buildings/import")
+async def admin_import_buildings(request: Request):
+    """
+    Admin: Import buildings from BigQuery export or coordinates
+    
+    Expected body:
+    {
+        "buildings": [
+            {"latitude": 28.4595, "longitude": 77.0726, "area_in_meters": 15000, "confidence": 0.92},
+            ...
+        ]
+    }
+    """
+    user = await require_admin(request)
+    body = await request.json()
+    buildings_data = body.get("buildings", [])
+    
+    if not buildings_data:
+        raise HTTPException(status_code=400, detail="No buildings provided")
+    
+    # Import the pipeline
+    from building_pipeline import process_building
+    
+    # Get Google API key
+    google_api_key = os.environ.get("GOOGLE_PLACES_API_KEY", "")
+    if not google_api_key:
+        raise HTTPException(status_code=500, detail="Google API key not configured")
+    
+    results = {
+        "total": len(buildings_data),
+        "imported": 0,
+        "skipped": 0,
+        "failed": 0,
+        "buildings": []
+    }
+    
+    for building_data in buildings_data:
+        try:
+            building_doc = await process_building(building_data, google_api_key, db)
+            building_doc["curated_by_admin_id"] = user.user_id
+            
+            # Check for duplicates
+            existing = await db.buildings.find_one({
+                "latitude": building_doc["latitude"],
+                "longitude": building_doc["longitude"]
+            })
+            
+            if existing:
+                results["skipped"] += 1
+                continue
+            
+            await db.buildings.insert_one(building_doc)
+            del building_doc["_id"]
+            
+            results["imported"] += 1
+            results["buildings"].append({
+                "building_id": building_doc["building_id"],
+                "name": building_doc["address"],
+                "type": building_doc["building_type"],
+                "city": building_doc["city"],
+            })
+            
+        except Exception as e:
+            logger.error(f"Import error: {e}")
+            results["failed"] += 1
+    
+    return results
+
+@api_router.get("/buildings/map")
+async def get_buildings_for_map(
+    city: Optional[str] = None,
+    building_type: Optional[str] = None,
+    approved_only: bool = True
+):
+    """Get buildings with coordinates for map display"""
+    query = {}
+    
+    if city:
+        query["city"] = {"$regex": city, "$options": "i"}
+    if building_type:
+        query["building_type"] = building_type
+    if approved_only:
+        query["is_approved"] = True
+    
+    # Only get fields needed for map
+    projection = {
+        "_id": 0,
+        "building_id": 1,
+        "address": 1,
+        "city": 1,
+        "latitude": 1,
+        "longitude": 1,
+        "building_type": 1,
+        "building_footprint_area": 1,
+        "usable_terrace_area": 1,
+        "current_aqi": 1,
+        "is_approved": 1,
+    }
+    
+    buildings = await db.buildings.find(query, projection).to_list(500)
+    return buildings
+
+@api_router.post("/admin/buildings/import-pilot")
+async def admin_import_pilot_buildings(request: Request):
+    """
+    Admin: Import pilot buildings for Gurugram
+    Uses predefined coordinates for 5 large buildings
+    """
+    user = await require_admin(request)
+    
+    # Pilot buildings data (coordinates of large buildings in Gurugram)
+    pilot_buildings = [
+        {"latitude": 28.4944, "longitude": 77.0892, "area_in_meters": 18000, "confidence": 0.95},  # DLF Cyber City Tower
+        {"latitude": 28.4673, "longitude": 77.0631, "area_in_meters": 12000, "confidence": 0.92},  # Cyber Hub area
+        {"latitude": 28.4502, "longitude": 77.0716, "area_in_meters": 8500, "confidence": 0.91},   # Sector 24
+        {"latitude": 28.4432, "longitude": 77.0523, "area_in_meters": 22000, "confidence": 0.94},  # Medanta Hospital
+        {"latitude": 28.4815, "longitude": 77.0293, "area_in_meters": 15000, "confidence": 0.90},  # Ambience Mall
+    ]
+    
+    from building_pipeline import process_building
+    
+    google_api_key = os.environ.get("GOOGLE_PLACES_API_KEY", "")
+    if not google_api_key:
+        raise HTTPException(status_code=500, detail="Google API key not configured")
+    
+    results = {
+        "total": len(pilot_buildings),
+        "imported": 0,
+        "buildings": []
+    }
+    
+    for building_data in pilot_buildings:
+        try:
+            building_doc = await process_building(building_data, google_api_key, db)
+            building_doc["curated_by_admin_id"] = user.user_id
+            
+            # Check for duplicates
+            existing = await db.buildings.find_one({
+                "latitude": building_doc["latitude"],
+                "longitude": building_doc["longitude"]
+            })
+            
+            if existing:
+                continue
+            
+            await db.buildings.insert_one(building_doc)
+            del building_doc["_id"]
+            
+            results["imported"] += 1
+            results["buildings"].append({
+                "building_id": building_doc["building_id"],
+                "name": building_doc["address"],
+                "type": building_doc["building_type"],
+                "city": building_doc["city"],
+                "footprint": building_doc["building_footprint_area"],
+                "terrace": building_doc["usable_terrace_area"],
+            })
+            
+        except Exception as e:
+            logger.error(f"Pilot import error: {e}")
+    
+    return results
+
 # ==================== SOLUTION TYPES ====================
 @api_router.get("/solution-types")
 async def list_solution_types(category: Optional[str] = None):
