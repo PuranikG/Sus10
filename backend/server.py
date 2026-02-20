@@ -862,6 +862,47 @@ async def admin_import_pilot_buildings(request: Request):
     
     return results
 
+@api_router.post("/admin/buildings/discover")
+async def admin_discover_buildings(request: Request):
+    """
+    Admin: Discover and import buildings from OpenStreetMap
+    Auto-enriches with Google Places API
+    
+    Body:
+    {
+        "city": "Gurugram",
+        "building_type": "hospital",  // optional
+        "min_area": 2000,  // optional, default 1000 sqm
+        "limit": 20  // optional, default 20
+    }
+    """
+    user = await require_admin(request)
+    body = await request.json()
+    
+    city = body.get("city")
+    if not city:
+        raise HTTPException(status_code=400, detail="City is required")
+    
+    building_type = body.get("building_type")
+    min_area = body.get("min_area", 1000)
+    limit = min(body.get("limit", 20), 50)  # Max 50 per request
+    
+    google_api_key = os.environ.get("GOOGLE_PLACES_API_KEY", "")
+    
+    from building_discovery import discover_and_import_buildings
+    
+    results = await discover_and_import_buildings(
+        city=city,
+        building_type=building_type,
+        min_area=min_area,
+        limit=limit,
+        google_api_key=google_api_key,
+        db=db,
+        admin_user_id=user.user_id
+    )
+    
+    return results
+
 # ==================== SOLUTION TYPES ====================
 @api_router.get("/solution-types")
 async def list_solution_types(category: Optional[str] = None):
