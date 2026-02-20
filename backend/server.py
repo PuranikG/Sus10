@@ -889,19 +889,29 @@ async def admin_discover_buildings(request: Request):
     
     google_api_key = os.environ.get("GOOGLE_PLACES_API_KEY", "")
     
-    from building_discovery import discover_and_import_buildings
+    logger.info(f"Admin {user.email} starting building discovery for {city}")
     
-    results = await discover_and_import_buildings(
-        city=city,
-        building_type=building_type,
-        min_area=min_area,
-        limit=limit,
-        google_api_key=google_api_key,
-        db=db,
-        admin_user_id=user.user_id
-    )
-    
-    return results
+    try:
+        from building_discovery import discover_and_import_buildings
+        
+        results = await discover_and_import_buildings(
+            city=city,
+            building_type=building_type,
+            min_area=min_area,
+            limit=limit,
+            google_api_key=google_api_key,
+            db=db,
+            admin_user_id=user.user_id
+        )
+        
+        logger.info(f"Discovery complete: discovered={results.get('discovered', 0)}, imported={results.get('imported', 0)}")
+        return results
+    except ValueError as e:
+        logger.error(f"Discovery validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Discovery error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Discovery failed: {str(e)}")
 
 # ==================== SOLUTION TYPES ====================
 @api_router.get("/solution-types")
