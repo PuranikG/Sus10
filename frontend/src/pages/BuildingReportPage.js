@@ -234,74 +234,116 @@ export default function BuildingReportPage() {
     initMap();
   }, [reportData]);
 
-  // Calculate plant recommendations based on plantable area
-  const calculatePlantRecommendations = (terraceArea, plantablePercent, gardenType) => {
+  // Calculate plant recommendations based on plantable area and city
+  const calculatePlantRecommendations = (terraceArea, plantablePercent, gardenType, city = 'default') => {
     const plantableArea = (terraceArea * plantablePercent) / 100;
     
     // Reserve areas for different purposes
     const walkwayArea = plantableArea * 0.15; // 15% for walkways
     const actualPlantableArea = plantableArea - walkwayArea;
     
+    // Get city-specific plants or default
+    const cityKey = Object.keys(TERRACE_PLANT_DATABASE.smallTrees).includes(city) ? city : 'default';
+    const smallTrees = TERRACE_PLANT_DATABASE.smallTrees[cityKey] || TERRACE_PLANT_DATABASE.smallTrees.default;
+    const shrubs = TERRACE_PLANT_DATABASE.shrubs[cityKey] || TERRACE_PLANT_DATABASE.shrubs.default;
+    const groundcover = TERRACE_PLANT_DATABASE.groundcover.all;
+    
     let recommendations = [];
     let totalCO2 = 0;
     
     if (gardenType === 'mixed' || gardenType === 'ornamental') {
-      // Trees (10% of area for large planters)
+      // Small trees (15% of area for large planters)
       const treeArea = actualPlantableArea * 0.15;
-      const treesCount = Math.floor(treeArea / 25); // 25 sqm per tree
+      const avgSpacing = smallTrees.reduce((sum, t) => sum + t.spacing, 0) / smallTrees.length;
+      const treesCount = Math.floor(treeArea / (avgSpacing * avgSpacing));
+      
       if (treesCount > 0) {
-        const tree = PLANT_DATABASE.trees[0]; // Neem as default
+        const treeRecs = smallTrees.map(tree => ({
+          ...tree,
+          count: Math.max(1, Math.floor(treesCount / smallTrees.length)),
+        }));
+        const treeCO2 = treeRecs.reduce((sum, t) => sum + (t.count * t.co2), 0);
+        
         recommendations.push({
-          category: 'Trees',
+          category: 'Dwarf Trees & Large Plants (Terrace-suitable)',
           icon: TreePine,
-          plants: [{ ...tree, count: treesCount }],
+          plants: treeRecs,
           area: treeArea,
-          co2: treesCount * tree.co2,
+          co2: treeCO2,
+          note: 'All plants max height 6-8 feet, suitable for container growing',
         });
-        totalCO2 += treesCount * tree.co2;
+        totalCO2 += treeCO2;
       }
       
       // Shrubs (30% of area)
       const shrubArea = actualPlantableArea * 0.30;
-      const shrubsCount = Math.floor(shrubArea / 2); // 2 sqm per shrub
+      const shrubsPerPlant = shrubs.reduce((sum, s) => sum + s.spacing, 0) / shrubs.length;
+      const shrubsCount = Math.floor(shrubArea / (shrubsPerPlant * shrubsPerPlant));
+      
       if (shrubsCount > 0) {
+        const shrubRecs = shrubs.map(shrub => ({
+          ...shrub,
+          count: Math.max(1, Math.floor(shrubsCount / shrubs.length)),
+        }));
+        const shrubCO2 = shrubRecs.reduce((sum, s) => sum + (s.count * s.co2), 0);
+        
         recommendations.push({
-          category: 'Shrubs & Flowering Plants',
+          category: 'Flowering Shrubs & Ornamentals',
           icon: Flower2,
-          plants: PLANT_DATABASE.shrubs.map(s => ({ ...s, count: Math.floor(shrubsCount / PLANT_DATABASE.shrubs.length) })),
+          plants: shrubRecs,
           area: shrubArea,
-          co2: shrubsCount * 2.5,
+          co2: shrubCO2,
         });
-        totalCO2 += shrubsCount * 2.5;
+        totalCO2 += shrubCO2;
       }
       
-      // Ground cover (25% of area)
+      // Ground cover & herbs (25% of area)
       const groundArea = actualPlantableArea * 0.25;
+      const groundRecs = groundcover.map(g => ({
+        ...g,
+        count: Math.max(1, Math.floor((groundArea / groundcover.length) / (g.spacing * g.spacing))),
+      }));
+      const groundCO2 = groundArea * 1.5;
+      
       recommendations.push({
-        category: 'Ground Cover',
+        category: 'Herbs & Ground Cover',
         icon: Sprout,
-        plants: PLANT_DATABASE.groundcover.map(g => ({ ...g, count: Math.floor(groundArea / g.spacing / PLANT_DATABASE.groundcover.length) })),
+        plants: groundRecs,
         area: groundArea,
-        co2: groundArea * 2, // 2 kg CO2 per sqm ground cover
+        co2: groundCO2,
+        note: 'Includes medicinal herbs and aromatic plants',
       });
-      totalCO2 += groundArea * 2;
+      totalCO2 += groundCO2;
     }
     
     if (gardenType === 'mixed' || gardenType === 'vegetable') {
-      // Vegetables (20-50% depending on garden type)
+      // Vegetables (20-70% depending on garden type)
       const vegPercent = gardenType === 'vegetable' ? 0.70 : 0.20;
       const vegArea = actualPlantableArea * vegPercent;
       
+      const summerVegs = TERRACE_PLANT_DATABASE.vegetables.summer.map(v => ({
+        ...v,
+        count: Math.floor((vegArea / 4 / TERRACE_PLANT_DATABASE.vegetables.summer.length) / (v.spacing * v.spacing)),
+      }));
+      
+      const winterVegs = TERRACE_PLANT_DATABASE.vegetables.winter.map(v => ({
+        ...v,
+        count: Math.floor((vegArea / 4 / TERRACE_PLANT_DATABASE.vegetables.winter.length) / (v.spacing * v.spacing)),
+      }));
+      
+      const yearRoundVegs = TERRACE_PLANT_DATABASE.vegetables.yearRound.map(v => ({
+        ...v,
+        count: Math.floor((vegArea / 4 / TERRACE_PLANT_DATABASE.vegetables.yearRound.length) / (v.spacing * v.spacing)),
+      }));
+      
       recommendations.push({
-        category: 'Vegetable Garden',
+        category: 'Kitchen Garden - Seasonal Vegetables',
         icon: Leaf,
-        plants: PLANT_DATABASE.vegetables.map(v => ({ 
-          ...v, 
-          count: Math.floor((vegArea / PLANT_DATABASE.vegetables.length) / (v.spacing * v.spacing)),
-        })),
+        plants: [...summerVegs, ...winterVegs, ...yearRoundVegs],
         area: vegArea,
         co2: vegArea * 1.5,
         monthlyYield: Math.floor(vegArea * 0.8), // ~0.8 kg per sqm per month
+        note: 'Rotate crops by season for best results',
       });
       totalCO2 += vegArea * 1.5;
     }
