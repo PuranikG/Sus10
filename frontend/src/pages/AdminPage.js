@@ -206,12 +206,32 @@ export default function AdminPage() {
                     Approve and manage buildings in the platform
                   </CardDescription>
                 </div>
-                <Link to="/admin/discover">
-                  <Button data-testid="add-building-btn">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Discover Buildings
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const result = await apiRequest('/admin/buildings/import-pilot', { method: 'POST' });
+                        toast.success(`Imported ${result.imported} pilot buildings`);
+                        // Refresh buildings list
+                        const buildingsData = await apiRequest('/admin/buildings?limit=50');
+                        setBuildings(buildingsData);
+                      } catch (error) {
+                        toast.error('Failed to import pilot buildings');
+                      }
+                    }}
+                    data-testid="import-pilot-btn"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Import Pilot (Gurugram)
                   </Button>
-                </Link>
+                  <Link to="/admin/discover">
+                    <Button data-testid="add-building-btn">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Discover Buildings
+                    </Button>
+                  </Link>
+                </div>
               </CardHeader>
               <CardContent>
                 {loading ? (
