@@ -1295,7 +1295,8 @@ async def create_pledge(initiative_id: str, request: Request, pledge: PledgeCrea
             {"$inc": {"funding_pledged": pledge.pledge_amount}}
         )
     
-    if "_id" in pledge_doc: del pledge_doc["_id"]
+    if "_id" in pledge_doc:
+        del pledge_doc["_id"]
     return pledge_doc
 
 @api_router.get("/initiatives/{initiative_id}/progress")
