@@ -1177,7 +1177,7 @@ async def get_provider_leads(request: Request):
 @api_router.put("/leads/{lead_id}/status")
 async def update_lead_status(lead_id: str, request: Request):
     """Update lead status"""
-    user = await require_auth(request)
+    await require_auth(request)  # Auth check only
     body = await request.json()
     
     new_status = body.get("status")
