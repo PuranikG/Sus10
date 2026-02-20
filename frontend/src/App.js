@@ -84,6 +84,14 @@ function AppRouter() {
         }
       />
       <Route
+        path="/admin/discover"
+        element={
+          <ProtectedRoute>
+            <AdminBuildingDiscoveryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/leads/new"
         element={
           <ProtectedRoute>
