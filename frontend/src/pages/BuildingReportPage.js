@@ -731,6 +731,24 @@ export default function BuildingReportPage() {
 
             {/* Solutions Tab - Terrace Garden Planner */}
             <TabsContent value="solutions" className="space-y-6">
+              {/* Custom Area Notice */}
+              {customTerraceArea && (
+                <Card className="border-blue-500/30 bg-blue-500/5">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <Info className="h-5 w-5 text-blue-500" />
+                    <span className="text-sm">
+                      Using custom area from map: <strong>{customTerraceArea.toLocaleString()} sqm</strong>
+                      <button 
+                        onClick={() => setCustomTerraceArea(null)} 
+                        className="ml-2 text-blue-500 underline"
+                      >
+                        Reset to default
+                      </button>
+                    </span>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Plantable Area Configurator */}
               <Card className="border-primary/20 bg-primary/5">
                 <CardHeader>
@@ -739,7 +757,7 @@ export default function BuildingReportPage() {
                     Terrace Garden Planner
                   </CardTitle>
                   <CardDescription>
-                    Customize your terrace garden layout and get personalized plant recommendations
+                    Customize your terrace garden layout and get personalized plant recommendations for {building.city}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -748,7 +766,7 @@ export default function BuildingReportPage() {
                     <div className="flex items-center justify-between">
                       <Label className="text-base font-medium">Plantable Area</Label>
                       <span className="text-2xl font-bold text-primary">
-                        {Math.floor((building.usable_terrace_area || 0) * plantablePercent / 100).toLocaleString()} sqm
+                        {Math.floor((customTerraceArea || building.usable_terrace_area || 0) * plantablePercent / 100).toLocaleString()} sqm
                       </span>
                     </div>
                     <Slider
@@ -761,7 +779,7 @@ export default function BuildingReportPage() {
                     />
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>30% (Minimal)</span>
-                      <span className="font-medium">{plantablePercent}% of {building.usable_terrace_area?.toLocaleString() || 0} sqm terrace</span>
+                      <span className="font-medium">{plantablePercent}% of {(customTerraceArea || building.usable_terrace_area || 0).toLocaleString()} sqm terrace</span>
                       <span>90% (Maximum)</span>
                     </div>
                   </div>
