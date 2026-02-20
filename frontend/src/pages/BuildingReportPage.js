@@ -1432,12 +1432,7 @@ function SolutionCard({ recommendation, index, onViewDetails, auditLog }) {
                 <div className="text-xs text-muted-foreground">Suitability</div>
               </div>
               <Progress value={recommendation.suitability_score} className="w-24 h-2" />
-              {recommendation.cost_estimate && (
-                <div className="text-center">
-                  <div className="text-sm font-medium">{formatCurrency(recommendation.cost_estimate)}</div>
-                  <div className="text-xs text-muted-foreground">Est. Cost</div>
-                </div>
-              )}
+              {/* Cost estimate hidden - to be provided by service providers */}
               <Button variant="outline" size="sm" onClick={onViewDetails} data-testid={`view-details-${index}`}>
                 <Info className="h-4 w-4 mr-2" />
                 View Details
