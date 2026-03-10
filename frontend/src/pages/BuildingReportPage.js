@@ -6,7 +6,7 @@ import {
   ArrowLeft, Download, Share2, AlertTriangle, CheckCircle2,
   TrendingUp, TrendingDown, Minus, Info, ChevronRight,
   Calculator, FileText, Users, Clock, Mail, Copy, Check,
-  MessageCircle, Loader2, TreePine, Flower2, Sprout, Map
+  MessageCircle, Loader2, TreePine, Flower2, Sprout, Map, Save
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -137,8 +137,47 @@ export default function BuildingReportPage() {
   const [plantablePercent, setPlantablePercent] = useState(70);
   const [gardenType, setGardenType] = useState('mixed'); // mixed, ornamental, vegetable
   const [customTerraceArea, setCustomTerraceArea] = useState(null); // User-adjusted area from polygon
+  const [customPolygon, setCustomPolygon] = useState(null); // Store polygon coordinates
+  const [isSavingTerrace, setIsSavingTerrace] = useState(false);
+  const [terraceUnsaved, setTerraceUnsaved] = useState(false);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const polygonRef = useRef(null);
+
+  // Save custom terrace area to backend
+  const saveCustomTerrace = async () => {
+    if (!customTerraceArea || !buildingId) return;
+    
+    setIsSavingTerrace(true);
+    try {
+      // Get polygon coordinates if available
+      let polygonCoords = null;
+      if (polygonRef.current) {
+        const path = polygonRef.current.getPath();
+        polygonCoords = [];
+        for (let i = 0; i < path.getLength(); i++) {
+          const point = path.getAt(i);
+          polygonCoords.push([point.lat(), point.lng()]);
+        }
+      }
+      
+      await apiRequest(`/buildings/${buildingId}/terrace`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          custom_terrace_area: customTerraceArea,
+          terrace_polygon: polygonCoords
+        })
+      });
+      
+      toast.success('Terrace area saved successfully!');
+      setTerraceUnsaved(false);
+    } catch (error) {
+      console.error('Failed to save terrace:', error);
+      toast.error('Failed to save terrace area');
+    } finally {
+      setIsSavingTerrace(false);
+    }
+  };
 
   // Fetch live AQI data
   useEffect(() => {
@@ -227,22 +266,25 @@ export default function BuildingReportPage() {
         });
         
         buildingPolygon.setMap(mapInstanceRef.current);
+        polygonRef.current = buildingPolygon; // Store reference
         
         // Listen for polygon changes
         window.google.maps.event.addListener(buildingPolygon.getPath(), 'set_at', () => {
           const newArea = window.google.maps.geometry.spherical.computeArea(buildingPolygon.getPath());
           setCustomTerraceArea(Math.round(newArea));
+          setTerraceUnsaved(true);
         });
         
         window.google.maps.event.addListener(buildingPolygon.getPath(), 'insert_at', () => {
           const newArea = window.google.maps.geometry.spherical.computeArea(buildingPolygon.getPath());
           setCustomTerraceArea(Math.round(newArea));
+          setTerraceUnsaved(true);
         });
         
         // Add info window
         const infoWindow = new window.google.maps.InfoWindow({
           content: `<div style="padding: 8px; font-family: system-ui;">
-            <strong>${reportData.building.address}</strong><br/>
+            <strong>${reportData.building.name || reportData.building.address}</strong><br/>
             <span style="color: #666;">Footprint: ${footprintArea.toLocaleString()} sqm</span><br/>
             <span style="color: #22c55e; font-size: 12px;">Drag corners to adjust terrace area</span>
           </div>`,
@@ -631,10 +673,39 @@ export default function BuildingReportPage() {
           <div className="mt-6">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2">
-                  <Map className="h-5 w-5" />
-                  Building Location (Satellite View)
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Map className="h-5 w-5" />
+                    Building Location (Satellite View)
+                  </div>
+                  {terraceUnsaved && (
+                    <Button 
+                      size="sm" 
+                      onClick={saveCustomTerrace}
+                      disabled={isSavingTerrace}
+                      data-testid="save-terrace-btn"
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      {isSavingTerrace ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Save Changes
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </CardTitle>
+                {customTerraceArea && (
+                  <CardDescription className="flex items-center gap-2">
+                    Custom terrace area: <span className="font-medium text-primary">{customTerraceArea.toLocaleString()} sqm</span>
+                    {terraceUnsaved && <Badge variant="outline" className="text-amber-600 border-amber-500">Unsaved</Badge>}
+                  </CardDescription>
+                )}
               </CardHeader>
               <CardContent>
                 <div 

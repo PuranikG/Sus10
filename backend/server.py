@@ -667,6 +667,48 @@ async def admin_approve_building(building_id: str, request: Request):
     
     return {"building_id": building_id, "is_approved": True}
 
+@api_router.patch("/buildings/{building_id}/terrace")
+async def update_building_terrace(building_id: str, request: Request):
+    """
+    Update building's custom terrace area (user-facing, no auth required)
+    Used when users adjust the polygon on the map
+    
+    Body:
+    {
+        "custom_terrace_area": 2500,  // in sqm
+        "terrace_polygon": [[lat1, lng1], [lat2, lng2], ...]  // optional
+    }
+    """
+    body = await request.json()
+    
+    custom_area = body.get("custom_terrace_area")
+    polygon = body.get("terrace_polygon")
+    
+    if custom_area is None:
+        raise HTTPException(status_code=400, detail="custom_terrace_area is required")
+    
+    update_data = {
+        "custom_terrace_area": float(custom_area),
+        "terrace_updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if polygon:
+        update_data["custom_terrace_polygon"] = polygon
+    
+    result = await db.buildings.update_one(
+        {"building_id": building_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Building not found")
+    
+    return {
+        "building_id": building_id,
+        "custom_terrace_area": custom_area,
+        "saved": True
+    }
+
 @api_router.put("/admin/buildings/{building_id}")
 async def admin_update_building(building_id: str, request: Request):
     """Admin: Update building data"""
