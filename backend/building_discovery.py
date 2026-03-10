@@ -73,6 +73,102 @@ CITY_DEFAULT_AQI = {
 }
 
 
+async def fetch_building_polygon_from_google(
+    place_id: str,
+    api_key: str
+) -> Optional[Dict]:
+    """
+    Fetch building footprint polygon from Google Geocoding API
+    Uses extra_computations=BUILDING_AND_ENTRANCES parameter
+    Returns GeoJSON polygon if available
+    """
+    if not api_key or not place_id:
+        return None
+    
+    url = "https://maps.googleapis.com/maps/api/geocode/json"
+    params = {
+        "place_id": place_id,
+        "extra_computations": "BUILDING_AND_ENTRANCES",
+        "key": api_key
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, params=params, timeout=10.0)
+            data = response.json()
+            
+            if data.get("status") != "OK":
+                logger.debug(f"Geocoding API status: {data.get('status')}")
+                return None
+            
+            results = data.get("results", [])
+            if not results:
+                return None
+            
+            result = results[0]
+            buildings = result.get("buildings", [])
+            
+            if not buildings:
+                return None
+            
+            # Get the first building's outline
+            building = buildings[0]
+            outlines = building.get("building_outlines", [])
+            
+            if not outlines:
+                return None
+            
+            outline = outlines[0]
+            polygon = outline.get("display_polygon", {})
+            
+            if polygon.get("type") == "Polygon" and polygon.get("coordinates"):
+                # Calculate area from polygon coordinates
+                coords = polygon["coordinates"][0]  # Outer ring
+                area = calculate_polygon_area(coords)
+                
+                return {
+                    "polygon": polygon,
+                    "area_sqm": area,
+                    "source": "google_geocoding"
+                }
+            
+            return None
+            
+    except Exception as e:
+        logger.debug(f"Error fetching building polygon: {e}")
+        return None
+
+
+def calculate_polygon_area(coords: List[List[float]]) -> float:
+    """
+    Calculate area of a polygon in square meters using Shoelace formula
+    Coords are [lng, lat] pairs (GeoJSON format) or (lat, lng) tuples
+    """
+    import math
+    
+    if len(coords) < 3:
+        return 0
+    
+    # Simple Shoelace formula for approximate area
+    # Convert lng/lat to approximate meters
+    center_lat = sum(c[1] for c in coords) / len(coords)
+    lng_to_m = 111320 * math.cos(math.radians(center_lat))  # meters per degree longitude
+    lat_to_m = 111320  # meters per degree latitude
+    
+    # Convert coordinates to meters
+    coords_m = [(c[0] * lng_to_m, c[1] * lat_to_m) for c in coords]
+    
+    # Shoelace formula
+    n = len(coords_m)
+    area = 0
+    for i in range(n):
+        j = (i + 1) % n
+        area += coords_m[i][0] * coords_m[j][1]
+        area -= coords_m[j][0] * coords_m[i][1]
+    
+    return abs(area) / 2
+
+
 async def fetch_buildings_from_osm(
     city: str,
     building_type: Optional[str] = None,
@@ -185,32 +281,6 @@ async def fetch_buildings_from_osm(
     # Sort by area descending and limit
     result.sort(key=lambda x: x["area_in_meters"], reverse=True)
     return result[:limit]
-
-
-def calculate_polygon_area(coords: List[tuple]) -> float:
-    """
-    Calculate approximate area of a polygon in square meters
-    Using the Shoelace formula with lat/lng to meters conversion
-    """
-    if len(coords) < 3:
-        return 0
-    
-    # Approximate meters per degree at Indian latitudes (~20-28°N)
-    meters_per_deg_lat = 111000
-    meters_per_deg_lng = 100000  # Approximate for Indian longitudes
-    
-    # Convert to approximate meters
-    coords_m = [(c[0] * meters_per_deg_lat, c[1] * meters_per_deg_lng) for c in coords]
-    
-    # Shoelace formula
-    n = len(coords_m)
-    area = 0
-    for i in range(n):
-        j = (i + 1) % n
-        area += coords_m[i][0] * coords_m[j][1]
-        area -= coords_m[j][0] * coords_m[i][1]
-    
-    return abs(area) / 2
 
 
 async def enrich_with_google_places(
@@ -346,6 +416,20 @@ async def discover_and_import_buildings(
             terrace_ratio = TERRACE_RATIOS.get(final_type, 0.25)
             terrace_area = round(footprint * terrace_ratio, 2)
             
+            # Try to get precise building polygon from Google Geocoding API
+            google_polygon = None
+            if enriched.get("place_id") and google_api_key:
+                polygon_data = await fetch_building_polygon_from_google(
+                    enriched["place_id"], 
+                    google_api_key
+                )
+                if polygon_data:
+                    google_polygon = polygon_data.get("polygon")
+                    # Use Google's calculated area if available
+                    if polygon_data.get("area_sqm") and polygon_data["area_sqm"] > 100:
+                        footprint = round(polygon_data["area_sqm"], 2)
+                        terrace_area = round(footprint * terrace_ratio, 2)
+            
             # Get city (prefer detected, fallback to input)
             detected_city = enriched.get("city") or city
             
@@ -364,11 +448,12 @@ async def discover_and_import_buildings(
                 "building_footprint_area": footprint,
                 "usable_terrace_area": terrace_area,
                 "current_aqi": CITY_DEFAULT_AQI.get(detected_city, 100),
-                "data_quality_score": 75 if enriched.get("name") else 60,
-                "data_source": "openstreetmap",
+                "data_quality_score": 85 if google_polygon else (75 if enriched.get("name") else 60),
+                "data_source": "google_geocoding" if google_polygon else "openstreetmap",
                 "osm_id": osm_building.get("osm_id"),
                 "google_place_id": enriched.get("place_id"),
                 "google_types": enriched.get("google_types", []),
+                "footprint_polygon": google_polygon,  # GeoJSON polygon from Google
                 "is_approved": False,
                 "curated_by_admin_id": admin_user_id,
                 "created_at": now,

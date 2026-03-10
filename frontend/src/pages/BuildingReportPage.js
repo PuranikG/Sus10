@@ -239,19 +239,34 @@ export default function BuildingReportPage() {
           tilt: 0,
         });
         
-        // Draw building footprint polygon (approximate square based on footprint area)
-        const footprintArea = reportData.building.building_footprint_area || 5000;
-        const sideLength = Math.sqrt(footprintArea); // Approximate side in meters
-        const latOffset = sideLength / 111000; // ~111km per degree latitude
-        const lngOffset = sideLength / (111000 * Math.cos(position.lat * Math.PI / 180));
+        // Check if we have a Google polygon or need to create approximate one
+        let polygonCoords;
+        const googlePolygon = reportData.building.footprint_polygon;
+        const customPolygonData = reportData.building.custom_terrace_polygon;
         
-        // Create polygon coordinates (rectangle approximation)
-        const polygonCoords = [
-          { lat: position.lat - latOffset/2, lng: position.lng - lngOffset/2 },
-          { lat: position.lat - latOffset/2, lng: position.lng + lngOffset/2 },
-          { lat: position.lat + latOffset/2, lng: position.lng + lngOffset/2 },
-          { lat: position.lat + latOffset/2, lng: position.lng - lngOffset/2 },
-        ];
+        if (customPolygonData && Array.isArray(customPolygonData) && customPolygonData.length >= 3) {
+          // Use saved custom polygon (user-edited)
+          polygonCoords = customPolygonData.map(coord => ({ lat: coord[0], lng: coord[1] }));
+        } else if (googlePolygon && googlePolygon.type === 'Polygon' && googlePolygon.coordinates) {
+          // Use Google Geocoding API polygon (GeoJSON format: [lng, lat])
+          polygonCoords = googlePolygon.coordinates[0].map(coord => ({ 
+            lat: coord[1], 
+            lng: coord[0] 
+          }));
+        } else {
+          // Fallback: Create approximate rectangle based on footprint area
+          const footprintArea = reportData.building.building_footprint_area || 5000;
+          const sideLength = Math.sqrt(footprintArea); // Approximate side in meters
+          const latOffset = sideLength / 111000; // ~111km per degree latitude
+          const lngOffset = sideLength / (111000 * Math.cos(position.lat * Math.PI / 180));
+          
+          polygonCoords = [
+            { lat: position.lat - latOffset/2, lng: position.lng - lngOffset/2 },
+            { lat: position.lat - latOffset/2, lng: position.lng + lngOffset/2 },
+            { lat: position.lat + latOffset/2, lng: position.lng + lngOffset/2 },
+            { lat: position.lat + latOffset/2, lng: position.lng - lngOffset/2 },
+          ];
+        }
         
         // Draw the building footprint
         const buildingPolygon = new window.google.maps.Polygon({
@@ -282,6 +297,7 @@ export default function BuildingReportPage() {
         });
         
         // Add info window
+        const footprintArea = reportData.building.building_footprint_area || 5000;
         const infoWindow = new window.google.maps.InfoWindow({
           content: `<div style="padding: 8px; font-family: system-ui;">
             <strong>${reportData.building.name || reportData.building.address}</strong><br/>
