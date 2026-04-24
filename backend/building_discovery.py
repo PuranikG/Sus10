@@ -212,16 +212,48 @@ async def fetch_buildings_from_osm(
     out skel qt;
     """
     
+    # Try multiple Overpass endpoints (primary may be rate-limited)
+    # Use a smaller sample area if the original query is too large
+    overpass_endpoints = [
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass-api.de/api/interpreter",
+    ]
+    
+    data = None
     async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                "https://overpass-api.de/api/interpreter",
-                data={"data": query},
-                timeout=60.0
-            )
-            data = response.json()
-        except Exception as e:
-            logger.error(f"Overpass API error: {e}")
+        for endpoint in overpass_endpoints:
+            try:
+                logger.info(f"Trying Overpass endpoint: {endpoint}")
+                response = await client.post(
+                    endpoint,
+                    data={"data": query},
+                    timeout=90.0,
+                    headers={"User-Agent": "Sus10AI/1.0"}
+                )
+                logger.info(f"Response status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    content_type = response.headers.get("content-type", "")
+                    if "json" in content_type:
+                        data = response.json()
+                        logger.info(f"Got {len(data.get('elements', []))} elements")
+                        break
+                    else:
+                        logger.warning(f"Unexpected content type: {content_type}")
+                elif response.status_code == 429:
+                    logger.warning(f"Rate limited by {endpoint}, trying next...")
+                    continue
+                else:
+                    logger.debug(f"Overpass {endpoint} returned {response.status_code}")
+            except httpx.TimeoutException:
+                logger.warning(f"Timeout from {endpoint}")
+                continue
+            except Exception as e:
+                logger.debug(f"Overpass {endpoint} error: {e}")
+                continue
+        
+        if not data:
+            logger.error("All Overpass API endpoints failed")
             return []
     
     # Parse response - extract buildings with their nodes
@@ -259,7 +291,9 @@ async def fetch_buildings_from_osm(
         lng = sum(c[1] for c in coords) / len(coords)
         
         # Estimate area using shoelace formula (approximate)
-        area = calculate_polygon_area(coords)
+        # Convert (lat, lng) tuples to [lng, lat] format for the area function
+        coords_for_area = [[c[1], c[0]] for c in coords]
+        area = calculate_polygon_area(coords_for_area)
         
         if area < min_area:
             continue
