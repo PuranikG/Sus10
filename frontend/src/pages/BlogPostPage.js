@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import DOMPurify from 'dompurify';
 import {
   BookOpen, Calendar, User, ArrowLeft, Tag,
   Share2, Clock, Eye, ChevronRight
@@ -165,7 +166,7 @@ export default function BlogPostPage() {
           <div className="prose prose-lg dark:prose-invert max-w-none">
             <div 
               className="text-foreground leading-relaxed whitespace-pre-wrap"
-              dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br/>') }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content.replace(/\n/g, '<br/>')) }}
             />
           </div>
 

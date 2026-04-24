@@ -1594,8 +1594,8 @@ function ExplainabilityDialog({ recommendation, auditLog, onClose }) {
             <div>
               <h4 className="font-medium mb-3">Calculation Steps</h4>
               <div className="space-y-3">
-                {auditLog.calculation_steps.map((step, index) => (
-                  <div key={index} className="flex gap-3 p-3 bg-muted/50 rounded-lg">
+                {auditLog.calculation_steps.map((step) => (
+                  <div key={step.step} className="flex gap-3 p-3 bg-muted/50 rounded-lg">
                     <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium">
                       {step.step}
                     </div>

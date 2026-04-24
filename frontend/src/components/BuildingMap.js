@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { Building2, MapPin, Leaf, ArrowRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
 import { getBuildingTypeLabel, getAQILevel } from '../lib/utils';
+
+// Helper to sanitize text for HTML insertion
+const sanitizeText = (text) => DOMPurify.sanitize(text || '', { ALLOWED_TAGS: [] });
 
 export default function BuildingMap({ buildings, center, zoom = 12, onBuildingClick }) {
   const mapRef = useRef(null);
@@ -106,14 +110,17 @@ export default function BuildingMap({ buildings, center, zoom = 12, onBuildingCl
       // Add click listener
       marker.addListener('click', () => {
         const aqiInfo = building.current_aqi ? getAQILevel(building.current_aqi) : null;
+        const safeAddress = sanitizeText(building.address);
+        const safeCity = sanitizeText(building.city);
+        const safeBuildingType = sanitizeText(getBuildingTypeLabel(building.building_type));
         
         const content = `
           <div style="padding: 12px; max-width: 280px; font-family: system-ui, sans-serif;">
             <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #111;">
-              ${building.address}
+              ${safeAddress}
             </h3>
             <p style="margin: 0 0 8px 0; font-size: 13px; color: #666;">
-              📍 ${building.city} • ${getBuildingTypeLabel(building.building_type)}
+              📍 ${safeCity} • ${safeBuildingType}
             </p>
             <div style="display: flex; gap: 16px; margin-bottom: 12px;">
               ${building.building_footprint_area ? `

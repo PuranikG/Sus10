@@ -148,7 +148,7 @@ export default function ProviderDetailPage() {
                     <div className="grid md:grid-cols-2 gap-6">
                       {provider.portfolio_projects.map((project, index) => (
                         <motion.div
-                          key={index}
+                          key={project.id || project.name}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.1 }}
@@ -190,8 +190,8 @@ export default function ProviderDetailPage() {
 
                 <TabsContent value="certifications" className="space-y-4">
                   {provider.certifications && provider.certifications.length > 0 ? (
-                    provider.certifications.map((cert, index) => (
-                      <Card key={index}>
+                    provider.certifications.map((cert) => (
+                      <Card key={cert.name}>
                         <CardContent className="p-4 flex items-center gap-4">
                           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                             <Award className="h-6 w-6 text-primary" />

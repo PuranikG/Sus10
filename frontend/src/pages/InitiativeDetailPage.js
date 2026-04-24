@@ -269,8 +269,8 @@ export default function InitiativeDetailPage() {
                 <CardContent>
                   {progressData?.milestones && progressData.milestones.length > 0 ? (
                     <div className="space-y-4">
-                      {progressData.milestones.map((milestone, index) => (
-                        <div key={index} className="flex gap-4">
+                      {progressData.milestones.map((milestone) => (
+                        <div key={milestone.id || milestone.description} className="flex gap-4">
                           <div className="flex-shrink-0 pt-1">
                             {milestone.status === 'completed' ? (
                               <CheckCircle2 className="h-5 w-5 text-primary" />
