@@ -75,19 +75,27 @@ CITY_DEFAULT_AQI = {
 
 async def fetch_building_polygon_from_google(
     place_id: str,
-    api_key: str
+    api_key: str,
+    lat: float = None,
+    lng: float = None
 ) -> Optional[Dict]:
     """
     Fetch building footprint polygon from Google Geocoding API
     Uses extra_computations=BUILDING_AND_ENTRANCES parameter
     Returns GeoJSON polygon if available
+    
+    Prefers latlng over place_id as it has fewer restrictions
     """
-    if not api_key or not place_id:
+    if not api_key:
+        return None
+    
+    if not lat or not lng:
+        # Can't proceed without coordinates
         return None
     
     url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {
-        "place_id": place_id,
+        "latlng": f"{lat},{lng}",
         "extra_computations": "BUILDING_AND_ENTRANCES",
         "key": api_key
     }
@@ -105,32 +113,33 @@ async def fetch_building_polygon_from_google(
             if not results:
                 return None
             
-            result = results[0]
-            buildings = result.get("buildings", [])
-            
-            if not buildings:
-                return None
-            
-            # Get the first building's outline
-            building = buildings[0]
-            outlines = building.get("building_outlines", [])
-            
-            if not outlines:
-                return None
-            
-            outline = outlines[0]
-            polygon = outline.get("display_polygon", {})
-            
-            if polygon.get("type") == "Polygon" and polygon.get("coordinates"):
-                # Calculate area from polygon coordinates
-                coords = polygon["coordinates"][0]  # Outer ring
-                area = calculate_polygon_area(coords)
+            # Check all results for building polygons
+            for result in results:
+                buildings = result.get("buildings", [])
                 
-                return {
-                    "polygon": polygon,
-                    "area_sqm": area,
-                    "source": "google_geocoding"
-                }
+                if not buildings:
+                    continue
+                
+                # Get the first building's outline
+                building = buildings[0]
+                outlines = building.get("building_outlines", [])
+                
+                if not outlines:
+                    continue
+                
+                outline = outlines[0]
+                polygon = outline.get("display_polygon", {})
+                
+                if polygon.get("type") == "Polygon" and polygon.get("coordinates"):
+                    # Calculate area from polygon coordinates
+                    coords = polygon["coordinates"][0]  # Outer ring
+                    area = calculate_polygon_area(coords)
+                    
+                    return {
+                        "polygon": polygon,
+                        "area_sqm": area,
+                        "source": "google_geocoding"
+                    }
             
             return None
             
@@ -418,14 +427,16 @@ async def discover_and_import_buildings(
             
             # Try to get precise building polygon from Google Geocoding API
             google_polygon = None
-            if enriched.get("place_id") and google_api_key:
+            if google_api_key:
                 polygon_data = await fetch_building_polygon_from_google(
-                    enriched["place_id"], 
-                    google_api_key
+                    place_id=enriched.get("place_id"),
+                    api_key=google_api_key,
+                    lat=osm_building["latitude"],
+                    lng=osm_building["longitude"]
                 )
                 if polygon_data:
                     google_polygon = polygon_data.get("polygon")
-                    # Use Google's calculated area if available
+                    # Use Google's calculated area if available and reasonable
                     if polygon_data.get("area_sqm") and polygon_data["area_sqm"] > 100:
                         footprint = round(polygon_data["area_sqm"], 2)
                         terrace_area = round(footprint * terrace_ratio, 2)
