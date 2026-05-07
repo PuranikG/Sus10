@@ -20,6 +20,7 @@ import AdminBuildingDiscoveryPage from './pages/AdminBuildingDiscoveryPage';
 import LeadFormPage from './pages/LeadFormPage';
 import BlogPage from './pages/BlogPage';
 import BlogPostPage from './pages/BlogPostPage';
+import GreenRoofSurveyPage from './pages/GreenRoofSurveyPage';
 
 import './App.css';
 
@@ -65,6 +66,7 @@ function AppRouter() {
       <Route path="/initiatives/:initiativeId" element={<InitiativeDetailPage />} />
       <Route path="/blog" element={<BlogPage />} />
       <Route path="/blog/:slug" element={<BlogPostPage />} />
+      <Route path="/green-roof" element={<GreenRoofSurveyPage />} />
 
       {/* Protected Routes */}
       <Route
