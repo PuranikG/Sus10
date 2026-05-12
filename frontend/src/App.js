@@ -21,6 +21,8 @@ import LeadFormPage from './pages/LeadFormPage';
 import BlogPage from './pages/BlogPage';
 import BlogPostPage from './pages/BlogPostPage';
 import GreenRoofSurveyPage from './pages/GreenRoofSurveyPage';
+import ProjectsPage from './pages/ProjectsPage';
+import ProjectDetailPage from './pages/ProjectDetailPage';
 
 import './App.css';
 
@@ -98,6 +100,22 @@ function AppRouter() {
         element={
           <ProtectedRoute>
             <LeadFormPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects"
+        element={
+          <ProtectedRoute>
+            <ProjectsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:groupId"
+        element={
+          <ProtectedRoute>
+            <ProjectDetailPage />
           </ProtectedRoute>
         }
       />

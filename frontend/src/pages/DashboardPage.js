@@ -54,6 +54,12 @@ export default function DashboardPage() {
       description: 'Find buildings to analyze'
     },
     { 
+      icon: LayoutDashboard, 
+      label: 'Projects / Portfolios', 
+      href: '/projects',
+      description: 'Group buildings for ESG rollup'
+    },
+    { 
       icon: Users, 
       label: 'Find Providers', 
       href: '/providers',
@@ -64,12 +70,6 @@ export default function DashboardPage() {
       label: 'View Initiatives', 
       href: '/initiatives',
       description: 'Join community projects'
-    },
-    { 
-      icon: FileText, 
-      label: 'My Reports', 
-      href: '/reports',
-      description: 'View saved reports'
     },
   ];
 

@@ -232,9 +232,90 @@ Every pledge counts! Join us on Sus10 AI: [URL]
 - [ ] Refactor server.py monolith into /routes, /models, /services structure
 - [ ] Fix Babel plugin workaround in frontend/config-overrides.js
 
-## Feature Addition (Feb 20, 2026)
+## Feature Addition (Feb 12, 2026)
 
-### Real-Time Air Quality API Integration ✅
+### 🏗️ Projects/Portfolios (Group Hierarchy) ✅
+- **3-level hierarchy**: Group (developer/federation/chain) → Cluster (optional) → Building
+- **Use cases**: Embassy/Prestige portfolio rollup, Incubex/WeWork chain analysis, RWA federations, BRSR/ESG reporting
+- **New models**: `groups` collection with `building_ids[]`
+- **New endpoints**:
+  - `POST /api/groups` — create project
+  - `GET /api/groups` — list user's projects
+  - `GET /api/groups/{group_id}` — get with linked buildings
+  - `POST /api/groups/{group_id}/buildings` — add buildings
+  - `DELETE /api/groups/{group_id}/buildings/{building_id}` — remove
+  - `DELETE /api/groups/{group_id}` — delete project
+- **Frontend**: `/projects` and `/projects/{groupId}` routes; 3-tab project view (Buildings / Sustenance / BRSR Rollup)
+
+### 🌱 4-Pillar Sustenance Calculator ✅
+- **New service**: `/app/backend/services/sustenance_calculator.py`
+- **Pillar 1 — Solar PV**: MNRE GHI lookup for 20+ Indian cities, 20° tilt (general) + latitude-optimal tilt, south-facing orientation, kWh/year + ₹ savings + grid CO₂ offset (CEA factor 0.82 kg/kWh)
+- **Pillar 2 — Rooftop Plantation**: Container/grow-bag/NFT only, all species ≤ 7 ft height, food + ornamental modes, 16 species catalog with yields
+- **Pillar 3 — Biogas**: Occupancy-based organic waste estimation, IS 16190:2014 yield 0.08 m³/kg, LPG equivalent + landfill methane offset
+- **Pillar 4 — Rainwater**: Catchment × IMD rainfall × CPCB runoff coefficient (0.85), households supported metric
+- **Group aggregation**: `aggregate_group_potential()` rolls up multiple buildings with auto-generated BRSR narrative
+- **New endpoints**:
+  - `GET /api/sustenance/building/{building_id}` — single building 4-pillar
+  - `GET /api/sustenance/group/{group_id}` — group rollup with BRSR narrative
+
+### 🔎 POI-Based Building Search & Import ✅
+- **New endpoint** `GET /api/poi/search?poi_name=X&city=Y` — combines DB matches + live Google Places Text Search
+- **New endpoint** `POST /api/poi/import` — imports a Google Place into buildings collection, auto-fetches footprint polygon via Geocoding API
+- **Use case**: "Find all Incubex / WeWork locations in Bangalore and analyze"
+- **Tested**: 20 Incubex locations discovered in Bangalore, 3 imported with real polygons (214 m², 3816 m², 376 m²)
+
+### ✅ End-to-End Test Verified
+- Test scenario: "Incubex Bangalore" portfolio
+- 3 buildings imported with Google polygons → grouped → analyzed
+- Result: 401 kWp solar (604 MWh/yr), 17,270 plants, 2,569 m³/yr biogas, 3,452 kL/yr rainwater
+- **560.62 tCO₂e/yr offset, ₹50.1L annual savings**
+- BRSR narrative auto-generated for SEBI Section A.6 disclosure
+
+## Architecture Decisions (Feb 12, 2026)
+
+### Plantation: Container-Only on Rooftops
+- All rooftop plantation logic limited to ≤ 7 ft height plants
+- Growing methods: grow bags, NFT hydroponics, raised planters, ornamental containers
+- Outdoor tree/roadside plantation = separate FUTURE module (NOT in current scope)
+- Food vs ornamental = same biophysics, different SKUs (single flag toggle)
+
+### Gemini Architecture Review — Adopted vs Skipped
+**Adopted from Gemini's recommendations:**
+- 4-pillar `calculate_sustenance_potential()` deterministic formulas
+- MNRE GHI data for solar
+- BRSR-aligned group rollups
+- Batch processing for project-level analysis
+
+**Skipped (over-engineering for current stage):**
+- SAM 2 / Roboflow annotation (manual polygon edit suffices)
+- Switching from Google Maps → Leaflet.js (already invested)
+- Google Earth Engine / Sentinel-2 (Google API path equivalent for B2B)
+- Wind energy potential (Gemini itself called it optional)
+- Web scraping B2B contacts (privacy/ToS risk)
+
+## Prioritized Backlog (Updated Feb 12, 2026)
+
+### P0 - Critical
+- [x] 4-pillar sustenance calculator ✅
+- [x] Multi-building Project/Group hierarchy ✅
+- [x] POI-based building discovery (Incubex demo) ✅
+
+### P1 - High Priority
+- [ ] Cluster (intermediate level: society/IT-park) for true 3-level hierarchy
+- [ ] PDF export of group BRSR rollup report
+- [ ] Polygon editing UX in project detail page (currently only on building report)
+- [ ] Refactor server.py monolith into /routes, /models, /services
+- [ ] Provider onboarding wizard
+- [ ] Email notifications for leads
+
+### P2 - Medium Priority
+- [ ] Outdoor / roadside tree plantation module (separate from rooftop)
+- [ ] Gemini Vision for rooftop obstruction detection (water tanks, existing solar)
+- [ ] Crowdsourcing model for user-submitted buildings
+- [ ] Provider Dashboard for lead management
+- [ ] PDF/DWG file parsing for building footprints
+- [ ] Open Graph meta tags for `/green-roof` (social share previews)
+
 - **Provider**: Open-Meteo Air Quality API (free, no API key required)
 - **Why Open-Meteo over OpenAQ**: OpenAQ v3 has no stations near Indian cities; Open-Meteo provides CAMS-based forecast data globally
 - **Endpoints Added**:

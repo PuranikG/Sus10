@@ -1931,6 +1931,324 @@ These incentives make 2026 the best time to invest in building sustainability.""
     
     return {"message": "Blog content seeded and features enabled", "posts_created": len(blog_posts)}
 
+# ==================== GROUPS & CLUSTERS (Multi-building hierarchy) ====================
+# Hierarchy: Group (developer/federation) -> Cluster (project/society, optional) -> Building
+# Use cases: Embassy/Prestige portfolio rollup, RWA federations, BRSR/ESG reporting
+from services.sustenance_calculator import (
+    calculate_full_sustenance_potential,
+    aggregate_group_potential,
+)
+
+class GroupCreate(BaseModel):
+    name: str
+    type: str = "enterprise"  # developer | federation | enterprise | rwa | chain
+    description: Optional[str] = None
+    owner_org: Optional[str] = None
+    primary_city: Optional[str] = None
+    branding_color: Optional[str] = None
+    logo_url: Optional[str] = None
+
+
+@api_router.post("/groups")
+async def create_group(request: Request, group: GroupCreate):
+    """Create a new building group (developer/federation/chain). Requires auth."""
+    user = await require_auth(request)
+    now = datetime.now(timezone.utc)
+    group_id = f"grp_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "group_id": group_id,
+        "name": group.name,
+        "type": group.type,
+        "description": group.description,
+        "owner_org": group.owner_org,
+        "primary_city": group.primary_city,
+        "branding_color": group.branding_color,
+        "logo_url": group.logo_url,
+        "building_ids": [],
+        "cluster_ids": [],
+        "created_by": user.user_id,
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.groups.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.get("/groups")
+async def list_groups(request: Request, limit: int = Query(default=50, le=200)):
+    """List all groups created by current user (or all if admin)."""
+    user = await require_auth(request)
+    query = {} if user.user_type == "admin" else {"created_by": user.user_id}
+    groups = await db.groups.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return groups
+
+
+@api_router.get("/groups/{group_id}")
+async def get_group(group_id: str):
+    """Get group details + linked buildings."""
+    group = await db.groups.find_one({"group_id": group_id}, {"_id": 0})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    building_ids = group.get("building_ids", [])
+    buildings = []
+    if building_ids:
+        buildings = await db.buildings.find(
+            {"building_id": {"$in": building_ids}}, {"_id": 0}
+        ).to_list(len(building_ids))
+    group["buildings"] = buildings
+    return group
+
+
+@api_router.post("/groups/{group_id}/buildings")
+async def add_buildings_to_group(group_id: str, request: Request):
+    """Add one or more buildings to a group. Body: {building_ids: [...]}"""
+    user = await require_auth(request)
+    group = await db.groups.find_one({"group_id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    if group.get("created_by") != user.user_id and user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to modify this group")
+    body = await request.json()
+    new_ids = body.get("building_ids", [])
+    if not isinstance(new_ids, list):
+        raise HTTPException(status_code=400, detail="building_ids must be a list")
+    existing = set(group.get("building_ids", []))
+    existing.update(new_ids)
+    await db.groups.update_one(
+        {"group_id": group_id},
+        {"$set": {"building_ids": list(existing), "updated_at": datetime.now(timezone.utc)}},
+    )
+    updated = await db.groups.find_one({"group_id": group_id}, {"_id": 0})
+    return updated
+
+
+@api_router.delete("/groups/{group_id}/buildings/{building_id}")
+async def remove_building_from_group(group_id: str, building_id: str, request: Request):
+    """Remove a building from a group."""
+    user = await require_auth(request)
+    group = await db.groups.find_one({"group_id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    if group.get("created_by") != user.user_id and user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    await db.groups.update_one(
+        {"group_id": group_id},
+        {"$pull": {"building_ids": building_id}, "$set": {"updated_at": datetime.now(timezone.utc)}},
+    )
+    return {"ok": True}
+
+
+@api_router.delete("/groups/{group_id}")
+async def delete_group(group_id: str, request: Request):
+    """Delete a group (does NOT delete buildings)."""
+    user = await require_auth(request)
+    group = await db.groups.find_one({"group_id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    if group.get("created_by") != user.user_id and user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    await db.groups.delete_one({"group_id": group_id})
+    return {"ok": True}
+
+
+# ==================== SUSTENANCE POTENTIAL ENDPOINTS ====================
+@api_router.get("/sustenance/building/{building_id}")
+async def get_building_sustenance(
+    building_id: str,
+    plantation_type: str = "mixed",
+    floors: int = 1,
+    occupants: Optional[int] = None,
+):
+    """Compute 4-pillar sustenance potential for a single building (solar/plantation/biogas/rainwater)."""
+    building = await db.buildings.find_one({"building_id": building_id}, {"_id": 0})
+    if not building:
+        raise HTTPException(status_code=404, detail="Building not found")
+    report = calculate_full_sustenance_potential(
+        building=building,
+        plantation_type=plantation_type,
+        floors=floors,
+        occupants_override=occupants,
+    )
+    return report
+
+
+@api_router.get("/sustenance/group/{group_id}")
+async def get_group_sustenance(
+    group_id: str,
+    plantation_type: str = "mixed",
+    floors: int = 1,
+):
+    """Compute aggregated 4-pillar sustenance potential for all buildings in a group (BRSR-style rollup)."""
+    group = await db.groups.find_one({"group_id": group_id}, {"_id": 0})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    building_ids = group.get("building_ids", [])
+    if not building_ids:
+        return {"group": group, "buildings_count": 0, "buildings": [], "summary": {}}
+    buildings = await db.buildings.find(
+        {"building_id": {"$in": building_ids}}, {"_id": 0}
+    ).to_list(len(building_ids))
+    per_building_reports = [
+        calculate_full_sustenance_potential(
+            building=b, plantation_type=plantation_type, floors=floors,
+        )
+        for b in buildings
+    ]
+    rollup = aggregate_group_potential(per_building_reports)
+    return {
+        "group": group,
+        "buildings": per_building_reports,
+        "summary": rollup,
+    }
+
+
+# ==================== INCUBEX-STYLE SEARCH (POI-based) ====================
+@api_router.get("/poi/search")
+async def search_buildings_by_poi(
+    poi_name: str = Query(..., description="POI/Brand name e.g. 'Incubex'"),
+    city: Optional[str] = None,
+    limit: int = Query(default=20, le=50),
+):
+    """
+    Search buildings whose name or address contains the given POI (e.g., 'Incubex').
+    Combines: 1) existing DB matches, 2) live Google Places Text Search for new POIs.
+    """
+    results = []
+
+    # 1) DB matches
+    query = {
+        "$or": [
+            {"address": {"$regex": poi_name, "$options": "i"}},
+            {"name": {"$regex": poi_name, "$options": "i"}},
+        ]
+    }
+    if city:
+        query["city"] = {"$regex": city, "$options": "i"}
+    db_results = await db.buildings.find(query, {"_id": 0}).limit(limit).to_list(limit)
+    for b in db_results:
+        b["source"] = "database"
+    results.extend(db_results)
+
+    # 2) Google Places Text Search (only if API key available)
+    google_key = os.environ.get("GOOGLE_PLACES_API_KEY")
+    if google_key and len(results) < limit:
+        try:
+            search_text = f"{poi_name} in {city}" if city else poi_name
+            async with httpx.AsyncClient(timeout=10) as http:
+                resp = await http.post(
+                    "https://places.googleapis.com/v1/places:searchText",
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-Goog-Api-Key": google_key,
+                        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.addressComponents",
+                    },
+                    json={"textQuery": search_text, "maxResultCount": limit - len(results)},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    existing_place_ids = {b.get("google_place_id") for b in results if b.get("google_place_id")}
+                    for place in data.get("places", []):
+                        pid = place.get("id")
+                        if pid in existing_place_ids:
+                            continue
+                        loc = place.get("location", {})
+                        # Extract city from addressComponents
+                        place_city = city or ""
+                        for comp in place.get("addressComponents", []):
+                            types = comp.get("types", [])
+                            if "locality" in types:
+                                place_city = comp.get("longText") or place_city
+                                break
+                        results.append({
+                            "building_id": None,
+                            "google_place_id": pid,
+                            "name": place.get("displayName", {}).get("text", poi_name),
+                            "address": place.get("formattedAddress", ""),
+                            "city": place_city,
+                            "latitude": loc.get("latitude"),
+                            "longitude": loc.get("longitude"),
+                            "place_types": place.get("types", []),
+                            "source": "google_places",
+                            "is_imported": False,
+                        })
+        except Exception as e:
+            logger.warning(f"Google Places search failed: {e}")
+
+    return {"poi_name": poi_name, "city": city, "count": len(results), "results": results}
+
+
+@api_router.post("/poi/import")
+async def import_building_from_poi(request: Request):
+    """
+    Import a Google Places result into the buildings collection.
+    Body: {google_place_id, name, address, city, latitude, longitude, building_type?}
+    Uses building_discovery's geocoding logic to fetch footprint polygon.
+    """
+    user = await require_auth(request)
+    body = await request.json()
+    place_id = body.get("google_place_id")
+    if not place_id:
+        raise HTTPException(status_code=400, detail="google_place_id required")
+
+    # Check if already imported
+    existing = await db.buildings.find_one({"google_place_id": place_id}, {"_id": 0})
+    if existing:
+        return {"imported": False, "reason": "already_exists", "building": existing}
+
+    lat = body.get("latitude")
+    lng = body.get("longitude")
+    if lat is None or lng is None:
+        raise HTTPException(status_code=400, detail="latitude/longitude required")
+
+    # Try to fetch footprint polygon via Google Geocoding (existing pipeline)
+    google_key = os.environ.get("GOOGLE_PLACES_API_KEY")
+    footprint_polygon = None
+    footprint_area = None
+    if google_key:
+        try:
+            from building_discovery import fetch_building_polygon_from_google
+            poly_data = await fetch_building_polygon_from_google(
+                place_id=place_id, api_key=google_key, lat=lat, lng=lng
+            )
+            if poly_data:
+                footprint_polygon = poly_data.get("polygon")
+                footprint_area = poly_data.get("area_sqm")
+        except Exception as e:
+            logger.warning(f"Polygon fetch failed: {e}")
+
+    # Fallback: estimate 800 sqm if no polygon found
+    if not footprint_area:
+        footprint_area = 800.0
+
+    building_id = f"bld_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    building_type = body.get("building_type", "commercial")
+    doc = {
+        "building_id": building_id,
+        "name": body.get("name"),
+        "address": body.get("address", ""),
+        "city": body.get("city", ""),
+        "pincode": body.get("pincode", ""),
+        "latitude": lat,
+        "longitude": lng,
+        "building_type": building_type,
+        "building_footprint_area": footprint_area,
+        "usable_terrace_area": footprint_area * 0.7,
+        "footprint_polygon": footprint_polygon,
+        "google_place_id": place_id,
+        "data_source": "google_places_poi_import",
+        "data_quality_score": 0.85 if footprint_polygon else 0.65,
+        "is_approved": True,
+        "curated_by_admin_id": user.user_id,
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.buildings.insert_one(doc)
+    doc.pop("_id", None)
+    return {"imported": True, "building": doc}
+
+
 # ==================== ROOT ====================
 @api_router.get("/")
 async def root():
