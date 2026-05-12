@@ -282,12 +282,12 @@ async def analyze_rooftop(building: Dict[str, Any]) -> Dict[str, Any]:
                     "raw_response": cleaned[:500],
                 }
 
-        # 3) Annotate the image
-        from services.rooftop_image_annotator import annotate_rooftop_image
-        annotated = None
+        # 3) Annotate — produce multi-slide PPT-style output
+        from services.rooftop_image_annotator import annotate_rooftop_slides
+        slides = []
         if img_info.get("source") == "esri_world_imagery":
             try:
-                annotated = annotate_rooftop_image(
+                slides = annotate_rooftop_slides(
                     image_b64=image_b64,
                     analysis=parsed,
                     lat=lat,
@@ -299,7 +299,7 @@ async def analyze_rooftop(building: Dict[str, Any]) -> Dict[str, Any]:
                     building_polygon=building.get("footprint_polygon"),
                 )
             except Exception as e:
-                logger.exception(f"Annotation failed: {e}")
+                logger.exception(f"Slide generation failed: {e}")
 
         return {
             "success": True,
@@ -309,8 +309,7 @@ async def analyze_rooftop(building: Dict[str, Any]) -> Dict[str, Any]:
             "image_zoom": img_info["zoom"],
             "image_source": img_info["source"],
             "analysis": parsed,
-            "annotated_image_b64": annotated,
-            "raw_image_b64": image_b64,
+            "slides": slides,
         }
     except Exception as e:
         logger.exception(f"Gemini analysis failed: {e}")

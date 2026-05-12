@@ -232,7 +232,21 @@ Every pledge counts! Join us on Sus10 AI: [URL]
 - [ ] Refactor server.py monolith into /routes, /models, /services structure
 - [ ] Fix Babel plugin workaround in frontend/config-overrides.js
 
-## Feature Addition (Feb 12, 2026 — afternoon)
+## Feature Update (Feb 12, 2026 — evening)
+
+### 🎨 Multi-Slide PPT-Style Visual Report (REDESIGNED) ✅
+Replaced single dense annotated image with **PPT-style multi-slide carousel**:
+- **9 categorical slides per building** (Overview, Water Tanks, AC Chillers, Vent Stacks, Solar Panels, Stairwells, Antennas, Shadows, Recommended Zones)
+- Slides automatically skipped when count = 0
+- **Thin colored borders only** — no text labels covering the image
+- **Numbered circle markers** (1, 2, 3...) for each detected object
+- **PPT chrome**: title strip · description · count badge · summary · scale bar
+- **Carousel UI**: tab strip + arrow buttons + "Download Slide" / "Download All" buttons
+- Each slide is download-ready as a publication-grade JPEG (~150 KB)
+- Use case: engineers can flip through slides during site reviews, embed individual slides in feasibility reports
+
+**Backend:** `services/rooftop_image_annotator.py` rewritten with `annotate_rooftop_slides()` returning `List[Dict]` of {id, title, description, image_b64, count, summary_lines}
+**Frontend:** `GeminiAnalysisDialog` redesigned with carousel state, tab strip, prev/next buttons
 
 ### 🧠 Gemini Vision Rooftop Analysis (NEW) ✅
 - **Service**: `/app/backend/services/gemini_rooftop_analyzer.py`

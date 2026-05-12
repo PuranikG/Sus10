@@ -4,7 +4,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Building2, MapPin, Plus, Trash2, Loader2, Search,
   Sun, Sprout, Flame, Droplets, TrendingUp, Leaf, Sparkles, BarChart3,
-  Download, ExternalLink, Check, X, Eye, Brain
+  Download, ExternalLink, Check, X, Eye, Brain, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -329,149 +329,158 @@ function BuildingSustenanceCard({ b }) {
 }
 
 function GeminiAnalysisDialog({ open, onOpenChange, result, buildingName }) {
+  const [slideIdx, setSlideIdx] = useState(0);
+
+  // Reset to first slide whenever the dialog re-opens with a new result
+  useEffect(() => { if (open) setSlideIdx(0); }, [open, result]);
+
   if (!result) return null;
   const a = result.analysis || {};
-  const obstructions = Object.entries(a.obstructions_visible || {}).filter(([_, v]) => v).map(([k]) => k);
+  const slides = result.slides || [];
 
-  const handleDownloadImage = () => {
-    if (!result.annotated_image_b64) return;
+  const handleDownloadCurrentSlide = () => {
+    const s = slides[slideIdx];
+    if (!s?.image_b64) return;
     const link = document.createElement('a');
-    link.href = `data:image/jpeg;base64,${result.annotated_image_b64}`;
-    link.download = `Sus10_Rooftop_${(buildingName || 'building').replace(/\W+/g, '_')}.jpg`;
+    link.href = `data:image/jpeg;base64,${s.image_b64}`;
+    link.download = `Sus10_${(buildingName || 'building').replace(/\W+/g, '_')}_${s.id}.jpg`;
     link.click();
+  };
+
+  const handleDownloadAll = () => {
+    slides.forEach((s, i) => {
+      setTimeout(() => {
+        const link = document.createElement('a');
+        link.href = `data:image/jpeg;base64,${s.image_b64}`;
+        link.download = `Sus10_${(buildingName || 'building').replace(/\W+/g, '_')}_${String(i + 1).padStart(2, '0')}_${s.id}.jpg`;
+        link.click();
+      }, i * 250);
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto" data-testid="gemini-analysis-dialog">
-        <DialogHeader>
+      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0" data-testid="gemini-analysis-dialog">
+        <DialogHeader className="p-6 pb-3">
           <DialogTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-violet-600" />
-            Gemini Rooftop Analysis
+            Sustenance Visual Report — {buildingName}
           </DialogTitle>
           <DialogDescription>
-            {buildingName} · Model: <span className="font-mono text-xs">{result.model}</span>
+            Model: <span className="font-mono text-xs">{result.model}</span>
             {result.cached && <Badge variant="outline" className="ml-2 text-[10px]">Cached</Badge>}
+            {slides.length > 0 && <span className="ml-2 text-xs">· {slides.length} slides</span>}
           </DialogDescription>
         </DialogHeader>
 
         {!result.success ? (
-          <div className="p-4 rounded-md bg-destructive/10 text-destructive text-sm">
+          <div className="m-6 p-4 rounded-md bg-destructive/10 text-destructive text-sm">
             {result.error || 'Analysis failed'}
           </div>
+        ) : slides.length === 0 ? (
+          <div className="m-6 p-4 rounded-md bg-amber-50 text-amber-900 text-sm">
+            No slides could be generated for this image.
+          </div>
         ) : (
-          <div className="space-y-4 text-sm">
-            {/* Annotated image */}
-            {result.annotated_image_b64 && (
-              <div className="rounded-lg overflow-hidden border bg-slate-900">
+          <div className="px-6 pb-6 space-y-4">
+            {/* Slide nav strip */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2" data-testid="slide-nav">
+              {slides.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSlideIdx(i)}
+                  data-testid={`slide-nav-${s.id}`}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                    i === slideIdx
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-muted/30 text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  {i + 1}. {s.title}
+                  {s.count !== null && s.count !== undefined && (
+                    <span className="ml-1.5 opacity-70">({s.count})</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Current slide */}
+            {slides[slideIdx] && (
+              <div className="relative rounded-lg overflow-hidden border bg-slate-950">
                 <img
-                  src={`data:image/jpeg;base64,${result.annotated_image_b64}`}
-                  alt={`Annotated rooftop analysis for ${buildingName}`}
+                  src={`data:image/jpeg;base64,${slides[slideIdx].image_b64}`}
+                  alt={slides[slideIdx].title}
                   className="w-full h-auto"
-                  data-testid="gemini-annotated-image"
+                  data-testid="current-slide-image"
                 />
-                <div className="flex items-center justify-between p-2 bg-slate-900 border-t border-slate-700">
-                  <span className="text-[10px] text-slate-400">
-                    Imagery: {result.image_source} · Zoom {result.image_zoom} · AI annotations overlay
-                  </span>
-                  <Button
-                    data-testid="download-annotated-btn"
-                    size="sm"
-                    variant="outline"
-                    onClick={handleDownloadImage}
-                    className="h-7 gap-1.5 text-xs"
+                {/* Prev / next overlay buttons */}
+                {slideIdx > 0 && (
+                  <button
+                    type="button"
+                    data-testid="prev-slide-btn"
+                    onClick={() => setSlideIdx(i => Math.max(0, i - 1))}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-2 transition"
+                    aria-label="Previous slide"
                   >
-                    <Download className="h-3 w-3" /> Download Image
-                  </Button>
-                </div>
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                )}
+                {slideIdx < slides.length - 1 && (
+                  <button
+                    type="button"
+                    data-testid="next-slide-btn"
+                    onClick={() => setSlideIdx(i => Math.min(slides.length - 1, i + 1))}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-2 transition"
+                    aria-label="Next slide"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                )}
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-3">
-              <StatBox label="Rooftop type" value={a.rooftop_type || 'unknown'} />
-              <StatBox label="Obstruction" value={`${a.estimated_obstruction_percentage ?? '—'}%`} />
-              <StatBox label="Confidence" value={`${Math.round((a.confidence_score || 0) * 100)}%`} />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-md border p-3 bg-amber-50 dark:bg-amber-950/20">
-                <div className="text-xs text-muted-foreground mb-1">Usable for Solar</div>
-                <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">
-                  {a.usable_for_solar_pct ?? '—'}%
-                </div>
-                <div className="text-xs mt-1">
-                  Zone: <span className="font-medium">{a.recommended_zones?.solar_zone}</span>
-                </div>
-              </div>
-              <div className="rounded-md border p-3 bg-green-50 dark:bg-green-950/20">
-                <div className="text-xs text-muted-foreground mb-1">Usable for Plantation</div>
-                <div className="text-2xl font-bold text-green-700 dark:text-green-300">
-                  {a.usable_for_plantation_pct ?? '—'}%
-                </div>
-                <div className="text-xs mt-1">
-                  Zone: <span className="font-medium">{a.recommended_zones?.plantation_zone}</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div className="text-xs font-medium text-muted-foreground mb-2">
-                Obstructions detected ({(a.detected_objects || []).length})
-              </div>
-              {(a.detected_objects || []).length === 0 ? (
-                <div className="text-xs text-muted-foreground italic">None detected</div>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {(a.detected_objects || []).map((o, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs capitalize">
-                      {(o.label || '').replace(/_/g, ' ')}
-                    </Badge>
+            {/* Slide-specific summary lines */}
+            {slides[slideIdx]?.summary_lines?.length > 0 && (
+              <div className="rounded-md border-l-4 border-violet-500 bg-violet-50 dark:bg-violet-950/20 p-3">
+                <div className="text-xs font-medium text-violet-900 dark:text-violet-200 mb-1.5">Summary</div>
+                <ul className="text-sm text-violet-900 dark:text-violet-100 space-y-1">
+                  {slides[slideIdx].summary_lines.map((line, i) => (
+                    <li key={i} className="leading-snug">• {line}</li>
                   ))}
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-md border p-3">
-                <div className="text-xs font-medium text-muted-foreground mb-1">Existing vegetation</div>
-                <div className="text-sm">
-                  {a.existing_vegetation?.present ? (
-                    <>
-                      <span className="font-medium">{a.existing_vegetation.approximate_coverage_percentage}% coverage</span>
-                      <div className="text-xs text-muted-foreground capitalize">{a.existing_vegetation.type}</div>
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground">None visible</span>
-                  )}
-                </div>
+                </ul>
               </div>
-              <div className="rounded-md border p-3">
-                <div className="text-xs font-medium text-muted-foreground mb-1">Shadow analysis</div>
-                <div className="text-sm">
-                  {a.shadow_analysis?.significant_shadows_present ? (
-                    <>
-                      <span className="font-medium">{a.shadow_analysis.shaded_area_percentage_estimated}% shaded</span>
-                      <div className="text-xs text-muted-foreground">
-                        Source: {(a.shadow_analysis.shadow_source || 'unknown').replace(/_/g, ' ')}
-                      </div>
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground">No significant shadows</span>
-                  )}
-                </div>
+            )}
+
+            {/* Slide controls */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+              <div className="text-sm text-muted-foreground">
+                Slide <span className="font-medium text-foreground">{slideIdx + 1}</span> of {slides.length}
+              </div>
+              <div className="ml-auto flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-testid="download-current-btn"
+                  onClick={handleDownloadCurrentSlide}
+                  className="gap-1.5"
+                >
+                  <Download className="h-3.5 w-3.5" /> Download Slide
+                </Button>
+                <Button
+                  size="sm"
+                  data-testid="download-all-btn"
+                  onClick={handleDownloadAll}
+                  className="gap-1.5"
+                >
+                  <Download className="h-3.5 w-3.5" /> Download All ({slides.length})
+                </Button>
               </div>
             </div>
 
-            <div className="rounded-md border-l-4 border-violet-500 bg-violet-50 dark:bg-violet-950/20 p-3">
-              <div className="text-xs font-medium text-violet-900 dark:text-violet-200 mb-1">
-                Gemini's notes
-              </div>
-              <p className="text-sm text-violet-800 dark:text-violet-100">{a.data_quality_notes}</p>
-            </div>
-
-            <div className="text-[10px] text-muted-foreground border-t pt-2">
-              Imagery: {result.image_source} (zoom {result.image_zoom}). Analysis is AI-generated from satellite
-              imagery — verify on-site before planning.
+            <div className="text-[10px] text-muted-foreground">
+              Imagery: {result.image_source} · zoom {result.image_zoom} · AI confidence {Math.round((a.confidence_score || 0) * 100)}%.
+              Annotations are AI-generated — verify on-site before procurement.
             </div>
           </div>
         )}
