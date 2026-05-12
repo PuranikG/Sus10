@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Building2, MapPin, Leaf, Sun, Droplets, Wind,
@@ -123,6 +123,7 @@ const TERRACE_PLANT_DATABASE = {
 
 export default function BuildingReportPage() {
   const { buildingId } = useParams();
+  const navigate = useNavigate();
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -140,9 +141,11 @@ export default function BuildingReportPage() {
   const [customPolygon, setCustomPolygon] = useState(null); // Store polygon coordinates
   const [isSavingTerrace, setIsSavingTerrace] = useState(false);
   const [terraceUnsaved, setTerraceUnsaved] = useState(false);
+  const [mapLayer, setMapLayer] = useState('hybrid'); // 'roadmap' | 'satellite' | 'hybrid' | 'esri'
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const polygonRef = useRef(null);
+  const esriOverlayRef = useRef(null);
 
   // Save custom terrace area to backend
   const saveCustomTerrace = async () => {
@@ -233,10 +236,11 @@ export default function BuildingReportPage() {
         
         mapInstanceRef.current = new Map(mapRef.current, {
           center: position,
-          zoom: 18,
+          zoom: 19,
           mapId: 'building_map',
-          mapTypeId: 'satellite',
+          mapTypeId: mapLayer === 'esri' ? 'roadmap' : mapLayer,
           tilt: 0,
+          maxZoom: 22,
         });
         
         // Check if we have a Google polygon or need to create approximate one
@@ -316,6 +320,37 @@ export default function BuildingReportPage() {
     
     initMap();
   }, [reportData]);
+
+  // Handle map layer toggle (Map / Satellite / Hybrid / High-Res Aerial)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !window.google) return;
+
+    // Clear any prior Esri overlay
+    if (esriOverlayRef.current) {
+      const idx = map.overlayMapTypes.getArray().indexOf(esriOverlayRef.current);
+      if (idx >= 0) map.overlayMapTypes.removeAt(idx);
+      esriOverlayRef.current = null;
+    }
+
+    if (mapLayer === 'esri') {
+      // High-resolution aerial via Esri World Imagery (free public tile service)
+      // Often 0.3-0.6 m/pixel in major Indian cities — sharper than Google satellite
+      map.setMapTypeId('roadmap');
+      const esri = new window.google.maps.ImageMapType({
+        getTileUrl: (coord, zoom) =>
+          `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${coord.y}/${coord.x}`,
+        tileSize: new window.google.maps.Size(256, 256),
+        name: 'Esri World Imagery',
+        maxZoom: 22,
+        opacity: 1.0,
+      });
+      esriOverlayRef.current = esri;
+      map.overlayMapTypes.insertAt(0, esri);
+    } else {
+      map.setMapTypeId(mapLayer);
+    }
+  }, [mapLayer]);
 
   // Calculate temperature reduction based on green cover
   const calculateTemperatureReduction = (terraceArea, footprintArea, plantablePercent, gardenType) => {
@@ -569,9 +604,23 @@ export default function BuildingReportPage() {
       <section className="border-b border-border bg-gradient-to-br from-primary/5 to-accent/5">
         <div className="container-max section-padding py-8">
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-            <Link to="/search" className="hover:text-foreground transition-colors">
+            <button
+              type="button"
+              data-testid="report-back-btn"
+              onClick={() => {
+                // Use browser history when available (came from in-app navigation),
+                // otherwise fall back to /search.
+                if (window.history.state && window.history.state.idx > 0) {
+                  navigate(-1);
+                } else {
+                  navigate('/search');
+                }
+              }}
+              className="hover:text-foreground transition-colors"
+              aria-label="Back"
+            >
               <ArrowLeft className="h-4 w-4" />
-            </Link>
+            </button>
             <span>Buildings</span>
             <ChevronRight className="h-4 w-4" />
             <span className="text-foreground">{building.city}</span>
@@ -689,37 +738,67 @@ export default function BuildingReportPage() {
           <div className="mt-6">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center justify-between">
+                <CardTitle className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <Map className="h-5 w-5" />
-                    Building Location (Satellite View)
+                    Building Location
                   </div>
-                  {terraceUnsaved && (
-                    <Button 
-                      size="sm" 
-                      onClick={saveCustomTerrace}
-                      disabled={isSavingTerrace}
-                      data-testid="save-terrace-btn"
-                      className="bg-primary hover:bg-primary/90"
-                    >
-                      {isSavingTerrace ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4 mr-2" />
-                          Save Changes
-                        </>
-                      )}
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {/* Map Layer Toggle */}
+                    <div className="inline-flex rounded-md border bg-muted/30 p-0.5" data-testid="map-layer-toggle">
+                      {[
+                        { v: 'roadmap', label: 'Map' },
+                        { v: 'satellite', label: 'Satellite' },
+                        { v: 'hybrid', label: 'Hybrid' },
+                        { v: 'esri', label: 'High-Res Aerial' },
+                      ].map(opt => (
+                        <button
+                          key={opt.v}
+                          type="button"
+                          data-testid={`map-layer-${opt.v}`}
+                          onClick={() => setMapLayer(opt.v)}
+                          className={`px-2.5 py-1 text-xs font-medium rounded transition ${
+                            mapLayer === opt.v
+                              ? 'bg-background shadow-sm text-foreground'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    {terraceUnsaved && (
+                      <Button 
+                        size="sm" 
+                        onClick={saveCustomTerrace}
+                        disabled={isSavingTerrace}
+                        data-testid="save-terrace-btn"
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        {isSavingTerrace ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 mr-2" />
+                            Save Changes
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </CardTitle>
                 {customTerraceArea && (
                   <CardDescription className="flex items-center gap-2">
                     Custom terrace area: <span className="font-medium text-primary">{customTerraceArea.toLocaleString()} sqm</span>
                     {terraceUnsaved && <Badge variant="outline" className="text-amber-600 border-amber-500">Unsaved</Badge>}
+                  </CardDescription>
+                )}
+                {mapLayer === 'esri' && (
+                  <CardDescription className="text-xs text-muted-foreground">
+                    Imagery: Esri World Imagery (often higher resolution in Indian cities). Switch back to Hybrid for Google labels.
                   </CardDescription>
                 )}
               </CardHeader>
