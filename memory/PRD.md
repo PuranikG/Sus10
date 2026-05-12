@@ -232,7 +232,56 @@ Every pledge counts! Join us on Sus10 AI: [URL]
 - [ ] Refactor server.py monolith into /routes, /models, /services structure
 - [ ] Fix Babel plugin workaround in frontend/config-overrides.js
 
-## Feature Addition (Feb 12, 2026)
+## Feature Addition (Feb 12, 2026 — afternoon)
+
+### 🧠 Gemini Vision Rooftop Analysis (NEW) ✅
+- **Service**: `/app/backend/services/gemini_rooftop_analyzer.py`
+- **Model**: Gemini 2.5 Flash via Emergent LLM key (~$0.002/analysis)
+- **Imagery source**: Esri World Imagery (XYZ tiles stitched at zoom 19, ~0.3 m/pixel) — chosen because Google Static Maps API requires separate activation. Graceful fallback to Google Static Maps if/when enabled.
+- **Endpoint**: `POST /api/sustenance/building/{building_id}/gemini-analyze` (auth required, 24h cache)
+- **Returns**: structured JSON with `detected_objects`, `building_boundary_box`, `shadow_regions`, `usable_for_solar_pct`, `usable_for_plantation_pct`, `recommended_zones`, `confidence_score`
+- **Tested on 3 Incubex buildings** with realistic diversified outputs (HSROHQ: 7 objects, Manyata: 39 objects, KRM1: 6 objects + 3 tree shadows)
+
+### 🎨 Visual Rooftop Annotator (NEW) ✅
+- **Service**: `/app/backend/services/rooftop_image_annotator.py`
+- **Outputs publication-grade annotated JPEG** with:
+  - **Blue building footprint outline** (from actual Google geocoding polygon — pixel-accurate via lat/lng→pixel projection)
+  - **Color-coded bounding boxes** per obstruction type (water tank cyan, AC red, vent orange, solar purple, antenna yellow, stairwell gray)
+  - **Real-world measurements in meters** (computed from Web Mercator m/px at zoom 19, latitude-corrected)
+  - **Semi-transparent shadow overlays** with source label ("adjacent taller building" / "trees" / "self_shadow")
+  - **Title strip** with model name + usable solar/plantation/confidence
+  - **Bottom legend** with color key, detected counts, scale bar (10m)
+  - **Label de-overlap heuristic** (try above → below → inside) for dense rooftops
+- **Frontend integration**: Image displayed in Gemini dialog with Download button (JPEG export)
+
+### 🐞 Bug Fixes
+- **Terrace area sync**: Custom polygon edits now propagate to `usable_terrace_area` field (was stale at 70% of footprint). Frontend now initializes `customTerraceArea` from saved value on load.
+- **Smart back button**: `BuildingReportPage` now uses browser history (`navigate(-1)`) to return to referrer (e.g., `/projects/{id}`) instead of always `/search`.
+- **Map layer toggle**: Added Map/Satellite/Hybrid/High-Res Aerial (Esri) options on building report map for sharper imagery in Indian cities.
+- **Default hybrid view + zoom 19** (was satellite + zoom 18) for better building detail.
+
+## Prioritized Backlog (Updated Feb 12, 2026 afternoon)
+
+### P0
+- [x] Gemini vision annotations on rooftop ✅
+
+### P1
+- [ ] **Monetization**: Pricing plans (per-building report, project design pack, XL with quantity estimates) — user signaled intent
+- [ ] **Per-layer image variants**: Generate separate "solar zone map", "plantation zone map", "shadow map" for human-readable use in feasibility report (user request: "multiple images but scaled for human readability")
+- [ ] **Embed annotated image in PDF Feasibility Report** (currently only on screen)
+- [ ] **Private share token** (`sus10.ai/share/{token}` — for Incubex demos, no login required)
+- [ ] **Public sample link** (`sus10.ai/sample/{ward-slug}` — for blog/SEO)
+- [ ] Refactor server.py monolith into /routes, /models, /services
+
+### P2
+- [ ] **Cluster** intermediate level (Group → Cluster → Building) for Embassy/Prestige-style hierarchies
+- [ ] PDF export of group BRSR rollup report
+- [ ] Polygon editing UX in project detail page
+- [ ] Provider onboarding wizard
+- [ ] Email notifications for leads
+- [ ] Outdoor/roadside tree plantation (separate future module)
+- [ ] Cost-per-sqft revival with vendor-specific quoting
+
 
 ### 🏗️ Projects/Portfolios (Group Hierarchy) ✅
 - **3-level hierarchy**: Group (developer/federation/chain) → Cluster (optional) → Building

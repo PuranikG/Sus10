@@ -259,7 +259,7 @@ function BuildingSustenanceCard({ b }) {
             className="gap-2"
           >
             {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
-            {analyzing ? 'Analyzing…' : geminiResult ? 'View AI Analysis' : 'Analyze with Gemini'}
+            {analyzing ? 'Analyzing…' : geminiResult ? 'View Annotation' : 'Analyze with Gemini'}
           </Button>
         </div>
       </CardHeader>
@@ -333,9 +333,17 @@ function GeminiAnalysisDialog({ open, onOpenChange, result, buildingName }) {
   const a = result.analysis || {};
   const obstructions = Object.entries(a.obstructions_visible || {}).filter(([_, v]) => v).map(([k]) => k);
 
+  const handleDownloadImage = () => {
+    if (!result.annotated_image_b64) return;
+    const link = document.createElement('a');
+    link.href = `data:image/jpeg;base64,${result.annotated_image_b64}`;
+    link.download = `Sus10_Rooftop_${(buildingName || 'building').replace(/\W+/g, '_')}.jpg`;
+    link.click();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" data-testid="gemini-analysis-dialog">
+      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto" data-testid="gemini-analysis-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-violet-600" />
@@ -353,6 +361,32 @@ function GeminiAnalysisDialog({ open, onOpenChange, result, buildingName }) {
           </div>
         ) : (
           <div className="space-y-4 text-sm">
+            {/* Annotated image */}
+            {result.annotated_image_b64 && (
+              <div className="rounded-lg overflow-hidden border bg-slate-900">
+                <img
+                  src={`data:image/jpeg;base64,${result.annotated_image_b64}`}
+                  alt={`Annotated rooftop analysis for ${buildingName}`}
+                  className="w-full h-auto"
+                  data-testid="gemini-annotated-image"
+                />
+                <div className="flex items-center justify-between p-2 bg-slate-900 border-t border-slate-700">
+                  <span className="text-[10px] text-slate-400">
+                    Imagery: {result.image_source} · Zoom {result.image_zoom} · AI annotations overlay
+                  </span>
+                  <Button
+                    data-testid="download-annotated-btn"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleDownloadImage}
+                    className="h-7 gap-1.5 text-xs"
+                  >
+                    <Download className="h-3 w-3" /> Download Image
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-3">
               <StatBox label="Rooftop type" value={a.rooftop_type || 'unknown'} />
               <StatBox label="Obstruction" value={`${a.estimated_obstruction_percentage ?? '—'}%`} />
@@ -381,14 +415,16 @@ function GeminiAnalysisDialog({ open, onOpenChange, result, buildingName }) {
             </div>
 
             <div>
-              <div className="text-xs font-medium text-muted-foreground mb-2">Obstructions visible in imagery</div>
-              {obstructions.length === 0 ? (
+              <div className="text-xs font-medium text-muted-foreground mb-2">
+                Obstructions detected ({(a.detected_objects || []).length})
+              </div>
+              {(a.detected_objects || []).length === 0 ? (
                 <div className="text-xs text-muted-foreground italic">None detected</div>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
-                  {obstructions.map(o => (
-                    <Badge key={o} variant="secondary" className="text-xs capitalize">
-                      {o.replace(/_/g, ' ')}
+                  {(a.detected_objects || []).map((o, i) => (
+                    <Badge key={i} variant="secondary" className="text-xs capitalize">
+                      {(o.label || '').replace(/_/g, ' ')}
                     </Badge>
                   ))}
                 </div>
