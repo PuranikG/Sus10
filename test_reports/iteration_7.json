@@ -1,0 +1,34 @@
+{
+  "summary": "E2E tested the new PPT-style multi-slide Gemini rooftop carousel on /projects/grp_12f524b3caa6 (Incubex Bangalore) for all 3 buildings. Login via test session cookie worked. Sustenance tab loaded 3 building cards each with an 'Analyze with Gemini' button. Dialog opens with correct title 'Sustenance Visual Report — {building}', shows model badge gemini-2.5-flash, slide count, tab strip, large slide image, summary lines, prev/next arrows, and Download Slide / Download All buttons. First slide (overview) shows the blue footprint outline with key stats (Footprint ~214 m^2, Rooftop type: flat, Solar usable 45%, etc.). Every slide tab is clickable and image updates. Prev/next buttons work. Download Slide triggers a JPEG download named 'Sus10_Incubex_HSROHQ_overview.jpg' (matches required format). Download All clicked without error. Reopen resets to slide 1 and shows 'Cached' badge. Building 2 (Manyata) cached with 9 slides; Building 3 (KRM1) fresh with 4 slides — both opened, rendered an image, and showed correct model badge. Carousel works end-to-end across all 3 buildings.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "GeminiAnalysisDialog header",
+        "issues": [
+          "React hydration warning: '<p> cannot contain a nested <div>' / '<p> cannot contain a nested p'. Source: <DialogDescription> renders as a <p> but contains <Badge> (a div) for the 'Cached' badge and a <span>. Visible only as a console warning; UI renders correctly. Fix: replace DialogDescription with a div or render the meta info outside DialogDescription (e.g., wrap in a sibling <div>)."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix React hydration warning in GeminiAnalysisDialog (ProjectDetailPage.js line ~369): move the Badge ('Cached') and the '· {slides.length} slides' meta out of <DialogDescription> (which renders <p>) into a sibling <div>. Currently produces a console warning on every open.",
+    "Note: slide types 'solar_panels' and 'antennas' mentioned in the test spec did not appear for Incubex HSROHQ (7 slides shown: overview, water_tanks, ac_units, vent_stacks, stairwells, shadows, zones). This appears data-driven (only categories where Gemini detected items become slides). Confirm with main agent this is intentional — KRM1 only had 4 slides which seems sparse; may want to investigate why count varies so much (HSROHQ=7, Manyata=9, KRM1=4)."
+  ],
+  "critical_code_review_comments": [
+    "ProjectDetailPage.js is 791 lines — consider splitting GeminiAnalysisDialog, AddBuildingsDialog, BuildingSustenanceCard into separate files per the <700 line guideline.",
+    "Hydration warning from nesting Badge (div) and span inside DialogDescription (<p>) — see action item.",
+    "Download All uses staggered setTimeout(i * 250) which works but does not handle browser popup-blockers gracefully; consider zipping into a single download to avoid multi-download warnings on some browsers."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "100% (all carousel acceptance criteria passed)"},
+  "test_credentials": "Used test_session_5c7f95f52d2d493991c8e6aa1d54e2c2 cookie (gp@sus10.ai) — worked as expected.",
+  "seed_data_creation": "None. Used pre-existing Incubex Bangalore project (grp_12f524b3caa6) with 3 buildings (HSROHQ, Manyata, KRM1) already cached.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Carousel feature verified working across all 3 Incubex buildings. Slide IDs observed for HSROHQ: overview, water_tanks, ac_units, vent_stacks, stairwells, shadows, zones (7). For Manyata: 9 slides. For KRM1: 4 slides. The single non-blocking issue is a React hydration warning from Badge/span nested inside DialogDescription's <p>. Console also shows 401 / 'Failed to fetch feature flags' from assets.emergent.sh — these are third-party (Emergent CDN) and unrelated to the app under test.",
+  "rca of the issue": "Hydration warning RCA: shadcn's DialogDescription renders a <p>. The current code places <Badge> (renders a <div>) and a meta <span> inside DialogDescription, violating HTML nesting rules. Browser auto-fixes the DOM but React reports a hydration mismatch. Reproduction: open any Gemini Analysis dialog and inspect the console — warning fires on mount. Mitigation: wrap meta line in a <div> sibling to DialogDescription or pass asChild to DialogDescription and use a div."
+}
