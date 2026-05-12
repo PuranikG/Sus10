@@ -689,6 +689,9 @@ async def update_building_terrace(building_id: str, request: Request):
     
     update_data = {
         "custom_terrace_area": float(custom_area),
+        # Also update usable_terrace_area so all downstream consumers
+        # (sustenance calculator, project rollup, top widget) reflect the edit.
+        "usable_terrace_area": float(custom_area),
         "terrace_updated_at": datetime.now(timezone.utc).isoformat()
     }
     
@@ -1938,6 +1941,7 @@ from services.sustenance_calculator import (
     calculate_full_sustenance_potential,
     aggregate_group_potential,
 )
+from services.gemini_rooftop_analyzer import analyze_rooftop
 
 class GroupCreate(BaseModel):
     name: str
@@ -2247,6 +2251,49 @@ async def import_building_from_poi(request: Request):
     await db.buildings.insert_one(doc)
     doc.pop("_id", None)
     return {"imported": True, "building": doc}
+
+
+@api_router.post("/sustenance/building/{building_id}/gemini-analyze")
+async def gemini_analyze_rooftop(building_id: str, request: Request):
+    """
+    Use Gemini 2.5 Flash vision to analyze a building's rooftop satellite image.
+    Returns structured JSON: obstructions, shadows, existing vegetation/solar,
+    usable area percentages, recommended zones.
+
+    Requires authentication. Cached for 24h to keep costs low.
+    """
+    await require_auth(request)
+
+    building = await db.buildings.find_one({"building_id": building_id}, {"_id": 0})
+    if not building:
+        raise HTTPException(status_code=404, detail="Building not found")
+
+    # Check for cached result (24h validity)
+    cached = building.get("gemini_rooftop_analysis")
+    cached_at = building.get("gemini_rooftop_analyzed_at")
+    if cached and cached_at:
+        try:
+            cached_dt = datetime.fromisoformat(cached_at) if isinstance(cached_at, str) else cached_at
+            if cached_dt.tzinfo is None:
+                cached_dt = cached_dt.replace(tzinfo=timezone.utc)
+            age_hours = (datetime.now(timezone.utc) - cached_dt).total_seconds() / 3600
+            if age_hours < 24:
+                return {**cached, "cached": True, "cached_age_hours": round(age_hours, 1)}
+        except Exception:
+            pass
+
+    result = await analyze_rooftop(building)
+
+    if result.get("success"):
+        await db.buildings.update_one(
+            {"building_id": building_id},
+            {"$set": {
+                "gemini_rooftop_analysis": result,
+                "gemini_rooftop_analyzed_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+
+    return {**result, "cached": False}
 
 
 # ==================== ROOT ====================

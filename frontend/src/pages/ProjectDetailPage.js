@@ -4,7 +4,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Building2, MapPin, Plus, Trash2, Loader2, Search,
   Sun, Sprout, Flame, Droplets, TrendingUp, Leaf, Sparkles, BarChart3,
-  Download, ExternalLink, Check, X
+  Download, ExternalLink, Check, X, Eye, Brain
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -204,69 +204,251 @@ function SustenancePerBuildingTab({ rollup, computing }) {
   return (
     <div className="space-y-4">
       {rollup.buildings.map(b => (
-        <Card key={b.building_id} data-testid={`sustenance-card-${b.building_id}`}>
-          <CardHeader>
+        <BuildingSustenanceCard key={b.building_id} b={b} />
+      ))}
+    </div>
+  );
+}
+
+function BuildingSustenanceCard({ b }) {
+  const [analyzing, setAnalyzing] = useState(false);
+  const [geminiResult, setGeminiResult] = useState(null);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+
+  const handleAnalyze = async () => {
+    try {
+      setAnalyzing(true);
+      const result = await apiRequest(
+        `/sustenance/building/${b.building_id}/gemini-analyze`,
+        { method: 'POST' }
+      );
+      setGeminiResult(result);
+      setShowAnalysis(true);
+      if (result.success) {
+        toast.success(
+          result.cached
+            ? `Gemini analysis loaded (cached, ${result.cached_age_hours}h old)`
+            : 'Gemini rooftop analysis complete'
+        );
+      } else {
+        toast.error('Analysis failed: ' + (result.error || 'unknown'));
+      }
+    } catch (e) {
+      toast.error('Failed to run Gemini analysis: ' + e.message);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  return (
+    <Card data-testid={`sustenance-card-${b.building_id}`}>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
             <CardTitle className="text-lg">{b.building_name}</CardTitle>
             <CardDescription>
               {b.city} · {b.footprint_sqm} m² footprint · {b.usable_terrace_sqm} m² usable terrace
             </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <PillarCard
-                icon={<Sun className="h-5 w-5" />}
-                color="bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
-                label="Solar PV"
-                primary={`${b.summary.solar_kwp} kWp`}
-                secondary={`${b.summary.solar_kwh_per_year.toLocaleString()} kWh/yr`}
-              />
-              <PillarCard
-                icon={<Sprout className="h-5 w-5" />}
-                color="bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300"
-                label="Plantation"
-                primary={`${b.summary.plants_count} plants`}
-                secondary={b.summary.annual_food_kg > 0 ? `${Math.round(b.summary.annual_food_kg)} kg food/yr` : 'Mixed/Ornamental'}
-              />
-              <PillarCard
-                icon={<Flame className="h-5 w-5" />}
-                color="bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300"
-                label="Biogas"
-                primary={`${b.summary.biogas_m3_per_year} m³/yr`}
-                secondary={b.pillars.biogas.recommended_plant_size?.split('(')[0]?.trim() || 'Plant sized'}
-              />
-              <PillarCard
-                icon={<Droplets className="h-5 w-5" />}
-                color="bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
-                label="Rainwater"
-                primary={`${b.summary.rainwater_kl_per_year} kL/yr`}
-                secondary={`${b.pillars.rainwater.households_supported} households`}
-              />
-            </div>
-            <div className="mt-4 pt-3 border-t flex flex-wrap items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-emerald-600" />
-                <span className="font-medium">₹{(b.summary.total_annual_savings_inr).toLocaleString()}</span>
-                <span className="text-muted-foreground">savings/yr</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Leaf className="h-4 w-4 text-emerald-600" />
-                <span className="font-medium">{b.summary.total_co2_offset_tonnes_per_year} tCO₂e</span>
-                <span className="text-muted-foreground">offset/yr</span>
-              </div>
-              <Link to={`/buildings/${b.building_id}`} className="ml-auto text-primary hover:underline text-xs">
-                View detailed report →
-              </Link>
+          </div>
+          <Button
+            data-testid={`gemini-analyze-${b.building_id}`}
+            size="sm"
+            variant="outline"
+            onClick={handleAnalyze}
+            disabled={analyzing}
+            className="gap-2"
+          >
+            {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+            {analyzing ? 'Analyzing…' : geminiResult ? 'View AI Analysis' : 'Analyze with Gemini'}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <PillarCard
+            icon={<Sun className="h-5 w-5" />}
+            color="bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
+            label="Solar PV"
+            primary={`${b.summary.solar_kwp} kWp`}
+            secondary={`${b.summary.solar_kwh_per_year.toLocaleString()} kWh/yr`}
+          />
+          <PillarCard
+            icon={<Sprout className="h-5 w-5" />}
+            color="bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300"
+            label="Plantation"
+            primary={`${b.summary.plants_count} plants`}
+            secondary={b.summary.annual_food_kg > 0 ? `${Math.round(b.summary.annual_food_kg)} kg food/yr` : 'Mixed/Ornamental'}
+          />
+          <PillarCard
+            icon={<Flame className="h-5 w-5" />}
+            color="bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300"
+            label="Biogas"
+            primary={`${b.summary.biogas_m3_per_year} m³/yr`}
+            secondary={b.pillars.biogas.recommended_plant_size?.split('(')[0]?.trim() || 'Plant sized'}
+          />
+          <PillarCard
+            icon={<Droplets className="h-5 w-5" />}
+            color="bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
+            label="Rainwater"
+            primary={`${b.summary.rainwater_kl_per_year} kL/yr`}
+            secondary={`${b.pillars.rainwater.households_supported} households`}
+          />
+        </div>
+        <div className="mt-4 pt-3 border-t flex flex-wrap items-center gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-emerald-600" />
+            <span className="font-medium">₹{(b.summary.total_annual_savings_inr).toLocaleString()}</span>
+            <span className="text-muted-foreground">savings/yr</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Leaf className="h-4 w-4 text-emerald-600" />
+            <span className="font-medium">{b.summary.total_co2_offset_tonnes_per_year} tCO₂e</span>
+            <span className="text-muted-foreground">offset/yr</span>
+          </div>
+          <Link to={`/buildings/${b.building_id}`} className="ml-auto text-primary hover:underline text-xs">
+            View detailed report →
+          </Link>
+        </div>
+
+        {/* Solar details */}
+        <div className="mt-3 p-3 rounded-md bg-amber-50 dark:bg-amber-950/20 text-xs">
+          <strong className="text-amber-900 dark:text-amber-200">☀️ Solar setup:</strong>{' '}
+          {b.pillars.solar.recommended_tilt_degrees}° tilt, {b.pillars.solar.panel_orientation}.
+          GHI: {b.pillars.solar.ghi_kwh_per_m2_per_day} kWh/m²/day (MNRE).
+        </div>
+      </CardContent>
+
+      <GeminiAnalysisDialog
+        open={showAnalysis}
+        onOpenChange={setShowAnalysis}
+        result={geminiResult}
+        buildingName={b.building_name}
+      />
+    </Card>
+  );
+}
+
+function GeminiAnalysisDialog({ open, onOpenChange, result, buildingName }) {
+  if (!result) return null;
+  const a = result.analysis || {};
+  const obstructions = Object.entries(a.obstructions_visible || {}).filter(([_, v]) => v).map(([k]) => k);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" data-testid="gemini-analysis-dialog">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Brain className="h-5 w-5 text-violet-600" />
+            Gemini Rooftop Analysis
+          </DialogTitle>
+          <DialogDescription>
+            {buildingName} · Model: <span className="font-mono text-xs">{result.model}</span>
+            {result.cached && <Badge variant="outline" className="ml-2 text-[10px]">Cached</Badge>}
+          </DialogDescription>
+        </DialogHeader>
+
+        {!result.success ? (
+          <div className="p-4 rounded-md bg-destructive/10 text-destructive text-sm">
+            {result.error || 'Analysis failed'}
+          </div>
+        ) : (
+          <div className="space-y-4 text-sm">
+            <div className="grid grid-cols-3 gap-3">
+              <StatBox label="Rooftop type" value={a.rooftop_type || 'unknown'} />
+              <StatBox label="Obstruction" value={`${a.estimated_obstruction_percentage ?? '—'}%`} />
+              <StatBox label="Confidence" value={`${Math.round((a.confidence_score || 0) * 100)}%`} />
             </div>
 
-            {/* Solar details */}
-            <div className="mt-3 p-3 rounded-md bg-amber-50 dark:bg-amber-950/20 text-xs">
-              <strong className="text-amber-900 dark:text-amber-200">☀️ Solar setup:</strong>{' '}
-              {b.pillars.solar.recommended_tilt_degrees}° tilt, {b.pillars.solar.panel_orientation}.
-              GHI: {b.pillars.solar.ghi_kwh_per_m2_per_day} kWh/m²/day (MNRE).
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-md border p-3 bg-amber-50 dark:bg-amber-950/20">
+                <div className="text-xs text-muted-foreground mb-1">Usable for Solar</div>
+                <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+                  {a.usable_for_solar_pct ?? '—'}%
+                </div>
+                <div className="text-xs mt-1">
+                  Zone: <span className="font-medium">{a.recommended_zones?.solar_zone}</span>
+                </div>
+              </div>
+              <div className="rounded-md border p-3 bg-green-50 dark:bg-green-950/20">
+                <div className="text-xs text-muted-foreground mb-1">Usable for Plantation</div>
+                <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+                  {a.usable_for_plantation_pct ?? '—'}%
+                </div>
+                <div className="text-xs mt-1">
+                  Zone: <span className="font-medium">{a.recommended_zones?.plantation_zone}</span>
+                </div>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      ))}
+
+            <div>
+              <div className="text-xs font-medium text-muted-foreground mb-2">Obstructions visible in imagery</div>
+              {obstructions.length === 0 ? (
+                <div className="text-xs text-muted-foreground italic">None detected</div>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {obstructions.map(o => (
+                    <Badge key={o} variant="secondary" className="text-xs capitalize">
+                      {o.replace(/_/g, ' ')}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-md border p-3">
+                <div className="text-xs font-medium text-muted-foreground mb-1">Existing vegetation</div>
+                <div className="text-sm">
+                  {a.existing_vegetation?.present ? (
+                    <>
+                      <span className="font-medium">{a.existing_vegetation.approximate_coverage_percentage}% coverage</span>
+                      <div className="text-xs text-muted-foreground capitalize">{a.existing_vegetation.type}</div>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">None visible</span>
+                  )}
+                </div>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="text-xs font-medium text-muted-foreground mb-1">Shadow analysis</div>
+                <div className="text-sm">
+                  {a.shadow_analysis?.significant_shadows_present ? (
+                    <>
+                      <span className="font-medium">{a.shadow_analysis.shaded_area_percentage_estimated}% shaded</span>
+                      <div className="text-xs text-muted-foreground">
+                        Source: {(a.shadow_analysis.shadow_source || 'unknown').replace(/_/g, ' ')}
+                      </div>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">No significant shadows</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-md border-l-4 border-violet-500 bg-violet-50 dark:bg-violet-950/20 p-3">
+              <div className="text-xs font-medium text-violet-900 dark:text-violet-200 mb-1">
+                Gemini's notes
+              </div>
+              <p className="text-sm text-violet-800 dark:text-violet-100">{a.data_quality_notes}</p>
+            </div>
+
+            <div className="text-[10px] text-muted-foreground border-t pt-2">
+              Imagery: {result.image_source} (zoom {result.image_zoom}). Analysis is AI-generated from satellite
+              imagery — verify on-site before planning.
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function StatBox({ label, value }) {
+  return (
+    <div className="rounded-md border p-2">
+      <div className="text-[10px] uppercase text-muted-foreground tracking-wide">{label}</div>
+      <div className="text-sm font-semibold mt-1 capitalize">{value}</div>
     </div>
   );
 }

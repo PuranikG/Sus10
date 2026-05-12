@@ -208,6 +208,11 @@ export default function BuildingReportPage() {
       try {
         const data = await apiRequest(`/buildings/${buildingId}/report`);
         setReportData(data);
+        // If user previously saved a custom polygon area, restore it
+        const savedCustomArea = data?.building?.custom_terrace_area;
+        if (savedCustomArea) {
+          setCustomTerraceArea(Math.round(savedCustomArea));
+        }
       } catch (error) {
         console.error('Failed to fetch report:', error);
       } finally {
@@ -682,7 +687,7 @@ export default function BuildingReportPage() {
                 <MetricCard
                   icon={Leaf}
                   label="Usable Terrace"
-                  value={`${(building.usable_terrace_area || 0).toLocaleString()} sqm`}
+                  value={`${(customTerraceArea || building.usable_terrace_area || 0).toLocaleString()} sqm`}
                 />
                 <LiveAQICard 
                   liveAQI={liveAQI} 
