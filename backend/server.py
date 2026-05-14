@@ -2555,7 +2555,14 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    # When CORS_ORIGINS is "*", use allow_origin_regex to echo the actual request origin
+    # (browsers reject "Access-Control-Allow-Origin: *" with credentials: include).
+    # Otherwise use explicit allow_origins from CORS_ORIGINS env var.
+    **(
+        {"allow_origin_regex": ".*"}
+        if os.environ.get('CORS_ORIGINS', '*').strip() == '*'
+        else {"allow_origins": os.environ.get('CORS_ORIGINS', '*').split(',')}
+    ),
     allow_methods=["*"],
     allow_headers=["*"],
 )
