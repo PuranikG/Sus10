@@ -368,9 +368,11 @@ function GeminiAnalysisDialog({ open, onOpenChange, result, buildingName }) {
           </DialogTitle>
           <DialogDescription>
             Model: <span className="font-mono text-xs">{result.model}</span>
-            {result.cached && <Badge variant="outline" className="ml-2 text-[10px]">Cached</Badge>}
-            {slides.length > 0 && <span className="ml-2 text-xs">· {slides.length} slides</span>}
           </DialogDescription>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+            {result.cached && <Badge variant="outline" className="text-[10px]">Cached</Badge>}
+            {slides.length > 0 && <span>{slides.length} slides</span>}
+          </div>
         </DialogHeader>
 
         {!result.success ? (
