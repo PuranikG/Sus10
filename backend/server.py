@@ -535,15 +535,19 @@ async def get_building_solutions(building_id: str):
     recommendations = await db.solution_recommendations.find(
         {"building_id": building_id}, {"_id": 0}
     ).to_list(100)
-    
-    # Enrich with solution type info
-    for rec in recommendations:
-        solution_type = await db.solution_types.find_one(
-            {"solution_type_id": rec["solution_type_id"]}, {"_id": 0}
-        )
-        if solution_type:
-            rec["solution_type"] = solution_type
-    
+
+    # Batch-fetch solution types to avoid N+1
+    solution_type_ids = list({rec["solution_type_id"] for rec in recommendations if rec.get("solution_type_id")})
+    if solution_type_ids:
+        type_docs = await db.solution_types.find(
+            {"solution_type_id": {"$in": solution_type_ids}}, {"_id": 0}
+        ).to_list(len(solution_type_ids))
+        type_map = {st["solution_type_id"]: st for st in type_docs}
+        for rec in recommendations:
+            st = type_map.get(rec.get("solution_type_id"))
+            if st:
+                rec["solution_type"] = st
+
     return recommendations
 
 @api_router.get("/buildings/{building_id}/report")

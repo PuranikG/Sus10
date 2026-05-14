@@ -92,12 +92,11 @@ frontend/node_modules/.cache/default-development/11.pack
 frontend/node_modules/.cache/default-development/8.pack
 -e 
 # Environment and credential files
-.env
-.env.*
-*.env
+# (Emergent native deploy requires .env files present in repo; they are auto-updated at deploy time)
 credentials.json
 *.pem
 *.key
 .credentials
 frontend/node_modules/.cache/default-development/12.pack
 frontend/node_modules/.cache/default-development/13.pack_
+frontend/node_modules/.cache/default-development/13.pack
