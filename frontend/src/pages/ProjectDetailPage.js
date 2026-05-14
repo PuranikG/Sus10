@@ -97,7 +97,12 @@ export default function ProjectDetailPage() {
 
         <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
           <div>
-            <h1 data-testid="project-name" className="text-3xl font-bold">{group.name}</h1>
+            <h1 data-testid="project-name" className="text-3xl font-bold flex items-center gap-3 flex-wrap">
+              {group.name}
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700 uppercase tracking-wider">
+                Beta
+              </span>
+            </h1>
             <div className="flex items-center gap-2 mt-2">
               <Badge variant="outline" className="capitalize">{group.type}</Badge>
               {group.primary_city && <Badge variant="secondary"><MapPin className="h-3 w-3 mr-1" />{group.primary_city}</Badge>}
@@ -256,10 +261,13 @@ function BuildingSustenanceCard({ b }) {
             variant="outline"
             onClick={handleAnalyze}
             disabled={analyzing}
-            className="gap-2"
+            className="gap-2 relative"
           >
             {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
             {analyzing ? 'Analyzing…' : geminiResult ? 'View Annotation' : 'Analyze with Gemini'}
+            <span className="absolute -top-2 -right-2 px-1.5 py-0 rounded text-[9px] font-bold bg-amber-500 text-white shadow-sm">
+              BETA
+            </span>
           </Button>
         </div>
       </CardHeader>

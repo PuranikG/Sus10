@@ -74,6 +74,9 @@ export default function ProjectsPage() {
             <h1 className="text-3xl font-bold flex items-center gap-3">
               <Layers className="h-8 w-8 text-primary" />
               Projects & Portfolios
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700 uppercase tracking-wider">
+                Beta
+              </span>
             </h1>
             <p className="text-muted-foreground mt-1">
               Group buildings by developer, brand chain, or society — analyze sustainability potential at scale
