@@ -26,6 +26,7 @@ import ProjectDetailPage from './pages/ProjectDetailPage';
 import CmsPage from './pages/CmsPage';
 import CmsAdminPage from './pages/CmsAdminPage';
 import CmsEditorPage from './pages/CmsEditorPage';
+import ResourcesIndexPage from './pages/ResourcesIndexPage';
 
 import './App.css';
 
@@ -69,7 +70,8 @@ function AppRouter() {
       <Route path="/providers/:providerId" element={<ProviderDetailPage />} />
       <Route path="/initiatives" element={<InitiativesPage />} />
       <Route path="/initiatives/:initiativeId" element={<InitiativeDetailPage />} />
-      <Route path="/blog" element={<BlogPage />} />
+      <Route path="/resources" element={<ResourcesIndexPage />} />
+      <Route path="/blog" element={<ResourcesIndexPage />} />
       <Route path="/blog/:slug" element={<CmsPage expectedType="blog" />} />
 
       {/* Protected Routes */}

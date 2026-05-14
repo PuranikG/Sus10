@@ -2488,6 +2488,54 @@ async def get_cms_upload(upload_id: str):
     )
 
 
+@api_router.post("/admin/cms/migrate-blog-posts")
+async def migrate_blog_posts(request: Request):
+    """One-time migration of legacy blog_posts → cms_pages."""
+    user = await require_auth(request)
+    if user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    legacy = await db.blog_posts.find({}, {"_id": 0}).to_list(500)
+    migrated, skipped = 0, 0
+    for post in legacy:
+        slug = post.get("slug")
+        if not slug:
+            skipped += 1
+            continue
+        existing = await db.cms_pages.find_one({"slug": slug})
+        if existing:
+            skipped += 1
+            continue
+        now = datetime.now(timezone.utc)
+        published_at = post.get("published_at") or now
+        if isinstance(published_at, str):
+            try:
+                published_at = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+            except Exception:
+                published_at = now
+        doc = {
+            "page_id": f"cms_{uuid.uuid4().hex[:12]}",
+            "slug": slug,
+            "type": "blog",
+            "title": post.get("title", ""),
+            "subtitle": post.get("excerpt") or post.get("summary"),
+            "hero_image_url": post.get("featured_image") or post.get("cover_image") or post.get("hero_image"),
+            "cover_color": post.get("cover_color") or "#1a3d2b",
+            "body_markdown": post.get("content_markdown") or post.get("body") or post.get("content") or "",
+            "meta_title": post.get("title"),
+            "meta_description": post.get("excerpt") or post.get("summary"),
+            "author": post.get("author") or post.get("author_name") or "Sus10 AI",
+            "ga_enabled": True,
+            "published": bool(post.get("published")),
+            "published_at": published_at,
+            "view_count": post.get("view_count", 0),
+            "created_at": post.get("created_at") or now,
+            "updated_at": now,
+        }
+        await db.cms_pages.insert_one(doc)
+        migrated += 1
+    return {"migrated": migrated, "skipped": skipped, "total_legacy": len(legacy)}
+
+
 # ==================== ROOT ====================
 @api_router.get("/")
 async def root():

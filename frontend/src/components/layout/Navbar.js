@@ -30,7 +30,7 @@ export default function Navbar() {
 
   // Add conditional links based on feature flags
   if (isEnabled('blog')) {
-    navLinks.push({ href: '/blog', label: 'Resources' });
+    navLinks.push({ href: '/resources', label: 'Resources' });
   }
   if (isEnabled('gamification')) {
     navLinks.push({ href: '/leaderboard', label: 'Leaderboard' });
