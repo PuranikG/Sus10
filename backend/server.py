@@ -2296,6 +2296,158 @@ async def gemini_analyze_rooftop(building_id: str, request: Request):
     return {**result, "cached": False}
 
 
+# ==================== CMS PAGES (Landing + Blog + Resources, unified) ====================
+class CmsPageCreate(BaseModel):
+    slug: str
+    type: str = "landing"  # landing | blog | resource
+    title: str
+    subtitle: Optional[str] = None
+    hero_image_url: Optional[str] = None
+    cover_color: Optional[str] = None  # hex
+    badges: Optional[List[Dict[str, Any]]] = None  # [{label, icon}]
+    intro_markdown: Optional[str] = None
+    benefits: Optional[List[Dict[str, Any]]] = None  # [{title, body, icon}]
+    carousel: Optional[List[Dict[str, Any]]] = None  # [{image_url, caption, link_url}]
+    survey_url: Optional[str] = None
+    body_markdown: Optional[str] = None
+    footer_attribution: Optional[str] = None
+    cta_url: Optional[str] = None
+    cta_label: Optional[str] = None
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
+    og_image: Optional[str] = None
+    ga_tracking_id: Optional[str] = None
+    ga_enabled: bool = True
+    published: bool = False
+    author: Optional[str] = None
+
+
+@api_router.post("/admin/cms/pages")
+async def create_cms_page(request: Request, page: CmsPageCreate):
+    user = await require_auth(request)
+    if user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    existing = await db.cms_pages.find_one({"slug": page.slug})
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Slug '{page.slug}' already exists")
+    now = datetime.now(timezone.utc)
+    doc = page.dict()
+    doc["page_id"] = f"cms_{uuid.uuid4().hex[:12]}"
+    doc["view_count"] = 0
+    doc["created_at"] = now
+    doc["updated_at"] = now
+    doc["published_at"] = now if page.published else None
+    doc["author"] = doc.get("author") or user.email
+    await db.cms_pages.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.put("/admin/cms/pages/{page_id}")
+async def update_cms_page(page_id: str, request: Request):
+    user = await require_auth(request)
+    if user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    body = await request.json()
+    body.pop("page_id", None)
+    body.pop("_id", None)
+    body.pop("created_at", None)
+    body["updated_at"] = datetime.now(timezone.utc)
+    if body.get("published") and not (await db.cms_pages.find_one({"page_id": page_id}, {"published_at": 1, "_id": 0})).get("published_at"):
+        body["published_at"] = datetime.now(timezone.utc)
+    result = await db.cms_pages.update_one({"page_id": page_id}, {"$set": body})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Page not found")
+    page = await db.cms_pages.find_one({"page_id": page_id}, {"_id": 0})
+    return page
+
+
+@api_router.delete("/admin/cms/pages/{page_id}")
+async def delete_cms_page(page_id: str, request: Request):
+    user = await require_auth(request)
+    if user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    await db.cms_pages.delete_one({"page_id": page_id})
+    return {"ok": True}
+
+
+@api_router.get("/admin/cms/pages")
+async def admin_list_cms_pages(request: Request):
+    user = await require_auth(request)
+    if user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    pages = await db.cms_pages.find({}, {"_id": 0, "body_markdown": 0}).sort("updated_at", -1).to_list(200)
+    return pages
+
+
+@api_router.get("/cms/pages")
+async def public_list_cms_pages(type: Optional[str] = None, limit: int = Query(default=50, le=100)):
+    query: Dict[str, Any] = {"published": True}
+    if type:
+        query["type"] = type
+    pages = await db.cms_pages.find(query, {"_id": 0, "body_markdown": 0}).sort("published_at", -1).limit(limit).to_list(limit)
+    return pages
+
+
+@api_router.get("/cms/pages/{slug}")
+async def public_get_cms_page(slug: str):
+    page = await db.cms_pages.find_one({"slug": slug, "published": True}, {"_id": 0})
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+    await db.cms_pages.update_one({"slug": slug}, {"$inc": {"view_count": 1}})
+    return page
+
+
+@api_router.post("/admin/cms/seed-green-roof")
+async def seed_green_roof_cms(request: Request):
+    """Migrate the hardcoded /green-roof landing page into cms_pages."""
+    user = await require_auth(request)
+    if user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    existing = await db.cms_pages.find_one({"slug": "green-roof"})
+    if existing:
+        return {"already_exists": True, "page_id": existing.get("page_id")}
+    now = datetime.now(timezone.utc)
+    doc = {
+        "page_id": f"cms_{uuid.uuid4().hex[:12]}",
+        "slug": "green-roof",
+        "type": "landing",
+        "title": "Your roof could cool your home and your city.",
+        "subtitle": "Help us understand why green roofs and terrace gardens haven't yet taken off in Indian cities.",
+        "cover_color": "#1a3d2b",
+        "badges": [
+            {"label": "10-12 mins", "icon": "Clock"},
+            {"label": "Anonymous", "icon": "Lock"},
+            {"label": "Academic research", "icon": "GraduationCap"},
+        ],
+        "benefits": [
+            {"title": "Beat the Heat", "body": "Rooftop vegetation can lower indoor temperatures by 2-5°C — cutting AC bills.", "icon": "Thermometer"},
+            {"title": "Manage Rainwater", "body": "Soil + plants slow runoff and reduce urban flooding risk.", "icon": "Droplets"},
+            {"title": "Cleaner Air", "body": "Plants sequester CO₂ and capture particulate matter from polluted air.", "icon": "Wind"},
+            {"title": "Solar + Greenery", "body": "Combined PV-green roofs can boost solar efficiency by up to 15%.", "icon": "Sun"},
+        ],
+        "intro_markdown": (
+            "We're studying why green roofs and terrace gardens haven't taken off in Indian cities. "
+            "Your responses will shape policy briefs, builder partnerships and public awareness campaigns.\n\n"
+            "**Your participation matters.** This is an academic research initiative — your responses remain anonymous."
+        ),
+        "survey_url": "https://survey.zohopublic.in/zs/CzaT82",
+        "footer_attribution": "Research led by Shivani Thakur · IIT Roorkee · 2026",
+        "meta_title": "Green Roof & Terrace Garden Survey | Urban Climate Adaptation India 2026",
+        "meta_description": "Help us understand why green roofs and terrace gardens haven't yet taken off in Indian cities. 10-12 min anonymous academic survey.",
+        "ga_enabled": True,
+        "published": True,
+        "published_at": now,
+        "view_count": 0,
+        "created_at": now,
+        "updated_at": now,
+        "author": user.email,
+    }
+    await db.cms_pages.insert_one(doc)
+    doc.pop("_id", None)
+    return {"seeded": True, "page": doc}
+
+
 # ==================== ROOT ====================
 @api_router.get("/")
 async def root():

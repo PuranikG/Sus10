@@ -23,6 +23,9 @@ import BlogPostPage from './pages/BlogPostPage';
 import GreenRoofSurveyPage from './pages/GreenRoofSurveyPage';
 import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
+import CmsPage from './pages/CmsPage';
+import CmsAdminPage from './pages/CmsAdminPage';
+import CmsEditorPage from './pages/CmsEditorPage';
 
 import './App.css';
 
@@ -67,8 +70,7 @@ function AppRouter() {
       <Route path="/initiatives" element={<InitiativesPage />} />
       <Route path="/initiatives/:initiativeId" element={<InitiativeDetailPage />} />
       <Route path="/blog" element={<BlogPage />} />
-      <Route path="/blog/:slug" element={<BlogPostPage />} />
-      <Route path="/green-roof" element={<GreenRoofSurveyPage />} />
+      <Route path="/blog/:slug" element={<CmsPage expectedType="blog" />} />
 
       {/* Protected Routes */}
       <Route
@@ -127,6 +129,35 @@ function AppRouter() {
           </ProtectedRoute>
         }
       />
+
+      {/* Admin CMS */}
+      <Route
+        path="/admin/cms"
+        element={
+          <ProtectedRoute>
+            <CmsAdminPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/cms/new"
+        element={
+          <ProtectedRoute>
+            <CmsEditorPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/cms/:pageId/edit"
+        element={
+          <ProtectedRoute>
+            <CmsEditorPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Public landing pages from CMS (must be LAST before catch-all) */}
+      <Route path="/:slug" element={<CmsPage expectedType="landing" />} />
 
       {/* Catch-all redirect */}
       <Route path="*" element={<Navigate to="/" replace />} />
