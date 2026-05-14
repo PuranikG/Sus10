@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { apiRequest } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/layout/Navbar';
+import ImageUploadField from '../components/cms/ImageUploadField';
 import { toast } from 'sonner';
 
 const BLANK = {
@@ -220,11 +221,10 @@ export default function CmsEditorPage() {
                     </div>
                   </div>
                   <div>
-                    <Label>Hero image URL (optional)</Label>
-                    <Input
+                    <ImageUploadField
+                      label="Hero image (optional)"
                       value={form.hero_image_url}
-                      onChange={e => update({ hero_image_url: e.target.value })}
-                      placeholder="https://..."
+                      onChange={url => update({ hero_image_url: url })}
                     />
                   </div>
                 </div>
@@ -337,7 +337,7 @@ export default function CmsEditorPage() {
                   items={form.carousel || []}
                   onChange={carousel => update({ carousel })}
                   fields={[
-                    { key: 'image_url', label: 'Image URL', placeholder: 'https://...' },
+                    { key: 'image_url', label: 'Image', type: 'image' },
                     { key: 'caption', label: 'Caption', placeholder: 'Optional caption' },
                     { key: 'link_url', label: 'Link URL (optional)', placeholder: 'https://...' },
                   ]}
@@ -407,11 +407,11 @@ export default function CmsEditorPage() {
                   />
                 </div>
                 <div>
-                  <Label>Open Graph image URL (for social shares)</Label>
-                  <Input
+                  <ImageUploadField
+                    label="Open Graph image (for social shares)"
                     value={form.og_image}
-                    onChange={e => update({ og_image: e.target.value })}
-                    placeholder="https://... (1200x630 ideal)"
+                    onChange={url => update({ og_image: url })}
+                    helperText="1200×630 ideal. Used in WhatsApp/LinkedIn/Twitter previews."
                   />
                 </div>
                 <div className="border-t pt-4 space-y-3">
@@ -475,23 +475,34 @@ function ListEditor({ items, onChange, fields, addLabel }) {
           </div>
           <div className="grid sm:grid-cols-2 gap-2">
             {fields.map(f => (
-              <div key={f.key} className={f.type === 'textarea' ? 'sm:col-span-2' : ''}>
-                <Label className="text-xs">{f.label}</Label>
-                {f.type === 'textarea' ? (
-                  <Textarea
-                    rows={2}
+              <div key={f.key} className={(f.type === 'textarea' || f.type === 'image') ? 'sm:col-span-2' : ''}>
+                {f.type === 'image' ? (
+                  <ImageUploadField
+                    label={f.label}
                     value={it[f.key] || ''}
-                    onChange={e => update(i, { [f.key]: e.target.value })}
-                    placeholder={f.placeholder}
-                    className="text-sm"
+                    onChange={url => update(i, { [f.key]: url })}
+                    compact
                   />
                 ) : (
-                  <Input
-                    value={it[f.key] || ''}
-                    onChange={e => update(i, { [f.key]: e.target.value })}
-                    placeholder={f.placeholder}
-                    className="text-sm"
-                  />
+                  <>
+                    <Label className="text-xs">{f.label}</Label>
+                    {f.type === 'textarea' ? (
+                      <Textarea
+                        rows={2}
+                        value={it[f.key] || ''}
+                        onChange={e => update(i, { [f.key]: e.target.value })}
+                        placeholder={f.placeholder}
+                        className="text-sm"
+                      />
+                    ) : (
+                      <Input
+                        value={it[f.key] || ''}
+                        onChange={e => update(i, { [f.key]: e.target.value })}
+                        placeholder={f.placeholder}
+                        className="text-sm"
+                      />
+                    )}
+                  </>
                 )}
               </div>
             ))}

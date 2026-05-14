@@ -46,10 +46,11 @@ export default function Navbar() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group" data-testid="navbar-logo">
-            <div className="p-2 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-              <Leaf className="h-6 w-6 text-primary" />
-            </div>
-            <span className="text-xl font-heading font-bold tracking-tight">Sus10 AI</span>
+            <img
+              src="/sus10-logo.png"
+              alt="Sus10 AI"
+              className="h-9 w-auto md:h-10"
+            />
           </Link>
 
           {/* Desktop Navigation */}

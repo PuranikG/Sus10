@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query, UploadFile, File
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -2446,6 +2446,46 @@ async def seed_green_roof_cms(request: Request):
     await db.cms_pages.insert_one(doc)
     doc.pop("_id", None)
     return {"seeded": True, "page": doc}
+
+
+@api_router.post("/admin/cms/upload")
+async def upload_cms_image(request: Request, file: UploadFile = File(...)):
+    """Upload an image, store in MongoDB GridFS, return public URL."""
+    user = await require_auth(request)
+    if user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if not (file.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image files allowed")
+    contents = await file.read()
+    if len(contents) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image too large (max 8 MB)")
+
+    upload_id = f"img_{uuid.uuid4().hex[:16]}"
+    doc = {
+        "upload_id": upload_id,
+        "content_type": file.content_type,
+        "filename": file.filename,
+        "size": len(contents),
+        "data": contents,  # bytes
+        "uploaded_by": user.email,
+        "uploaded_at": datetime.now(timezone.utc),
+    }
+    await db.cms_uploads.insert_one(doc)
+    return {"upload_id": upload_id, "url": f"/api/cms/uploads/{upload_id}"}
+
+
+@api_router.get("/cms/uploads/{upload_id}")
+async def get_cms_upload(upload_id: str):
+    """Serve uploaded image (public)."""
+    doc = await db.cms_uploads.find_one({"upload_id": upload_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Image not found")
+    from fastapi.responses import Response
+    return Response(
+        content=doc["data"],
+        media_type=doc.get("content_type", "image/jpeg"),
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 
 # ==================== ROOT ====================

@@ -8,6 +8,12 @@ import * as LucideIcons from 'lucide-react';
 import { Loader2, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 import { apiRequest } from '../lib/utils';
 
+function resolveAssetUrl(url) {
+  if (!url) return url;
+  if (url.startsWith('/api/')) return `${process.env.REACT_APP_BACKEND_URL}${url}`;
+  return url;
+}
+
 function IconByName({ name, className }) {
   const Icon = name && LucideIcons[name] ? LucideIcons[name] : LucideIcons.Sparkle;
   return <Icon className={className} aria-hidden="true" />;
@@ -45,12 +51,12 @@ function setMetaTags(page) {
   setMeta('description', page.meta_description);
   setMeta('og:title', page.meta_title || page.title, true);
   setMeta('og:description', page.meta_description || page.subtitle, true);
-  setMeta('og:image', page.og_image || page.hero_image_url, true);
+  setMeta('og:image', resolveAssetUrl(page.og_image || page.hero_image_url), true);
   setMeta('og:type', page.type === 'blog' ? 'article' : 'website', true);
   setMeta('twitter:card', 'summary_large_image');
   setMeta('twitter:title', page.meta_title || page.title);
   setMeta('twitter:description', page.meta_description || page.subtitle);
-  setMeta('twitter:image', page.og_image || page.hero_image_url);
+  setMeta('twitter:image', resolveAssetUrl(page.og_image || page.hero_image_url));
 }
 
 export default function CmsPage({ expectedType = null }) {
@@ -117,10 +123,10 @@ export default function CmsPage({ expectedType = null }) {
         {page.hero_image_url && (
           <div
             className="absolute inset-0 bg-cover bg-center opacity-30"
-            style={{ backgroundImage: `url(${page.hero_image_url})` }}
+            style={{ backgroundImage: `url(${resolveAssetUrl(page.hero_image_url)})` }}
           />
         )}
-        <div className="relative max-w-5xl mx-auto px-6 py-20 md:py-28">
+        <div className="relative max-w-5xl mx-auto px-6 py-16 sm:py-20 md:py-28">
           {page.type === 'blog' && (
             <Link to="/blog" className="inline-flex items-center text-sm text-white/80 hover:text-white mb-6">
               <ArrowLeft className="h-4 w-4 mr-1" /> All articles
@@ -142,13 +148,13 @@ export default function CmsPage({ expectedType = null }) {
           <motion.h1
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="font-serif text-4xl md:text-5xl lg:text-6xl leading-tight max-w-4xl"
+            className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-tight max-w-4xl"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
           >
             {page.title}
           </motion.h1>
           {page.subtitle && (
-            <p className="mt-6 text-lg md:text-xl text-white/85 max-w-3xl leading-relaxed">
+            <p className="mt-4 sm:mt-6 text-base sm:text-lg md:text-xl text-white/85 max-w-3xl leading-relaxed">
               {page.subtitle}
             </p>
           )}
@@ -276,9 +282,9 @@ function PageCarousel({ items, accentColor }) {
             {items.map((it, i) => (
               <div key={i} className="flex-[0_0_100%] min-w-0 relative">
                 <img
-                  src={it.image_url}
+                  src={resolveAssetUrl(it.image_url)}
                   alt={it.caption || `Slide ${i + 1}`}
-                  className="w-full h-[280px] md:h-[440px] object-cover rounded-xl"
+                  className="w-full h-[240px] sm:h-[320px] md:h-[440px] object-cover rounded-xl"
                 />
                 {it.caption && (
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 md:p-6 text-white rounded-b-xl">
