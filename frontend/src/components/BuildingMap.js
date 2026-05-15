@@ -149,7 +149,8 @@ export default function BuildingMap({ buildings, center, zoom = 12, onBuildingCl
               ` : ''}
             </div>
             <button 
-              onclick="window.location.href='/buildings/${building.building_id}'"
+              data-action="view-building"
+              data-building-id="${building.building_id.replace(/"/g, '&quot;')}"
               style="
                 width: 100%;
                 padding: 8px 16px;
@@ -169,6 +170,16 @@ export default function BuildingMap({ buildings, center, zoom = 12, onBuildingCl
 
         infoWindowRef.current.setContent(content);
         infoWindowRef.current.open(mapInstanceRef.current, marker);
+        // Attach navigation handler after the InfoWindow renders into DOM
+        window.google.maps.event.addListenerOnce(infoWindowRef.current, 'domready', () => {
+          const btn = document.querySelector('[data-action="view-building"]');
+          if (btn) {
+            btn.addEventListener('click', () => {
+              const id = btn.getAttribute('data-building-id');
+              if (id) navigate(`/buildings/${id}`);
+            }, { once: true });
+          }
+        });
       });
 
       markersRef.current.push(marker);

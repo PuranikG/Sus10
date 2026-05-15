@@ -1,4 +1,8 @@
-import { useState, useEffect } from 'react';
+/**
+ * @deprecated This page is no longer routed — /blog/:slug now uses CmsPage (unified CMS).
+ * Kept temporarily for reference. Safe to delete after Feb 28, 2026.
+ */
+
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import DOMPurify from 'dompurify';
