@@ -1,8 +1,15 @@
 # Sus10 AI - Test Credentials
 
 ## Admin Users (Google OAuth)
+Production allowlist (Feb 19, 2026) — controlled by `AUTH_ALLOWLIST_EMAILS` in `/app/backend/.env`:
 - `gp@sus10.ai` (primary admin)
 - `vgpuranik@gmail.com` (admin)
+- `urjacity@gmail.com`
+- `shivani@sus10.ai`
+- `gaurav.a.puranik@gmail.com`
+
+Disable the allowlist by setting `AUTH_ALLOWLIST_ENABLED=false`.
+Beta-rejection contact email: `hello@sus10.ai` (via `AUTH_CONTACT_EMAIL`).
 
 ## Temporary Test Session Token (for backend testing)
 **NOTE:** This is a development-only token for E2E testing of the Incubex flow. Created Feb 12, 2026.

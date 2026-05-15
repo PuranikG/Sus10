@@ -22,7 +22,14 @@ export async function apiRequest(endpoint, options = {}) {
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-    throw new Error(error.detail || 'Request failed');
+    const detail = error.detail;
+    const message = typeof detail === 'string'
+      ? detail
+      : (detail && detail.message) || 'Request failed';
+    const err = new Error(message);
+    err.status = response.status;
+    err.detail = detail;
+    throw err;
   }
   
   return response.json();

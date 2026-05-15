@@ -25,6 +25,15 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 
 ## What's Been Implemented (Feb 19, 2026)
 
+### Private Beta Allowlist (Feb 19, 2026) ✅
+- Added env-driven sign-in allowlist for production beta:
+  - `AUTH_ALLOWLIST_ENABLED=true`
+  - `AUTH_ALLOWLIST_EMAILS=gp@sus10.ai,vgpuranik@gmail.com,urjacity@gmail.com,shivani@sus10.ai,gaurav.a.puranik@gmail.com`
+  - `AUTH_CONTACT_EMAIL=hello@sus10.ai`
+- Backend `/api/auth/session` rejects non-allowlisted emails with HTTP 403 + `{code: "private_beta", message, contact_email}`.
+- Frontend `AuthCallback.js` renders a friendly Private Beta screen with a `Contact us for access` mailto button + Back to Home.
+- Verified `/green-roof` CMS landing page is published and renders correctly (was never missing, present in `cms_pages` collection).
+
 ### Backend (FastAPI + MongoDB)
 - ✅ User authentication via Emergent Google OAuth
 - ✅ Buildings CRUD with search/filtering

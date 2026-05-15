@@ -386,7 +386,26 @@ async def create_session(request: Request, response: Response):
     name = data.get("name")
     picture = data.get("picture")
     session_token = data.get("session_token")
-    
+
+    # ---- Private Beta Allowlist Check ----
+    # Sus10 AI is currently in private beta. Only allowlisted emails can sign in.
+    # Configure via AUTH_ALLOWLIST_ENABLED and AUTH_ALLOWLIST_EMAILS env vars.
+    allowlist_enabled = os.environ.get("AUTH_ALLOWLIST_ENABLED", "false").lower() == "true"
+    if allowlist_enabled and email:
+        raw_emails = os.environ.get("AUTH_ALLOWLIST_EMAILS", "")
+        allowed = {e.strip().lower() for e in raw_emails.split(",") if e.strip()}
+        if email.strip().lower() not in allowed:
+            contact = os.environ.get("AUTH_CONTACT_EMAIL", "hello@sus10.ai")
+            logger.warning(f"Auth rejected (not allowlisted): {email}")
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "private_beta",
+                    "message": "Sus10 AI is currently in private beta. Contact us for access.",
+                    "contact_email": contact,
+                }
+            )
+
     # Find or create user
     existing_user = await db.users.find_one({"email": email}, {"_id": 0})
     
