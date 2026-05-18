@@ -166,6 +166,8 @@
 - [ ] B1.5 — Admin Buildings: top filters + Reject + bulk actions + pagination →  P?
 - [ ] B1.6 — Building intelligence notes (wind, slab, heritage, etc.) →  P?
 - [ ] B1.7 — Discover imports not showing in Admin → Buildings list (likely query limit / sort) →  P?
+- [ ] B1.8 — Admin IA: CMS / Projects / Initiatives / Leads not linked from /admin →  P?
+       *(Full proposal in /app/memory/IA_AND_PACKAGING_PROPOSAL.md — includes pkg tiers & public-beta guardrails)*
 - [ ] E1.1 — Report toggles by user type            →  P?
 - [ ] E1.2 — Sustenance Potential at-a-glance screen →  P?
 - [ ] E1.3 — Searchable city autocomplete on /admin/discover →  P?
