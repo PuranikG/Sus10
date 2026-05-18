@@ -34,12 +34,10 @@
 - **Page:** `/admin/discover` (Admin → Discover Buildings)
 - **Problem:** City list is hardcoded with ~100+ entries. Scrolling through a long static list is a bad long-term UX.
 - **Ask:** Replace with a **search/typeahead field** — type a city name, get filtered results, select one.
+- **Decision (confirmed by user):** Option (a) — client-side searchable combobox over the existing static list.
 - **Implementation notes:**
   - Frontend: swap the `<Select>` for a `Combobox` / `Command` pattern (Shadcn `command.jsx` already in repo).
-  - Source-of-truth options:
-    - (a) Keep the current static list but make it searchable client-side (quickest win).
-    - (b) Hit Google Places Autocomplete API restricted to `types=(cities)` (richer, but uses API quota — confirm with user).
-    - (c) Hit OpenStreetMap Nominatim (free, slower).
+  - Keep the same static city list; just make it filterable by typing.
 - **Files to investigate:**
   - `/app/frontend/src/pages/AdminDiscoverPage.js` (or wherever the discover form lives)
   - Existing Shadcn `/app/frontend/src/components/ui/command.jsx`
