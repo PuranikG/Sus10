@@ -4,7 +4,7 @@ import Navbar from './Navbar';
 import {
   LayoutDashboard, Telescope, Building2, ClipboardList,
   Layers, Megaphone, Inbox, Users, FileText, BookOpen,
-  ListChecks, Mail, Flag, Shield, ChevronRight, ShieldCheck,
+  ListChecks, Mail, Flag, Shield, ChevronRight, ShieldCheck, Banknote,
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 
@@ -21,6 +21,7 @@ const SECTIONS = [
       { to: '/admin/discover', label: 'Discover Buildings', icon: Telescope, testid: 'admin-nav-discover' },
       { to: '/admin/buildings', label: 'Buildings', icon: Building2, testid: 'admin-nav-buildings' },
       { to: '/admin/intelligence', label: 'Intelligence Notes', icon: ClipboardList, testid: 'admin-nav-intelligence', soon: true },
+      { to: '/admin/subsidies', label: 'Subsidies & Financing', icon: Banknote, testid: 'admin-nav-subsidies' },
     ],
   },
   {

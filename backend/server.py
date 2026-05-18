@@ -860,6 +860,139 @@ async def get_public_building_intel(building_id: str):
         return {"intel_notes": []}
     return {"intel_notes": bld.get("intel_notes", [])}
 
+
+# ==================== SUBSIDIES & FINANCING NAVIGATOR (N6) ====================
+class SubsidyCreate(BaseModel):
+    name: str
+    scheme_code: Optional[str] = None  # e.g. PMSGMBY, MNRE_CFA, MH_SOLAR_RTS
+    authority: str  # MNRE, MahaUrja, BESCOM, SBI etc.
+    type: str  # subsidy | cfa | loan | tax_credit | net_metering
+    category: List[str] = []  # ["solar","biogas","rainwater","greening"]
+    geo_scope: str = "central"  # central | state | city
+    state: Optional[str] = None
+    city: Optional[str] = None
+    eligible_building_types: List[str] = []  # ["residential","commercial",...]
+    benefit_summary: str  # short marketing line
+    benefit_details_markdown: str  # rich markdown
+    max_amount_inr: Optional[float] = None
+    rate_or_percent: Optional[str] = None  # "30% CFA" / "8.95% p.a."
+    valid_until: Optional[str] = None
+    application_url: Optional[str] = None
+    documents_required: List[str] = []
+    is_active: bool = True
+    last_verified_at: Optional[str] = None
+    notes_for_admin: Optional[str] = None
+
+
+@api_router.get("/subsidies")
+async def list_subsidies(
+    category: Optional[str] = Query(default=None, description="solar | biogas | rainwater | greening"),
+    state: Optional[str] = None,
+    type: Optional[str] = None,
+    q: Optional[str] = None,
+    limit: int = Query(default=100, le=500),
+):
+    """Public catalogue of subsidies & financing options."""
+    query: Dict[str, Any] = {"is_active": True}
+    if category:
+        query["category"] = category
+    if state:
+        query["$or"] = [{"state": state}, {"geo_scope": "central"}]
+    if type:
+        query["type"] = type
+    if q:
+        # Simple text search across a few fields
+        q_re = {"$regex": q, "$options": "i"}
+        query["$and"] = [
+            {"$or": [
+                {"name": q_re}, {"authority": q_re},
+                {"benefit_summary": q_re}, {"scheme_code": q_re},
+            ]}
+        ]
+    items = await (
+        db.subsidies.find(query, {"_id": 0})
+        .sort([("geo_scope", 1), ("name", 1)])
+        .limit(limit).to_list(limit)
+    )
+    return {"subsidies": items, "total": len(items)}
+
+
+@api_router.get("/subsidies/match/{building_id}")
+async def match_subsidies_to_building(building_id: str, limit: int = 20):
+    """Match active subsidies/financing to a specific building's state + type."""
+    building = await db.buildings.find_one({"building_id": building_id}, {"_id": 0})
+    if not building:
+        raise HTTPException(status_code=404, detail="Building not found")
+    state = (building.get("state") or "").strip()
+    btype = (building.get("building_type") or "").lower()
+
+    or_clauses: List[Dict[str, Any]] = [{"geo_scope": "central"}]
+    if state:
+        or_clauses.append({"state": state})
+
+    query = {"is_active": True, "$or": or_clauses}
+    if btype:
+        query["$or"] = or_clauses  # state/central match
+        query["eligible_building_types"] = {"$in": [btype, "all", ""]}
+
+    items = await (
+        db.subsidies.find(query, {"_id": 0})
+        .sort("geo_scope", 1).limit(limit).to_list(limit)
+    )
+    return {"building_id": building_id, "state": state, "building_type": btype, "subsidies": items}
+
+
+@api_router.get("/admin/subsidies")
+async def admin_list_subsidies(request: Request, limit: int = Query(default=500, le=2000)):
+    await require_admin(request)
+    items = await db.subsidies.find({}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return {"subsidies": items, "total": len(items)}
+
+
+@api_router.post("/admin/subsidies")
+async def admin_create_subsidy(payload: SubsidyCreate, request: Request):
+    user = await require_admin(request)
+    doc = payload.model_dump()
+    doc["subsidy_id"] = f"sub_{uuid.uuid4().hex[:12]}"
+    doc["created_at"] = datetime.now(timezone.utc).isoformat()
+    doc["updated_at"] = doc["created_at"]
+    doc["created_by"] = user.email
+    await db.subsidies.insert_one(doc)
+    await record_audit(
+        user=user, action="subsidy.create", resource_type="subsidy",
+        resource_id=doc["subsidy_id"], metadata={"name": doc["name"], "type": doc["type"]},
+    )
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.put("/admin/subsidies/{subsidy_id}")
+async def admin_update_subsidy(subsidy_id: str, payload: SubsidyCreate, request: Request):
+    user = await require_admin(request)
+    update = payload.model_dump()
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    res = await db.subsidies.update_one({"subsidy_id": subsidy_id}, {"$set": update})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Subsidy not found")
+    await record_audit(
+        user=user, action="subsidy.update", resource_type="subsidy",
+        resource_id=subsidy_id, metadata={"name": update.get("name")},
+    )
+    return {"subsidy_id": subsidy_id, "updated": True}
+
+
+@api_router.delete("/admin/subsidies/{subsidy_id}")
+async def admin_delete_subsidy(subsidy_id: str, request: Request):
+    user = await require_admin(request)
+    res = await db.subsidies.delete_one({"subsidy_id": subsidy_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Subsidy not found")
+    await record_audit(
+        user=user, action="subsidy.delete", resource_type="subsidy",
+        resource_id=subsidy_id,
+    )
+    return {"subsidy_id": subsidy_id, "deleted": True}
+
 @api_router.post("/admin/buildings")
 async def admin_create_building(request: Request, building: BuildingCreate):
     """Admin: Create a new building"""

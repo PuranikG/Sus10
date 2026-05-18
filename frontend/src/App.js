@@ -23,8 +23,10 @@ import AdminZohoSurveysPage from './pages/AdminZohoSurveysPage';
 import AdminFeatureFlagsPage from './pages/AdminFeatureFlagsPage';
 import AdminGenericListPage from './pages/AdminGenericListPage';
 import AdminAuditLogPage from './pages/AdminAuditLogPage';
+import AdminSubsidiesPage from './pages/AdminSubsidiesPage';
 import AdminBuildingDiscoveryPage from './pages/AdminBuildingDiscoveryPage';
 import BuildingPotentialPage from './pages/BuildingPotentialPage';
+import SubsidiesPage from './pages/SubsidiesPage';
 import LeadFormPage from './pages/LeadFormPage';
 import BlogPage from './pages/BlogPage';
 import BlogPostPage from './pages/BlogPostPage';
@@ -213,6 +215,15 @@ function AppRouter() {
               getId={(r) => r.lead_id || r._id}
               emptyHint="No leads yet."
             />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/subsidies" element={<SubsidiesPage />} />
+      <Route
+        path="/admin/subsidies"
+        element={
+          <ProtectedRoute>
+            <AdminSubsidiesPage />
           </ProtectedRoute>
         }
       />
