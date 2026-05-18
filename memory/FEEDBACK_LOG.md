@@ -175,7 +175,7 @@
 - [ ] N3  — "Design it for me" AI generator (paid) →  P1
 - [ ] N4  — Material checklist / BOQ generator (paid) →  P2
 - [ ] N5  — Import Garden Design module →  hold per user
-- [ ] N6  — Subsidies & Financing Navigator →  P1 (NEXT TURN — scrape api.solarrooftop.gov.in)
+- [x] N6  — Subsidies & Financing Navigator →  **✅ DONE** (15 entries seeded · public /subsidies · admin CRUD)
 - [ ] N7  — Vendor proposal/scoping tools →  P2
 - [ ] N8  — Razorpay integration →  post-validation
 - [ ] N9  — Project-credit entitlement model →  P1

@@ -25,6 +25,14 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 
 ## What's Been Implemented (Feb 19, 2026)
 
+### Phase 3 — Subsidies & Financing Navigator (Feb 19, 2026) ✅ (N6)
+- **Public `/subsidies` page** with hero ("Money you might be leaving on the table"), 4-axis filter bar (search, category, type, state), 15 curated entries seeded from PMSGMBY + MNRE + state DISCOMs + 4 bank-loan products. Card click opens a markdown-rich dialog with "Apply on official portal" CTA.
+- **Backend** `GET /api/subsidies`, `GET /api/subsidies/match/{building_id}` (state + type-eligible matching), full admin CRUD `/api/admin/subsidies` with audit-log entries (`subsidy.create/update/delete`).
+- **Admin curation** at `/admin/subsidies` (sidebar nav under Data) — editor dialog with category chips, scope, max amount, rate, markdown details, documents required, active toggle.
+- **Entry points** added: public Navbar "Subsidies" link · Building Report `view-subsidies-btn`.
+- **Seeded** (verify before publishing): PMSGMBY CFA, PMSGMBY GHS/RWA, PM-KUSUM-B, MahaUrja, BESCOM net-metering, TANGEDCO, AMRUT 2.0 RWH, BBMP RWH compliance, MNRE Waste-to-Energy, GRIHA/IGBC rebates, Accelerated Depreciation, SBI/UBI/Canara/PNB rooftop solar loans.
+- **Testing:** iteration_13.json — 12/12 backend pytests + frontend flows verified.
+
 ### Phase 2 — Audit Log + Sustenance Potential at-a-glance (Feb 19, 2026) ✅
 - **`/admin/audit`** — Internal Console page tracking every admin mutation. Backend `admin_audit_log` collection + `record_audit()` helper wired into approve/reject/bulk-action/intel.add endpoints. Filterable list with pagination.
 - **`/buildings/:id/potential`** — new top-level page (E1.2). 4 widget cards (Solar, Biogas, Rainwater Harvesting, Greening & Plantation), each clickable → solution detail. Headline strip shows total annual savings, CO₂ avoided, solar kWh, rainwater kL.
