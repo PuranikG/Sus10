@@ -8,6 +8,30 @@
 
 ### 🐛 Bugs
 
+#### B1.3 — Building Type filter on /admin/discover not respected
+- **Page:** `/admin/discover` (Building Discovery)
+- **Reproduced from screenshot (Mumbai, Shopping Mall, min footprint 1,000 sqm):**
+  - 27 buildings imported. Results include non-mall types:
+    - `Vasant Vihar High School & Jr. College` → tagged **College / University**
+    - `DLH Orchid` → tagged **Hotel / Resort**
+  - Tagging itself looks correct (good), but the **filter is not constraining results to the selected type**.
+- **Likely root cause:**
+  - Discovery pipeline (`/app/backend/building_discovery.py`) may be running an OSM Overpass query that's too broad, and Google Places enrichment then re-classifies the building into another category — but we don't re-filter post-enrichment.
+  - Or, the `building_type` param isn't translating to the right OSM `amenity`/`shop`/`landuse` tag.
+- **Files to investigate:**
+  - `/app/backend/building_discovery.py` — `discover_buildings(...)` function, OSM Overpass query, and post-enrichment filter step
+  - `/app/backend/server.py` — `/api/admin/discover` route handler
+- **Environment:** PRODUCTION (https://sus10.ai/admin/discover)
+
+#### B1.4 — Filter UX needs an "expansion" / cleanup
+- **What user said:** "the expansion of filters needs a nice fix"
+- **Interpretation (to confirm with user):**
+  - Allow **multi-select** building types (e.g., Mall + Hotel + IT Park in one query)?
+  - Add a **"Strict type match"** toggle for cases where post-enrichment reclassification should still exclude the building?
+  - Add **state / region** above city for multi-city sweeps?
+  - Group filters with clearer headings (Location / Building / Sizing)?
+- **Open: please confirm which of the above you want.**
+
 #### B1.1 — Data mismatch between Home screen and Explainability tab
 - **What works:** Home screen correctly updated the terrace measurement to **96 sqm** after the user drew the boundaries on the map.
 - **What's broken:** The **Explainability tab** shows **10 sqft** and runs calculations against that stale/wrong value.
@@ -94,6 +118,8 @@
 ### Priority placeholders (user will confirm)
 - [ ] B1.1 — Home vs Explainability tab area mismatch  →  P?
 - [ ] B1.2 — PDF report miscalculations & abrupt text  →  P?
+- [ ] B1.3 — Building Type filter not respected on /admin/discover →  P?
+- [ ] B1.4 — Filter UX expansion (multi-select, strict match, etc.) →  P?
 - [ ] E1.1 — Report toggles by user type            →  P?
 - [ ] E1.2 — Sustenance Potential at-a-glance screen →  P?
 - [ ] E1.3 — Searchable city autocomplete on /admin/discover →  P?
