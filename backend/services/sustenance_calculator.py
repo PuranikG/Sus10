@@ -296,9 +296,17 @@ def calculate_biogas_potential(
     building_type: str,
     floors: int = 1,
     occupants_override: Optional[int] = None,
+    families: Optional[int] = None,
+    waste_kg_per_family_per_day: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Biogas from organic kitchen/canteen/food waste.
+
+    Override priority:
+      1. (families × waste_kg_per_family_per_day) — when the user adjusts the
+         kitchen-waste slider on the Sustenance Potential page.
+      2. occupants_override × waste_per_person_per_day
+      3. derived from built-up area & type-default occupancy.
 
     Formula:
       Daily organic waste (kg) = occupants × waste_per_person_per_day
@@ -312,12 +320,20 @@ def calculate_biogas_potential(
 
     built_up_area = building_footprint_sqm * floors
 
-    if occupants_override:
+    daily_waste_source = "occupancy_default"
+    if families is not None and waste_kg_per_family_per_day is not None:
+        daily_organic_waste_kg = float(families) * float(waste_kg_per_family_per_day)
+        # Back-compute equivalent occupant count for display continuity
+        # assuming an average family size of 4.
+        occupants = int(families) * 4
+        daily_waste_source = "user_kitchen_waste"
+    elif occupants_override:
         occupants = occupants_override
+        daily_organic_waste_kg = occupants * waste_per_person
+        daily_waste_source = "user_occupants_override"
     else:
         occupants = int(built_up_area * people_density)
-
-    daily_organic_waste_kg = occupants * waste_per_person
+        daily_organic_waste_kg = occupants * waste_per_person
     annual_waste_kg = daily_organic_waste_kg * 365
 
     # Biogas yield: 0.08 m³ per kg organic waste
@@ -351,7 +367,14 @@ def calculate_biogas_potential(
 
     return {
         "occupants_estimated": occupants,
+        "families_estimated": (int(families) if families is not None else max(1, occupants // 4)),
         "people_density_per_sqm": people_density,
+        "waste_kg_per_family_per_day_used": (
+            float(waste_kg_per_family_per_day)
+            if waste_kg_per_family_per_day is not None
+            else round(waste_per_person * 4, 2)
+        ),
+        "daily_waste_source": daily_waste_source,
         "built_up_area_sqm": round(built_up_area, 1),
         "floors_assumed": floors,
         "daily_organic_waste_kg": round(daily_organic_waste_kg, 1),
@@ -364,9 +387,9 @@ def calculate_biogas_potential(
         "estimated_capex_inr": capex_inr,
         "co2_offset_kg_per_year": round(co2_total_kg_yr),
         "methodology": (
-            f"Occupants ({occupants}) × {waste_per_person} kg/person/day organic waste = "
-            f"{round(daily_organic_waste_kg,1)} kg/day. Biogas yield: 0.08 m³/kg = "
-            f"{round(biogas_m3_per_day,2)} m³/day. LPG saved: ~₹{round(savings_inr_yr)}/yr."
+            f"Daily organic waste: {round(daily_organic_waste_kg,1)} kg/day. "
+            f"Biogas yield: 0.08 m³/kg = {round(biogas_m3_per_day,2)} m³/day. "
+            f"LPG saved: ~₹{round(savings_inr_yr)}/yr. (Source: {daily_waste_source})"
         ),
         "data_source": "IS 16190:2014 + CPCB Solid Waste Management Rules 2016",
     }
@@ -432,6 +455,8 @@ def calculate_full_sustenance_potential(
     plantation_type: str = "mixed",
     floors: int = 1,
     occupants_override: Optional[int] = None,
+    families: Optional[int] = None,
+    waste_kg_per_family_per_day: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Master function: computes all 4 pillars for a single building.

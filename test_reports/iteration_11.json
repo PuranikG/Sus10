@@ -1,0 +1,57 @@
+{
+  "summary": "P1 batch part 1 (Admin Audit Log + Sustenance Potential at-a-glance) tested. Backend: 13/16 pytests pass; 3 fail due to 2 confirmed backend bugs (single-reject endpoint not auditing; biogas override silently dropped in master calculator). Frontend: all required test ids present and functional, but biogas slider has no live effect because of backend bug #2.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "PUT /api/admin/buildings/{id}/reject",
+        "issue": "Missing record_audit() call. Approve, bulk-approve, bulk-reject, and intel.add all write audit entries, but single reject does not. Spec requires action='building.reject' audit entry.",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "GET /api/buildings/{id}/potential and GET /api/sustenance/building/{id}",
+        "issue": "Biogas families/waste_kg_per_family_per_day overrides are silently dropped. In services/sustenance_calculator.py calculate_full_sustenance_potential() at line ~478, the call to calculate_biogas_potential() does NOT pass families= or waste_kg_per_family_per_day=. Result: ?families=50&waste_kg_per_family_per_day=1.0 still returns daily_organic_waste_kg=100.0 (occupancy heuristic) instead of expected ~50.0. This also breaks the live frontend slider (biogas headline does not update).",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "BuildingPotentialPage / BiogasAdjuster",
+        "issue": "Moving 'adjuster-families-slider' updates the displayed slider value (10->32) and re-fetches with new query params, but biogas widget headline stays at 2,920 m³/yr / 100.0 kg/day. Root cause is backend bug #2 (override dropped). Once backend is fixed, no FE change needed.",
+        "selector": "[data-testid='adjuster-families-slider']",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_p1_audit_and_potential.py",
+    "/app/test_reports/pytest/iteration_11.xml"
+  ],
+  "action_items": [
+    "Fix /app/backend/server.py PUT /admin/buildings/{building_id}/reject (admin_reject_building, line ~703): add `await record_audit(user=user, action='building.reject', resource_type='building', resource_id=building_id, metadata={'reason': reason}, ip=request.client.host if request.client else None)` after the successful update.",
+    "Fix /app/backend/services/sustenance_calculator.py calculate_full_sustenance_potential() (line ~478): thread families and waste_kg_per_family_per_day into the calculate_biogas_potential() call. Currently only occupants_override is forwarded."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now 3314 lines — over the 700-line guideline. Strongly recommend splitting (admin routes, audit, sustenance, beta-waitlist, etc.) into routers for maintainability.",
+    "BuildingPotentialPage.js fetchPotential() does not debounce slider changes — every tick fires an API call. Wrap fetch in a 200-300ms debounce or commit-on-release.",
+    "Public BuildingPotentialPage triggers /api/auth/me (401 in console) and /feature-flags — non-blocking but produces noisy errors for anonymous users. Consider skipping when no session cookie present.",
+    "Biogas widget headline_value uses biogas_m3_per_year but subheading uses daily_organic_waste_kg — fine, but consider rounding daily kg to 1 decimal consistently across calculator (already done in calc, but server response still has float)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_p1_audit_and_potential.py (new)"
+  ],
+  "success_rate": {
+    "backend": "81% (13/16 pytests pass; 3 fail on confirmed real bugs)",
+    "frontend": "100% of required testids render; 1 functional bug downstream of backend"
+  },
+  "test_credentials": "Admin session token 'iter10_fe_session' for gp@sus10.ai is still valid (verified via /api/auth/me). No new credentials created.",
+  "seed_data_creation": "Added a few audit log entries for bld_001 (approve/reject/bulk_approve/bulk_reject/intel.add) and one intel note tagged 'heritage_protected' on bld_001 during testing. All are real data created via the admin endpoints — safe to leave or clean up later.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Re-run /app/backend/tests/test_p1_audit_and_potential.py after main agent fixes the two backend bugs. Set REACT_APP_BACKEND_URL env var before pytest (e.g., `export REACT_APP_BACKEND_URL=https://sus10-preview.preview.emergentagent.com`). For frontend, the only meaningful retest is the biogas slider live update on /buildings/bld_001/potential.",
+  "rca_of_the_issue": "Bug #1 (reject audit missing): omission in PUT /admin/buildings/{id}/reject handler — record_audit() was added to approve/bulk/intel.add but the single reject endpoint at server.py:703 was missed. Fix: append a record_audit call after the successful update_one. Bug #2 (biogas override dropped): in services/sustenance_calculator.py, calculate_full_sustenance_potential() accepts families & waste_kg_per_family_per_day in its signature and is called with them by both /potential and /sustenance/building endpoints, but the inner call to calculate_biogas_potential at line 478-481 only passes occupants_override. Fix: add families=families, waste_kg_per_family_per_day=waste_kg_per_family_per_day to that call."
+}

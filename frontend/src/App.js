@@ -22,7 +22,9 @@ import AdminWaitlistPage from './pages/AdminWaitlistPage';
 import AdminZohoSurveysPage from './pages/AdminZohoSurveysPage';
 import AdminFeatureFlagsPage from './pages/AdminFeatureFlagsPage';
 import AdminGenericListPage from './pages/AdminGenericListPage';
+import AdminAuditLogPage from './pages/AdminAuditLogPage';
 import AdminBuildingDiscoveryPage from './pages/AdminBuildingDiscoveryPage';
+import BuildingPotentialPage from './pages/BuildingPotentialPage';
 import LeadFormPage from './pages/LeadFormPage';
 import BlogPage from './pages/BlogPage';
 import BlogPostPage from './pages/BlogPostPage';
@@ -211,6 +213,18 @@ function AppRouter() {
               getId={(r) => r.lead_id || r._id}
               emptyHint="No leads yet."
             />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/buildings/:buildingId/potential"
+        element={<BuildingPotentialPage />}
+      />
+      <Route
+        path="/admin/audit"
+        element={
+          <ProtectedRoute>
+            <AdminAuditLogPage />
           </ProtectedRoute>
         }
       />

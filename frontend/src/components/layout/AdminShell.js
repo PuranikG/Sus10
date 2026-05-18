@@ -4,7 +4,7 @@ import Navbar from './Navbar';
 import {
   LayoutDashboard, Telescope, Building2, ClipboardList,
   Layers, Megaphone, Inbox, Users, FileText, BookOpen,
-  ListChecks, Mail, Flag, Shield, ChevronRight,
+  ListChecks, Mail, Flag, Shield, ChevronRight, ShieldCheck,
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 
@@ -49,6 +49,7 @@ const SECTIONS = [
   {
     label: 'Settings',
     items: [
+      { to: '/admin/audit', label: 'Audit Log', icon: ShieldCheck, testid: 'admin-nav-audit' },
       { to: '/admin/feature-flags', label: 'Feature Flags', icon: Flag, testid: 'admin-nav-flags' },
     ],
   },

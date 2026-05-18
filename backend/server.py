@@ -765,6 +765,12 @@ async def admin_bulk_building_action(request: Request):
             "updated_at": now,
         }
     res = await db.buildings.update_many({"building_id": {"$in": ids}}, {"$set": update})
+    await record_audit(
+        user=user, action=f"building.bulk_{action}", resource_type="building",
+        resource_id=None,
+        metadata={"count": len(ids), "matched": res.matched_count, "modified": res.modified_count, "reason": reason, "ids_sample": ids[:10]},
+        ip=request.client.host if request.client else None,
+    )
     return {"action": action, "matched": res.matched_count, "modified": res.modified_count, "count": len(ids)}
 
 
@@ -816,6 +822,12 @@ async def add_building_intel(building_id: str, note: IntelNoteCreate, request: R
     await db.buildings.update_one(
         {"building_id": building_id},
         {"$push": {"intel_notes": new_note}, "$set": {"updated_at": new_note["created_at"]}},
+    )
+    await record_audit(
+        user=user, action="intel.add", resource_type="building",
+        resource_id=building_id,
+        metadata={"tag": new_note["tag"], "severity": severity, "note_id": new_note["note_id"]},
+        ip=request.client.host if request.client else None,
     )
     return new_note
 
@@ -895,7 +907,11 @@ async def admin_approve_building(building_id: str, request: Request):
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Building not found")
-    
+    await record_audit(
+        user=user, action="building.approve", resource_type="building",
+        resource_id=building_id,
+        ip=request.client.host if request.client else None,
+    )
     return {"building_id": building_id, "is_approved": True}
 
 @api_router.patch("/buildings/{building_id}/terrace")
@@ -2413,8 +2429,14 @@ async def get_building_sustenance(
     plantation_type: str = "mixed",
     floors: int = 1,
     occupants: Optional[int] = None,
+    families: Optional[int] = None,
+    waste_kg_per_family_per_day: Optional[float] = None,
 ):
-    """Compute 4-pillar sustenance potential for a single building (solar/plantation/biogas/rainwater)."""
+    """Compute 4-pillar sustenance potential for a single building (solar/plantation/biogas/rainwater).
+
+    Optional adjustables (used by E1.2 Sustenance Potential page):
+    - families × waste_kg_per_family_per_day → overrides biogas inputs.
+    """
     building = await db.buildings.find_one({"building_id": building_id}, {"_id": 0})
     if not building:
         raise HTTPException(status_code=404, detail="Building not found")
@@ -2423,8 +2445,137 @@ async def get_building_sustenance(
         plantation_type=plantation_type,
         floors=floors,
         occupants_override=occupants,
+        families=families,
+        waste_kg_per_family_per_day=waste_kg_per_family_per_day,
     )
     return report
+
+
+@api_router.get("/buildings/{building_id}/potential")
+async def get_building_potential(
+    building_id: str,
+    plantation_type: str = "mixed",
+    floors: int = 1,
+    families: Optional[int] = None,
+    waste_kg_per_family_per_day: Optional[float] = None,
+):
+    """E1.2 — Sustenance Potential at-a-glance.
+
+    Same engine as /sustenance/building/{id} but also returns a lightweight
+    summary block tailored for the 4-widget at-a-glance page (Solar, Biogas,
+    Rainwater, Greening) along with the source building snapshot.
+    """
+    building = await db.buildings.find_one({"building_id": building_id}, {"_id": 0})
+    if not building:
+        raise HTTPException(status_code=404, detail="Building not found")
+
+    # Sensible defaults for the biogas slider when no override is provided.
+    btype = (building.get("building_type") or "").lower()
+    if families is None:
+        if btype in ("residential", "apartment", "housing_society"):
+            # ~4 occupants per family; assume 80% of footprint × floors usable
+            built_up = (building.get("building_footprint_area") or 0) * floors
+            families = max(1, int(built_up * 0.0125))   # ~80 sqm per family
+        else:
+            families = None  # commercial/it_park/etc → keep occupancy heuristic
+    if waste_kg_per_family_per_day is None:
+        # CPCB norm midpoint (~0.4 kg/person/day × 4 = ~1.6, but kitchen-only ~0.5–1.0)
+        waste_kg_per_family_per_day = 0.5
+
+    report = calculate_full_sustenance_potential(
+        building=building,
+        plantation_type=plantation_type,
+        floors=floors,
+        families=families,
+        waste_kg_per_family_per_day=waste_kg_per_family_per_day,
+    )
+
+    pillars = report.get("pillars", {})
+    solar = pillars.get("solar", {})
+    plantation = pillars.get("plantation", {})
+    biogas = pillars.get("biogas", {})
+    rain = pillars.get("rainwater", {})
+
+    widgets = [
+        {
+            "key": "solar",
+            "title": "Solar PV",
+            "headline_value": solar.get("annual_generation_kwh"),
+            "headline_unit": "kWh / year",
+            "subheadings": [
+                f"{solar.get('installed_capacity_kwp', 0)} kWp installable",
+                f"~₹{solar.get('annual_savings_inr', 0):,} saved/year",
+                f"{solar.get('co2_offset_kg_per_year', 0):,} kg CO₂ offset/year",
+            ],
+            "color": "#f59e0b",
+            "drill_route": f"/buildings/{building_id}#solar",
+        },
+        {
+            "key": "biogas",
+            "title": "Biogas & Composting",
+            "headline_value": biogas.get("biogas_m3_per_year"),
+            "headline_unit": "m³ / year",
+            "subheadings": [
+                f"{biogas.get('daily_organic_waste_kg', 0)} kg waste diverted/day",
+                f"~₹{biogas.get('annual_savings_inr', 0):,} LPG saved/year",
+                biogas.get("recommended_plant_size", ""),
+            ],
+            "color": "#16a34a",
+            "drill_route": f"/buildings/{building_id}#biogas",
+            "adjustable": {
+                "families": report.get("pillars", {}).get("biogas", {}).get("families_estimated"),
+                "waste_kg_per_family_per_day": waste_kg_per_family_per_day,
+            },
+        },
+        {
+            "key": "rainwater",
+            "title": "Rainwater Harvesting",
+            "headline_value": rain.get("annual_yield_kiloliters"),
+            "headline_unit": "kL / year",
+            "subheadings": [
+                f"{rain.get('catchment_area_sqm', 0):,} sqm catchment",
+                f"~₹{rain.get('annual_savings_inr', 0):,} saved/year",
+                f"{rain.get('households_served', 0)} households served",
+            ],
+            "color": "#0ea5e9",
+            "drill_route": f"/buildings/{building_id}#rainwater",
+        },
+        {
+            "key": "greening",
+            "title": "Greening & Plantation",
+            "headline_value": plantation.get("total_plants_count"),
+            "headline_unit": "plants",
+            "subheadings": [
+                f"{plantation.get('annual_food_yield_kg', 0)} kg food/year",
+                f"{plantation.get('co2_sequestered_kg_per_year', 0):,} kg CO₂ sequestered/year",
+                f"{plantation.get('temp_reduction_c', 0)}°C cooling",
+            ],
+            "color": "#14b8a6",
+            "drill_route": f"/buildings/{building_id}#plantation",
+        },
+    ]
+
+    return {
+        "building": {
+            "building_id": building.get("building_id"),
+            "name": building.get("name") or building.get("address"),
+            "address": building.get("address"),
+            "city": building.get("city"),
+            "building_type": building.get("building_type"),
+            "footprint_area_sqm": building.get("building_footprint_area"),
+            "usable_terrace_sqm": building.get("usable_terrace_area"),
+            "image_url": building.get("primary_image_url"),
+        },
+        "widgets": widgets,
+        "summary": report.get("summary"),
+        "pillars": pillars,
+        "inputs": {
+            "families": families,
+            "waste_kg_per_family_per_day": waste_kg_per_family_per_day,
+            "floors": floors,
+            "plantation_type": plantation_type,
+        },
+    }
 
 
 @api_router.get("/sustenance/group/{group_id}")
@@ -2644,6 +2795,71 @@ async def gemini_analyze_rooftop(building_id: str, request: Request):
         )
 
     return {**result, "cached": False}
+
+
+# ==================== ADMIN AUDIT LOG ====================
+async def record_audit(
+    *,
+    user,
+    action: str,
+    resource_type: str,
+    resource_id: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    ip: Optional[str] = None,
+) -> None:
+    """Append a single audit event. Designed to be cheap, non-blocking and
+    safe to call from any admin mutation handler. Failures must never block
+    the actual operation — log + continue.
+    """
+    try:
+        await db.admin_audit_log.insert_one({
+            "audit_id": f"adt_{uuid.uuid4().hex[:12]}",
+            "user_id": getattr(user, "user_id", None),
+            "user_email": getattr(user, "email", None),
+            "action": action,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
+            "metadata": metadata or {},
+            "ip": ip,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as e:
+        logger.warning(f"admin audit_log write failed: {e}")
+
+
+@api_router.get("/admin/audit")
+async def admin_list_audit(
+    request: Request,
+    action: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    user_email: Optional[str] = None,
+    q: Optional[str] = None,
+    limit: int = Query(default=200, le=1000),
+    page: int = Query(default=1, ge=1),
+):
+    await require_admin(request)
+    query: Dict[str, Any] = {}
+    if action:
+        query["action"] = action
+    if resource_type:
+        query["resource_type"] = resource_type
+    if user_email:
+        query["user_email"] = user_email
+    if q:
+        query["$or"] = [
+            {"action": {"$regex": q, "$options": "i"}},
+            {"resource_id": {"$regex": q, "$options": "i"}},
+            {"user_email": {"$regex": q, "$options": "i"}},
+        ]
+    total = await db.admin_audit_log.count_documents(query)
+    skip = (page - 1) * limit
+    items = await (
+        db.admin_audit_log.find(query, {"_id": 0})
+        .sort("created_at", -1)
+        .skip(skip).limit(limit)
+        .to_list(limit)
+    )
+    return {"entries": items, "total": total, "page": page, "limit": limit}
 
 
 # ==================== BETA WAITLIST + ZOHO SURVEY WEBHOOK ====================

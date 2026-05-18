@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Building2, MapPin, Leaf, Sun, Droplets, Wind,
-  ArrowLeft, Download, Share2, AlertTriangle, CheckCircle2,
+  ArrowLeft, Download, Share2, AlertTriangle, CheckCircle2, Sparkles,
   TrendingUp, TrendingDown, Minus, Info, ChevronRight,
   Calculator, FileText, Users, Clock, Mail, Copy, Check,
   MessageCircle, Loader2, TreePine, Flower2, Sprout, Map, Save
@@ -655,6 +655,12 @@ export default function BuildingReportPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
+                  <Link to={`/buildings/${building.building_id}/potential`}>
+                    <Button size="sm" variant="outline" data-testid="view-potential-btn">
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Potential at a glance
+                    </Button>
+                  </Link>
                   <ShareDropdown building={building} recommendations={recommendations} />
                   <Button 
                     size="sm" 
