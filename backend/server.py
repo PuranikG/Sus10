@@ -727,6 +727,11 @@ async def admin_reject_building(building_id: str, request: Request):
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Building not found")
+    await record_audit(
+        user=user, action="building.reject", resource_type="building",
+        resource_id=building_id, metadata={"reason": reason},
+        ip=request.client.host if request.client else None,
+    )
     return {"building_id": building_id, "is_rejected": True, "reason": reason}
 
 

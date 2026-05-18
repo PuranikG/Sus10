@@ -478,6 +478,8 @@ def calculate_full_sustenance_potential(
     biogas = calculate_biogas_potential(
         building_footprint_sqm=footprint, building_type=btype,
         floors=floors, occupants_override=occupants_override,
+        families=families,
+        waste_kg_per_family_per_day=waste_kg_per_family_per_day,
     )
     rainwater = calculate_rainwater_potential(catchment_area_sqm=footprint, city=city)
 
