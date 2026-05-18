@@ -32,6 +32,32 @@
   - Group filters with clearer headings (Location / Building / Sizing)?
 - **Open: please confirm which of the above you want.**
 
+#### B1.5 — Admin Buildings table: no Reject action, no top filters, infinite scroll
+- **Page:** `/admin` → Buildings tab (Building Management)
+- **Problems:**
+  1. **Infinite scroll** through 27+ pending buildings — hard to triage.
+  2. **No top filter bar** to narrow by City / Type / Area / Status before triaging.
+  3. **No "Reject" action** in the row Actions column. Today there's only the green tick (Approve) and `>` (drill-down). User wants to reject (with optional reason) so the discovery pipeline doesn't keep resurfacing the same junk.
+  4. Bulk-action support is missing — can't approve/reject many rows at once.
+- **Asks:**
+  - Add a **filter bar at the top** of the Buildings tab: City (search/typeahead), Type (multi-select), Area range, Status (Pending / Approved / Rejected).
+  - Add **Reject** action per row + a **bulk approve / bulk reject** capability (checkbox selection + sticky action footer).
+  - Paginate or virtualize the list (drop infinite scroll).
+- **Files to investigate:**
+  - `/app/frontend/src/pages/AdminPage.js` or the Buildings tab component
+  - `/app/backend/server.py` — admin building list + add a `/api/admin/buildings/{id}/reject` endpoint with `{reason}` payload; ensure rejected IDs are excluded from re-discovery.
+
+#### B1.6 — Capture building intelligence notes (e.g., skyscraper wind-load caveats)
+- **Insight from user:** Very tall skyscrapers may not be ideal for plantation unless their roof is engineered for it — wind speeds at height are damaging.
+- **Ask:** Provide a way to **record notes / qualifiers per building** and persist them as **backend intelligence** so they:
+  - show up on the building report,
+  - influence solution recommendations (e.g., downrank rooftop plantation for buildings tagged `high_wind_exposure`),
+  - and accumulate as a knowledge base over time.
+- **Suggested data model (to confirm):**
+  - New field on `buildings`: `intel_notes: [{ tag: 'wind_exposure', note: 'High-rise > 30 floors; not ideal for plantation without parapet/windbreak', severity: 'medium', author: 'admin@…', created_at }]`
+  - Optional curated tag dictionary: `high_wind_exposure`, `weak_slab`, `heritage_protected`, `gov_approval_required`, `flood_prone`, etc.
+- **UX:** Add a "Notes / Intelligence" section on the admin building detail page + show as warning badges on the public Building Report.
+
 #### B1.1 — Data mismatch between Home screen and Explainability tab
 - **What works:** Home screen correctly updated the terrace measurement to **96 sqm** after the user drew the boundaries on the map.
 - **What's broken:** The **Explainability tab** shows **10 sqft** and runs calculations against that stale/wrong value.
@@ -120,6 +146,8 @@
 - [ ] B1.2 — PDF report miscalculations & abrupt text  →  P?
 - [ ] B1.3 — Building Type filter not respected on /admin/discover →  P?
 - [ ] B1.4 — Filter UX expansion (multi-select, strict match, etc.) →  P?
+- [ ] B1.5 — Admin Buildings: top filters + Reject + bulk actions + pagination →  P?
+- [ ] B1.6 — Building intelligence notes (wind, slab, heritage, etc.) →  P?
 - [ ] E1.1 — Report toggles by user type            →  P?
 - [ ] E1.2 — Sustenance Potential at-a-glance screen →  P?
 - [ ] E1.3 — Searchable city autocomplete on /admin/discover →  P?
