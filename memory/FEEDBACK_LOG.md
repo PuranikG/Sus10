@@ -58,6 +58,23 @@
   - Optional curated tag dictionary: `high_wind_exposure`, `weak_slab`, `heritage_protected`, `gov_approval_required`, `flood_prone`, etc.
 - **UX:** Add a "Notes / Intelligence" section on the admin building detail page + show as warning badges on the public Building Report.
 
+#### B1.7 — Recently discovered buildings not appearing in Admin → Buildings (approval list)
+- **Reproduction:** User ran `/admin/discover` for Mumbai shopping malls → 27 buildings imported (Evershine Mall, Hari Om Sarees, Croma Ghodbunder, DLH Orchid, Vasant Vihar, etc. visible on the Discover page). Switched to `/admin` → Buildings tab → **the newly imported malls are not visible** in the table.
+- **Also observed on same screen:** No record count shown, no pagination — table appears to be a single long scroll.
+- **Likely root causes (to confirm during fix):**
+  - Default sort is not `created_at desc` → new records are pushed to the bottom of an already-long list and clipped by an implicit query limit.
+  - Backend list endpoint has a hard limit (e.g., `.find().limit(50)`) so anything past N is silently dropped.
+  - Discover writes to a different collection / different `status` filter than what the admin Buildings list reads from.
+- **Files to investigate:**
+  - `/app/backend/server.py` — list endpoint for admin buildings (likely `GET /api/admin/buildings`).
+  - `/app/backend/building_discovery.py` — confirm `status` and `created_at` set on import.
+  - Frontend admin Buildings tab component — confirm sort + how it requests results.
+- **Asks (related to B1.5):**
+  - Add **total record count** at the top of the table (e.g., "Showing 1–50 of 312 buildings").
+  - Add **pagination** (server-side, 25/50/100 per page) — or virtualized scroll with proper batching.
+  - Default sort: **newest first** (`created_at desc`), with column sort toggles.
+- **Environment:** PRODUCTION (https://sus10.ai/admin)
+
 #### B1.1 — Data mismatch between Home screen and Explainability tab
 - **What works:** Home screen correctly updated the terrace measurement to **96 sqm** after the user drew the boundaries on the map.
 - **What's broken:** The **Explainability tab** shows **10 sqft** and runs calculations against that stale/wrong value.
@@ -148,6 +165,7 @@
 - [ ] B1.4 — Filter UX expansion (multi-select, strict match, etc.) →  P?
 - [ ] B1.5 — Admin Buildings: top filters + Reject + bulk actions + pagination →  P?
 - [ ] B1.6 — Building intelligence notes (wind, slab, heritage, etc.) →  P?
+- [ ] B1.7 — Discover imports not showing in Admin → Buildings list (likely query limit / sort) →  P?
 - [ ] E1.1 — Report toggles by user type            →  P?
 - [ ] E1.2 — Sustenance Potential at-a-glance screen →  P?
 - [ ] E1.3 — Searchable city autocomplete on /admin/discover →  P?
