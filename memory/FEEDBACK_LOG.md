@@ -159,28 +159,29 @@
 ---
 
 ### Priority placeholders (user will confirm)
-- [ ] B1.1 — Home vs Explainability tab area mismatch  →  P0 (proposed)
-- [ ] B1.2 — PDF report miscalculations & abrupt text  →  P0 (proposed, bundled w/ E1.1)
-- [ ] B1.3 — Building Type filter not respected on /admin/discover →  P0 (proposed)
+- [x] B1.1 — Home vs Explainability tab area mismatch  →  **P0 — ✅ FIXED** (auto-regen on polygon save)
+- [ ] B1.2 — PDF report miscalculations & abrupt text  →  P0 (bundled w/ E1.1)
+- [ ] B1.3 — Building Type filter not respected on /admin/discover →  P0
 - [ ] B1.4 — Filter UX expansion (multi-select, strict match, etc.) →  P1
 - [ ] B1.5 — Admin Buildings: top filters + Reject + bulk actions + pagination →  P1
 - [ ] B1.6 — Building intelligence notes (wind, slab, heritage, etc.) →  P1
-- [ ] B1.7 — Discover imports not showing in Admin → Buildings list (likely query limit / sort) →  P0 (proposed)
-- [ ] B1.8 — Admin IA: Internal Console sidebar + CMS/Projects/Initiatives/Leads links →  P0 (proposed)
+- [x] B1.7 — Discover imports not showing in Admin → Buildings list →  **P0 — ✅ FIXED** (sort desc + limit 500 + total count)
+- [ ] B1.8 — Admin IA: Internal Console sidebar + CMS/Projects/Initiatives/Leads links →  P0
 - [ ] E1.1 — Persona-tuned PDF report                →  P1 (bundled w/ B1.2)
 - [ ] E1.2 — Sustenance Potential at-a-glance screen →  P1
 - [ ] E1.3 — Searchable city autocomplete on /admin/discover →  P0 (tiny, ships w/ B1.3)
-- [ ] N1  — 4 persona teaser landing pages (port from supplied HTMLs) →  P0
-- [ ] N2  — Persona-aware homepage / smart router →  P1
+- [x] N1  — 4 persona teaser landing pages (in CMS) →  **P0 — ✅ DONE** (slugs: for-homeowners, for-homeowners-heat-action, for-communities, for-installers)
+- [ ] N2  — Persona-aware homepage / smart router →  partially shipped (cards on `/`); smart-routing P2
 - [ ] N3  — "Design it for me" AI generator (paid) →  P1
 - [ ] N4  — Material checklist / BOQ generator (paid) →  P2
-- [ ] N5  — Import Garden Design module (needs user input on source) →  P1 (blocked on user)
-- [ ] N6  — Subsidies & Financing Navigator (core) →  P1
+- [ ] N5  — Import Garden Design module (Emergent jobs 7f3313a7… / deb14930…) →  **P3 — hold until user asks**
+- [ ] N6  — Subsidies & Financing Navigator (scrape api.solarrooftop.gov.in + more) →  P1
 - [ ] N7  — Vendor proposal/scoping tools →  P2
-- [ ] N8  — Razorpay integration →  P2 (post-validation)
+- [ ] N8  — Razorpay integration →  post-validation
 - [ ] N9  — Project-credit entitlement model →  P1
-- [ ] N10 — Pre-launch beta waitlist collector →  P0
+- [x] N10 — Pre-launch beta waitlist collector →  **P0 — ✅ DONE** (form + admin list + Zoho webhook)
 
-> Full strategy doc in /app/memory/IA_AND_PACKAGING_PROPOSAL.md (v2 — incorporates 4 persona teasers, freemium + pay-per-project model, garden-design import, subsidy navigator).
+> Full strategy doc in /app/memory/IA_AND_PACKAGING_PROPOSAL.md (v2).
+> Phase 0 testing report: /app/test_reports/iteration_8.json (18/18 backend pass, 0 issues).
 
 ---

@@ -25,6 +25,22 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 
 ## What's Been Implemented (Feb 19, 2026)
 
+### Phase 0 — Pre-launch teasers + critical bug fixes (Feb 19, 2026) ✅
+- **4 persona teaser CMS pages** seeded into `cms_pages` (editable from /admin/cms):
+  - `/for-homeowners` (citizen-aspirational)
+  - `/for-homeowners-heat-action` (citizen-crisis)
+  - `/for-communities` (RWA)
+  - `/for-installers` (vendor)
+  - Each has hero, badges, 4 benefit cards, intro markdown, body markdown, Zoho survey iframe, and inline `WaitlistForm`.
+- **Inline `WaitlistForm` component** (`/app/frontend/src/components/cms/WaitlistForm.js`) — persona-aware copy, success state, captures name/email/city/source.
+- **CMS schema** extended with optional `waitlist_persona` field. `CmsPage.js` auto-renders the form when set.
+- **Persona switcher cards** on `/` (`data-testid="persona-switcher"`) — 4 entry points to the teasers.
+- **Backend `/api/beta-waitlist`** (public POST) + **`/api/admin/beta-waitlist`** (admin GET with by-persona breakdown).
+- **Backend `/api/webhooks/zoho-survey`** (public POST) accepts any Zoho payload; auto-extracts email and joins to waitlist. `/api/admin/zoho-survey-responses` to read all.
+- **B1.1 FIX** — `PATCH /api/buildings/{id}/terrace` now calls new `regenerate_recommendations_for_building` helper. Solution recs + audit logs reflect the latest polygon area (Explainability tab no longer stale).
+- **B1.7 FIX** — `GET /api/admin/buildings` now returns `{buildings, total, limit, sort}`; default sort `created_at_desc`; limit up to 2000. Admin UI shows `Showing X of Y buildings (newest first)`.
+- **Testing:** `/app/test_reports/iteration_8.json` → 18/18 backend + frontend criteria passed, 0 issues.
+
 ### Private Beta Allowlist (Feb 19, 2026) ✅
 - Added env-driven sign-in allowlist for production beta:
   - `AUTH_ALLOWLIST_ENABLED=true`
