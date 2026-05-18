@@ -30,6 +30,21 @@
 
 ### ✨ Enhancement requests
 
+#### E1.3 — Replace hardcoded city dropdown on /admin/discover with a searchable autocomplete
+- **Page:** `/admin/discover` (Admin → Discover Buildings)
+- **Problem:** City list is hardcoded with ~100+ entries. Scrolling through a long static list is a bad long-term UX.
+- **Ask:** Replace with a **search/typeahead field** — type a city name, get filtered results, select one.
+- **Implementation notes:**
+  - Frontend: swap the `<Select>` for a `Combobox` / `Command` pattern (Shadcn `command.jsx` already in repo).
+  - Source-of-truth options:
+    - (a) Keep the current static list but make it searchable client-side (quickest win).
+    - (b) Hit Google Places Autocomplete API restricted to `types=(cities)` (richer, but uses API quota — confirm with user).
+    - (c) Hit OpenStreetMap Nominatim (free, slower).
+- **Files to investigate:**
+  - `/app/frontend/src/pages/AdminDiscoverPage.js` (or wherever the discover form lives)
+  - Existing Shadcn `/app/frontend/src/components/ui/command.jsx`
+- **Environment reported on:** PRODUCTION (https://sus10.ai/admin/discover)
+
 #### E1.1 — Configurable PDF report structure with user-type toggles
 - **Idea:** Add toggles in the report download dialog to include/exclude sections based on the user's audience.
 - **Suggested user types (to confirm with user):**
@@ -83,5 +98,6 @@
 - [ ] B1.2 — PDF report miscalculations & abrupt text  →  P?
 - [ ] E1.1 — Report toggles by user type            →  P?
 - [ ] E1.2 — Sustenance Potential at-a-glance screen →  P?
+- [ ] E1.3 — Searchable city autocomplete on /admin/discover →  P?
 
 ---
