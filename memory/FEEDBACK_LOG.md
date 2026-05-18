@@ -54,15 +54,19 @@
 
 #### E1.2 — New "Sustenance Potential at a Glance" screen
 - **What user wants:** A single consolidated screen where the building's sustenance potential is visible in one view (no clicking through tabs).
-- **Must include (confirmed from user):**
-  1. **Solar estimate** — potential power generation based on usable area.
-  2. **Biogas estimate** — based on kitchen waste; **adjustable** with user input (avg kitchen waste in kg/family/day or kg/apartment/day).
-- **Should also include (to confirm):**
-  3. Plantation / green roof CO₂ sequestration + temp reduction
-  4. Rainwater harvesting potential
-  5. A quick toggleable "kitchen waste" slider for biogas (the only confirmed adjustable input so far)
-  6. Aggregate "annual impact" headline (₹ saved, tonnes CO₂, MWh, kL water)
-- **UX note:** Single scroll-friendly screen — distinct from the existing Report's tabbed deep-dive.
+- **Confirmed contents (4 pillars, all included):**
+  1. **Solar** — power generation potential based on usable area.
+  2. **Biogas** — based on kitchen waste; **adjustable** with user input (avg kitchen waste in kg/family or kg/apartment per day).
+  3. **Rainwater harvesting** — annual capture potential.
+  4. **Greening + composting** — green-roof / terrace garden CO₂ sequestration + on-site composting throughput.
+- **Confirmed UX:**
+  - **Separate top-level page** (not a tab on the Building Report).
+  - Each pillar is a **widget**; clicking a widget drills down into the corresponding **solution details / deep-dive**.
+- **Open items (to confirm later):**
+  - Default kitchen-waste assumption for biogas (0.5 vs 1.0 kg/family/day).
+  - Aggregate "annual impact" headline strip (₹ saved, tonnes CO₂, MWh, kL water) — yes/no?
+  - URL/route name (e.g., `/buildings/:id/potential` or `/potential/:id`).
+  - Entry points (link from Building card, Report header, Dashboard?).
 
 ---
 
