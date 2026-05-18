@@ -619,11 +619,15 @@ async def admin_list_buildings(
     city: Optional[str] = None,
     ward: Optional[str] = None,
     is_approved: Optional[bool] = None,
-    limit: int = Query(default=100, le=500)
+    sort: str = Query(default="created_at_desc"),
+    limit: int = Query(default=500, le=2000)
 ):
-    """Admin: List all buildings with filters"""
+    """Admin: List all buildings with filters + total count.
+
+    Response shape: { buildings: [...], total: int, limit: int, sort: str }
+    """
     await require_admin(request)
-    
+
     query = {}
     if city:
         query["city"] = {"$regex": city, "$options": "i"}
@@ -631,9 +635,21 @@ async def admin_list_buildings(
         query["ward"] = ward
     if is_approved is not None:
         query["is_approved"] = is_approved
-    
-    buildings = await db.buildings.find(query, {"_id": 0}).limit(limit).to_list(limit)
-    return buildings
+
+    total = await db.buildings.count_documents(query)
+
+    sort_field = "created_at"
+    sort_dir = -1
+    if sort == "created_at_asc":
+        sort_dir = 1
+    elif sort == "city_asc":
+        sort_field = "city"; sort_dir = 1
+    elif sort == "area_desc":
+        sort_field = "usable_terrace_area"; sort_dir = -1
+
+    cursor = db.buildings.find(query, {"_id": 0}).sort(sort_field, sort_dir).limit(limit)
+    buildings = await cursor.to_list(limit)
+    return {"buildings": buildings, "total": total, "limit": limit, "sort": sort}
 
 @api_router.post("/admin/buildings")
 async def admin_create_building(request: Request, building: BuildingCreate):
@@ -728,11 +744,128 @@ async def update_building_terrace(building_id: str, request: Request):
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Building not found")
-    
+
+    # B1.1: Regenerate recommendations + audit logs against the new terrace area
+    # so the Explainability tab reflects the latest user-edited polygon.
+    regen_summary = await regenerate_recommendations_for_building(building_id)
+
     return {
         "building_id": building_id,
         "custom_terrace_area": custom_area,
-        "saved": True
+        "saved": True,
+        "recommendations_refreshed": regen_summary,
+    }
+
+
+async def regenerate_recommendations_for_building(building_id: str) -> Dict[str, Any]:
+    """
+    Recompute solution recommendations + calculation_audit_log entries for a
+    building using its CURRENT terrace area / footprint. Called after a user
+    edits the rooftop polygon so the Explainability tab is never stale.
+
+    Safe to call multiple times; existing rows for the building are replaced.
+    """
+    building = await db.buildings.find_one({"building_id": building_id}, {"_id": 0})
+    if not building:
+        return {"replaced": 0, "skipped": "building_not_found"}
+
+    area = float(
+        building.get("custom_terrace_area")
+        or building.get("usable_terrace_area")
+        or building.get("building_footprint_area")
+        or 0
+    )
+    if area <= 0:
+        return {"replaced": 0, "skipped": "no_area"}
+
+    # Look up the active terrace-greening solution type (other categories can be
+    # added later — keeping parity with the seed function for now).
+    sol = await db.solution_types.find_one(
+        {"solution_type_id": "sol_terrace_green"}, {"_id": 0}
+    )
+    if not sol:
+        # Fall back: pick the first active solution type
+        sol = await db.solution_types.find_one({"is_active": True}, {"_id": 0})
+    if not sol:
+        return {"replaced": 0, "skipped": "no_solution_type"}
+
+    co2_seq = round(area * 3.5, 0)
+    temp_reduction = round(min(5.0, area / 1000.0 * 2.5), 1)
+    cost_low = int(area * (sol.get("cost_range_min") or 150))
+    cost_high = int(area * (sol.get("cost_range_max") or 500))
+    suitability = round(
+        min(95.0, 60 + (building.get("data_quality_score", 70) / 10) + (area / 500)),
+        1,
+    )
+
+    now = datetime.now(timezone.utc).isoformat()
+    rec_id = f"rec_{uuid.uuid4().hex[:12]}"
+    audit_id = f"audit_{uuid.uuid4().hex[:12]}"
+
+    new_rec = {
+        "recommendation_id": rec_id,
+        "building_id": building_id,
+        "solution_type_id": sol["solution_type_id"],
+        "suitability_score": suitability,
+        "reasoning": (
+            f"Based on {int(area)} sqm usable terrace area and current AQI of "
+            f"{building.get('current_aqi', 'N/A')}, terrace greening can "
+            "significantly improve local air quality and reduce building temperature."
+        ),
+        "impact_projections": {
+            "co2_sequestration_kg_year": co2_seq,
+            "temperature_reduction_c": temp_reduction,
+            "biodiversity_species": 15 + int(area / 500),
+        },
+        "cost_estimate": int((cost_low + cost_high) / 2),
+        "required_area": area,
+        "created_at": now,
+    }
+
+    new_audit = {
+        "audit_id": audit_id,
+        "recommendation_id": rec_id,
+        "building_id": building_id,
+        "calculation_steps": [
+            {"step": 1, "description": "Determine usable terrace area",
+             "input": f"{int(area):,} sqm", "source": "User-drawn polygon / building footprint"},
+            {"step": 2, "description": "Calculate CO2 sequestration",
+             "formula": "area × 3.5 kg/sqm/year",
+             "result": f"{int(co2_seq):,} kg/year",
+             "source": "EPA Green Roof Study 2023"},
+            {"step": 3, "description": "Estimate temperature reduction",
+             "formula": "min(5°C, area/1000 × 2.5)",
+             "result": f"{temp_reduction}°C",
+             "source": "Urban Heat Island Research, IIT Delhi"},
+            {"step": 4, "description": "Calculate cost range",
+             "formula": "area × (₹150-500/sqm)",
+             "result": f"₹{cost_low:,} - ₹{cost_high:,}",
+             "source": "Market survey 2024"},
+        ],
+        "final_output": {
+            "co2_sequestration": {
+                "value": co2_seq, "unit": "kg/year", "confidence": 0.85,
+                "range_low": co2_seq * 0.8, "range_high": co2_seq * 1.2,
+            },
+            "cost_estimate": {
+                "value": (cost_low + cost_high) / 2, "unit": "INR", "confidence": 0.75,
+                "range_low": cost_low, "range_high": cost_high,
+            },
+        },
+        "created_at": now,
+    }
+
+    # Replace existing recs + audits for this building (idempotent)
+    del_recs = await db.solution_recommendations.delete_many({"building_id": building_id})
+    del_audits = await db.calculation_audit_log.delete_many({"building_id": building_id})
+
+    await db.solution_recommendations.insert_one(new_rec)
+    await db.calculation_audit_log.insert_one(new_audit)
+
+    return {
+        "replaced": (del_recs.deleted_count or 0) + (del_audits.deleted_count or 0),
+        "new_recommendation_id": rec_id,
+        "area_used_sqm": area,
     }
 
 @api_router.put("/admin/buildings/{building_id}")
@@ -2319,6 +2452,183 @@ async def gemini_analyze_rooftop(building_id: str, request: Request):
     return {**result, "cached": False}
 
 
+# ==================== BETA WAITLIST + ZOHO SURVEY WEBHOOK ====================
+class BetaWaitlistEntry(BaseModel):
+    email: EmailStr
+    name: Optional[str] = None
+    persona: Optional[str] = None  # citizen | citizen-crisis | rwa | vendor
+    city: Optional[str] = None
+    source: Optional[str] = None   # which teaser / referrer
+    note: Optional[str] = None
+
+
+@api_router.post("/beta-waitlist")
+async def join_beta_waitlist(entry: BetaWaitlistEntry, request: Request):
+    """Public: collect early-access email signups from the persona teaser pages."""
+    email = entry.email.strip().lower()
+    now = datetime.now(timezone.utc).isoformat()
+
+    existing = await db.beta_waitlist.find_one({"email": email}, {"_id": 0})
+    if existing:
+        # Update with the latest persona/source/note (people may sign up twice
+        # from different teasers — that's a useful signal, append it).
+        history = existing.get("history", [])
+        history.append({
+            "persona": entry.persona, "source": entry.source,
+            "note": entry.note, "at": now,
+        })
+        await db.beta_waitlist.update_one(
+            {"email": email},
+            {"$set": {
+                "name": entry.name or existing.get("name"),
+                "persona": entry.persona or existing.get("persona"),
+                "city": entry.city or existing.get("city"),
+                "source": entry.source or existing.get("source"),
+                "note": entry.note or existing.get("note"),
+                "updated_at": now,
+                "history": history,
+            }},
+        )
+        return {"saved": True, "duplicate": True, "email": email}
+
+    client_host = request.client.host if request.client else None
+    doc = {
+        "waitlist_id": f"wl_{uuid.uuid4().hex[:12]}",
+        "email": email,
+        "name": entry.name,
+        "persona": entry.persona,
+        "city": entry.city,
+        "source": entry.source,
+        "note": entry.note,
+        "ip": client_host,
+        "user_agent": request.headers.get("user-agent"),
+        "created_at": now,
+        "updated_at": now,
+        "history": [{
+            "persona": entry.persona, "source": entry.source,
+            "note": entry.note, "at": now,
+        }],
+    }
+    await db.beta_waitlist.insert_one(doc)
+    doc.pop("_id", None)
+    return {"saved": True, "duplicate": False, "email": email, "waitlist_id": doc["waitlist_id"]}
+
+
+@api_router.get("/admin/beta-waitlist")
+async def admin_list_beta_waitlist(
+    request: Request,
+    persona: Optional[str] = None,
+    limit: int = Query(default=500, le=2000),
+):
+    await require_admin(request)
+    query: Dict[str, Any] = {}
+    if persona:
+        query["persona"] = persona
+    total = await db.beta_waitlist.count_documents(query)
+    entries = await (
+        db.beta_waitlist.find(query, {"_id": 0})
+        .sort("created_at", -1)
+        .limit(limit)
+        .to_list(limit)
+    )
+    # Breakdown by persona for quick admin glance
+    pipeline = [{"$group": {"_id": "$persona", "count": {"$sum": 1}}}]
+    by_persona_raw = await db.beta_waitlist.aggregate(pipeline).to_list(50)
+    by_persona = {(p["_id"] or "unspecified"): p["count"] for p in by_persona_raw}
+    return {"entries": entries, "total": total, "by_persona": by_persona, "limit": limit}
+
+
+@api_router.post("/webhooks/zoho-survey")
+async def zoho_survey_webhook(request: Request):
+    """Accept Zoho Survey response webhook (configurable in Zoho dashboard).
+
+    Zoho Survey can POST a JSON body containing question/answer pairs after a
+    submission. We don't constrain the shape — we store the entire payload plus
+    headers + receipt metadata so the data team can analyse later. If the
+    payload contains an 'email' field we also auto-add it to the beta waitlist.
+    """
+    try:
+        payload = await request.json()
+    except Exception:
+        # Some webhook providers send form-encoded data; capture raw if so.
+        raw = (await request.body()).decode("utf-8", errors="ignore")
+        payload = {"_raw": raw}
+
+    if not isinstance(payload, dict):
+        payload = {"_value": payload}
+
+    now = datetime.now(timezone.utc).isoformat()
+    headers = {k: v for k, v in request.headers.items() if k.lower() in (
+        "user-agent", "content-type", "referer", "x-forwarded-for",
+        "x-zoho-survey-id", "x-zoho-event",
+    )}
+
+    doc = {
+        "response_id": f"zsr_{uuid.uuid4().hex[:12]}",
+        "received_at": now,
+        "source": "zoho_survey",
+        "ip": request.client.host if request.client else None,
+        "headers": headers,
+        "payload": payload,
+    }
+    await db.zoho_survey_responses.insert_one(doc)
+
+    # Best-effort email extraction → beta waitlist auto-join.
+    email = None
+    persona_hint = None
+    for key in ("email", "Email", "respondent_email", "user_email"):
+        v = payload.get(key)
+        if isinstance(v, str) and "@" in v:
+            email = v.strip().lower()
+            break
+    # Also scan known Zoho structure: { responses: [{ question, answer }] }
+    if not email and isinstance(payload.get("responses"), list):
+        for item in payload["responses"]:
+            ans = (item or {}).get("answer")
+            if isinstance(ans, str) and "@" in ans and len(ans) < 120:
+                email = ans.strip().lower(); break
+    for key in ("persona", "audience", "survey_persona"):
+        if isinstance(payload.get(key), str):
+            persona_hint = payload[key]; break
+
+    if email:
+        try:
+            existing = await db.beta_waitlist.find_one({"email": email}, {"_id": 0})
+            if not existing:
+                await db.beta_waitlist.insert_one({
+                    "waitlist_id": f"wl_{uuid.uuid4().hex[:12]}",
+                    "email": email,
+                    "persona": persona_hint,
+                    "source": "zoho_survey",
+                    "created_at": now,
+                    "updated_at": now,
+                    "history": [{
+                        "persona": persona_hint, "source": "zoho_survey", "at": now,
+                    }],
+                })
+        except Exception as e:  # don't fail the webhook on side-effect errors
+            logger.warning(f"Zoho webhook waitlist auto-join failed: {e}")
+
+    doc.pop("_id", None)
+    return {"received": True, "response_id": doc["response_id"], "email_captured": bool(email)}
+
+
+@api_router.get("/admin/zoho-survey-responses")
+async def admin_list_zoho_survey_responses(
+    request: Request,
+    limit: int = Query(default=200, le=1000),
+):
+    await require_admin(request)
+    total = await db.zoho_survey_responses.count_documents({})
+    items = await (
+        db.zoho_survey_responses.find({}, {"_id": 0})
+        .sort("received_at", -1)
+        .limit(limit)
+        .to_list(limit)
+    )
+    return {"responses": items, "total": total, "limit": limit}
+
+
 # ==================== CMS PAGES (Landing + Blog + Resources, unified) ====================
 class CmsPageCreate(BaseModel):
     slug: str
@@ -2343,6 +2653,8 @@ class CmsPageCreate(BaseModel):
     ga_enabled: bool = True
     published: bool = False
     author: Optional[str] = None
+    # Pre-launch / persona pages
+    waitlist_persona: Optional[str] = None  # citizen | citizen-crisis | rwa | vendor (enables inline waitlist form)
 
 
 @api_router.post("/admin/cms/pages")

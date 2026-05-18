@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
 import { Loader2, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 import { apiRequest } from '../lib/utils';
+import WaitlistForm from '../components/cms/WaitlistForm';
 
 function resolveAssetUrl(url) {
   if (!url) return url;
@@ -229,6 +230,15 @@ export default function CmsPage({ expectedType = null }) {
             />
           </div>
         </section>
+      )}
+
+      {/* WAITLIST FORM (rendered only when CMS page sets waitlist_persona) */}
+      {page.waitlist_persona && (
+        <WaitlistForm
+          persona={page.waitlist_persona}
+          source={`cms:${page.slug}`}
+          accentColor={cover}
+        />
       )}
 
       {/* CTA */}

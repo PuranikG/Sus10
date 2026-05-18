@@ -29,6 +29,7 @@ export default function AdminPage() {
   const { user } = useAuth();
   const { flags, refreshFlags } = useFeatureFlags();
   const [buildings, setBuildings] = useState([]);
+  const [buildingsTotal, setBuildingsTotal] = useState(0);
   const [pendingProviders, setPendingProviders] = useState([]);
   const [featureFlags, setFeatureFlags] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,11 +38,19 @@ export default function AdminPage() {
     const fetchAdminData = async () => {
       try {
         const [buildingsData, providersData, flagsData] = await Promise.all([
-          apiRequest('/admin/buildings?limit=50'),
+          apiRequest('/admin/buildings?limit=500'),
           apiRequest('/admin/providers/pending'),
           apiRequest('/feature-flags')
         ]);
-        setBuildings(buildingsData);
+        // Backward compat: endpoint now returns {buildings, total, ...} but
+        // older callers may still get a flat array.
+        const list = Array.isArray(buildingsData) ? buildingsData : (buildingsData?.buildings || []);
+        setBuildings(list);
+        setBuildingsTotal(
+          Array.isArray(buildingsData)
+            ? buildingsData.length
+            : (buildingsData?.total ?? list.length)
+        );
         setPendingProviders(providersData);
         setFeatureFlags(flagsData);
       } catch (error) {
@@ -202,8 +211,10 @@ export default function AdminPage() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>Building Management</CardTitle>
-                  <CardDescription>
-                    Approve and manage buildings in the platform
+                  <CardDescription data-testid="admin-buildings-count">
+                    {buildingsTotal > 0
+                      ? `Showing ${buildings.length.toLocaleString()} of ${buildingsTotal.toLocaleString()} buildings (newest first)`
+                      : 'Approve and manage buildings in the platform'}
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
@@ -214,8 +225,10 @@ export default function AdminPage() {
                         const result = await apiRequest('/admin/buildings/import-pilot', { method: 'POST' });
                         toast.success(`Imported ${result.imported} pilot buildings`);
                         // Refresh buildings list
-                        const buildingsData = await apiRequest('/admin/buildings?limit=50');
-                        setBuildings(buildingsData);
+                        const refreshed = await apiRequest('/admin/buildings?limit=500');
+                        const list = Array.isArray(refreshed) ? refreshed : (refreshed?.buildings || []);
+                        setBuildings(list);
+                        setBuildingsTotal(Array.isArray(refreshed) ? refreshed.length : (refreshed?.total ?? list.length));
                       } catch (error) {
                         toast.error('Failed to import pilot buildings');
                       }

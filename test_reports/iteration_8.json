@@ -1,0 +1,43 @@
+{
+  "summary": "Phase 0 (pre-launch teaser + B1.1/B1.7 bugfix) regression — comprehensive backend + frontend testing. 18/18 pytest tests passed and all frontend acceptance criteria met. Persona teaser CMS pages serve via GET /api/cms/pages with correct waitlist_persona, benefits, badges, cover_color. Public POST /api/beta-waitlist handles new + duplicate + invalid-email correctly. POST /api/webhooks/zoho-survey accepts arbitrary payloads, extracts email from top-level field and responses[].answer, returns proper shape, auto-adds to beta_waitlist. Admin endpoints (beta-waitlist, zoho-survey-responses, buildings) return new shapes; total counts match. B1.1: PATCH /api/buildings/{id}/terrace regenerates recommendations — required_area matches new value AND derived CO2 (area*3.5) matches expected. B1.7: admin/buildings returns {buildings,total,limit,sort} with default created_at_desc, supports limit up to 2000, total matches collection count (93). Frontend: 4 persona slugs render correctly with WaitlistForm; submission shows 'You're on the list' success state; landing /persona-switcher with 4 cards; homeowner card navigates to /for-homeowners. Admin Buildings tab card description shows 'Showing 93 of 93 buildings (newest first)' (matches required format exactly).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Persona teaser pages (/for-homeowners etc.)",
+        "issues": [
+          "Embedded Zoho Survey iframe shows 'Survey is not available' on all 4 pages — likely placeholder survey_url. Confirm with main agent whether the survey URLs are intentional placeholders for Phase 0 or need to be replaced with the real Zoho survey URLs before launch.",
+          "Benefit cards do not expose a data-testid (e.g. 'benefit-card-*'). Cards are rendered and visible, but automated tests can't easily count them. Low-priority: add data-testid='benefit-card' on each benefit card in CmsPage.js for future regression."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase0_teaser_and_bugfixes.py",
+    "/app/test_reports/pytest/phase0_results.xml"
+  ],
+  "action_items": [
+    "(Optional, nice-to-have) Add data-testid='benefit-card' to each benefit card inside CmsPage.js so the benefits grid can be asserted in regression.",
+    "(Pre-launch checklist) Verify the embedded Zoho Survey URLs are live before public launch — currently the iframe renders 'Survey is not available' for all 4 persona pages.",
+    "Pre-existing (carried over from iteration_7, not Phase 0): React hydration warning '<p> cannot contain a nested <div>' from GeminiAnalysisDialog DialogDescription — not related to Phase 0 but still present in console."
+  ],
+  "critical_code_review_comments": [
+    "server.py crossed 2900 lines — Phase 0 added BetaWaitlist + Zoho webhook + regenerate_recommendations_for_building inline. Recommend extracting CMS / waitlist / webhook routes into a routers/ package (FastAPI APIRouter modules) per the <700-line guideline.",
+    "regenerate_recommendations_for_building only regenerates the sol_terrace_green solution type and is silent (returns skipped='no_solution_type' etc.) when other categories exist for the building — stale recommendations for other solution types may remain after a terrace edit. Either delete all old recommendations for the building first, or iterate over all active solution types and regenerate each.",
+    "BetaWaitlistEntry.email uses pydantic EmailStr which raises 422 on invalid email — fine, but consider also normalizing/validating persona against the known enum (citizen | citizen-crisis | rwa | vendor) and rejecting unknown values to keep the data clean.",
+    "/api/webhooks/zoho-survey is fully PUBLIC with no signature verification. Anyone can POST junk into db.zoho_survey_responses + db.beta_waitlist. Recommend adding a shared secret (e.g. ZOHO_WEBHOOK_SECRET in .env) compared against a header before accepting, or at minimum rate-limit + IP allowlist this endpoint before launch.",
+    "Admin /api/admin/buildings response shape changed from list to dict — frontend has backward-compat fallback (good). However any external integration that consumed the old shape will break. Worth flagging in CHANGELOG."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase0_teaser_and_bugfixes.py (NEW)"
+  ],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% (all Phase 0 acceptance criteria passed)"},
+  "test_credentials": "Used Mongo-direct admin session creation for user_e4e27c763fa2 (gp@sus10.ai). Session created on the fly in fixture + cleaned up in teardown. No new credentials needed.",
+  "seed_data_creation": "Tests insert TEST emails via POST /api/beta-waitlist (~2 unique addresses) + 2 zoho-survey-responses + 1 raw webhook + 1 admin session row. Webhook + waitlist test rows persist (no cleanup) — these are intentional smoketest signals for the admin endpoints.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 0 verified working end-to-end. Test file at /app/backend/tests/test_phase0_teaser_and_bugfixes.py is parameterized over 4 persona slugs and includes B1.1 regen check (uses bld_001 if available). Frontend was tested by injecting an admin session_token via both localStorage AND cookie before navigating to /admin — both worked. Use REACT_APP_BACKEND_URL=https://sus10-preview.preview.emergentagent.com when invoking pytest (env var must be set; the test file does not provide a default).",
+  "rca of the issue": "N/A — no regressions found. Initial pytest run failed due to: (1) test expecting endpoint /api/buildings/{id}/recommendations which does not exist — actual endpoint is /api/buildings/{id}/solutions; fixed in test. (2) New area '1234' formatted as '1,234 sqm' in the explainability response — substring assertion was too strict; updated to also accept comma-formatted form AND additionally verify derived CO2 = area*3.5. Both were test-side issues, not code bugs."
+}

@@ -235,6 +235,83 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Persona Switcher — pre-launch teasers */}
+      <section className="py-20 border-y border-border bg-background" data-testid="persona-switcher">
+        <div className="container-max section-padding">
+          <div className="text-center mb-10">
+            <Badge variant="outline" className="mb-3" data-testid="persona-eyebrow">For everyone with a rooftop</Badge>
+            <h2 className="text-3xl md:text-4xl font-heading font-semibold tracking-tight mb-2">
+              Tell us who you are. We'll show you what's possible.
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Sus10 AI is launching in private beta. Pick the page that fits you, take a short survey, and we'll
+              get you onto the platform first.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[
+              {
+                slug: 'for-homeowners',
+                title: "I'm a homeowner",
+                blurb: "Turn your rooftop into power, food, water and a cooler home.",
+                accent: '#1a3d2b',
+                eyebrow: 'Citizens',
+                testid: 'persona-card-homeowner',
+              },
+              {
+                slug: 'for-homeowners-heat-action',
+                title: 'My city is unbearable',
+                blurb: 'Heat, floods, AQI — how your rooftop can fight back today.',
+                accent: '#7c2d12',
+                eyebrow: 'Climate-affected',
+                testid: 'persona-card-crisis',
+              },
+              {
+                slug: 'for-communities',
+                title: "I'm on an RWA",
+                blurb: 'Coordinate solar, water, gardens and biogas across your colony.',
+                accent: '#0f3a3a',
+                eyebrow: 'RWAs & Societies',
+                testid: 'persona-card-rwa',
+              },
+              {
+                slug: 'for-installers',
+                title: "I'm an installer",
+                blurb: 'Leads, verified profile, proposal tools, subsidy navigation.',
+                accent: '#1e3a8a',
+                eyebrow: 'Vendors',
+                testid: 'persona-card-vendor',
+              },
+            ].map((p) => (
+              <Link
+                key={p.slug}
+                to={`/${p.slug}`}
+                className="group rounded-2xl border bg-card p-6 hover:shadow-md transition-all relative overflow-hidden"
+                data-testid={p.testid}
+              >
+                <div
+                  className="absolute top-0 left-0 h-1 w-full"
+                  style={{ backgroundColor: p.accent }}
+                />
+                <div className="text-xs uppercase tracking-wider mb-2" style={{ color: p.accent }}>
+                  {p.eyebrow}
+                </div>
+                <h3 className="text-lg font-semibold mb-1">{p.title}</h3>
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{p.blurb}</p>
+                <span
+                  className="inline-flex items-center text-sm font-medium group-hover:gap-2 gap-1 transition-all"
+                  style={{ color: p.accent }}
+                >
+                  Read & take the survey
+                  <ArrowRight className="h-4 w-4" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Solutions Section */}
       <section className="py-24 bg-card/50">
         <div className="container-max section-padding">
