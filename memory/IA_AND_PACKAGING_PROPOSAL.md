@@ -1,246 +1,230 @@
-# Sus10 AI — Information Architecture, RBAC & Packaging Proposal
-*Draft — Feb 19, 2026. Awaiting user sign-off before implementation.*
+# Sus10 AI — Information Architecture, Monetization & Packaging Proposal (v2)
+*Revised Feb 19, 2026 — incorporates user direction on business model, 4 audience teasers, garden-design module reuse, and subsidy/financing navigator.*
 
-> Context: User flagged that the Admin UI is missing access to existing modules (e.g., CMS, Projects, Initiatives) and asked for a world-class SaaS-grade reorganization plus a packaging overlay (Starter / Growth / Scale) and guardrails for opening to the public.
+> **Status:** Draft awaiting sign-off. Supersedes v1.
+> **Key direction from user:**
+> 1. Not a traditional SaaS-with-seats. Model is **freemium core + pay-per-project deliverables + vendor partner program**.
+> 2. **4 audience teasers** to validate demand before building (Citizens-Aspirational, Citizens-Crisis, RWAs, Vendors).
+> 3. **The PDF report is the outcome**, not the product. We monetize iterations/designs on top of it.
+> 4. **Razorpay** is the chosen payment processor (India + MSME friendly) — can come later.
+> 5. **Import the garden design module** from previous iterations into "My Sustenance Roof" solution.
+> 6. **Subsidies & financing navigator** is the last core piece. May reuse Initiatives infra.
+> 7. With these in place ~60% of the universe is covered.
 
 ---
 
-## 1. Current State (Audit)
+## 1. Audience map (from teaser pages)
 
-### 1.1 What exists today (pages & routes)
+We have **4 distinct teaser landing pages** authored by the user:
 
-| Route | Page | Today's status |
+| Persona | Pain framing | Hook | Survey purpose |
+|---|---|---|---|
+| **Citizen — Aspirational** | "Your unused rooftop = power + food + water + cool home" | Optimistic, lifestyle, ROI | Validate willingness, top concerns, willingness-to-pay |
+| **Citizen — Crisis** | "Your city is getting hotter. Your rooftop can fight back." | Heat, floods, AQI, El Niño — urgency | Test crisis-framing resonance vs aspirational |
+| **RWA / Housing Society** | "Every rooftop in your colony = collective green power plant" | Community-scale action, common-area savings, vendor trust, compliance | Validate decision-making barriers, governance, consensus |
+| **Vendor (Solar/Garden/Rain/Biogas)** | "Green infra market is taking off. Are you set up to win it?" | Lead-gen pain, credibility, subsidy paperwork, conversion tools | Validate which vendor tools to ship first; recruit early supply side |
+
+**Implication for IA:** Landing experience must support a **persona-aware homepage**, not a single hero. We'll add 4 dedicated teaser routes that each link to their respective survey (Zoho or in-app).
+
+Suggested routes:
+- `/for-homeowners` (aspirational hero — default)
+- `/for-homeowners/heat-action` (crisis variant for paid campaigns)
+- `/for-communities` (RWA)
+- `/for-installers` (Vendor)
+- `/` → smart router: shows aspirational by default, with quick switcher to other personas (RWA / Vendor link in nav)
+
+Plus the existing CMS landing pages (`/green-roof`, `/cool-roof-survey`) — these are surveys + need to be reachable from the persona pages where relevant.
+
+> ⚠️ Brand note: the teaser HTMLs say **"suss10.ai"** (double-s). Confirm whether that's intentional or a typo before we publish — should match `sus10.ai`.
+
+---
+
+## 2. Feature map by persona (synthesized from teasers)
+
+These are the **modules the teasers promise** — so we either have them, are building them, or must build them.
+
+### 2.1 Citizen modules (both variants)
+- [Exists] Building rooftop assessment (solar potential, water catchment, load capacity)
+- [E1.2 — to build] **Sustenance Potential at-a-glance** (Solar + Biogas + Rainwater + Greening & Composting)
+- [Partial] **Phased personalized action plan** matched to budget + building type + priorities
+- [Exists] Verified vendor directory
+- [Partial] **Impact tracking** (savings, water, CO₂ avoided) + community sharing
+- [New] **Heat island temperature reduction** explainer (crisis variant)
+
+### 2.2 RWA modules
+- [Exists] Rooftop mapping for the whole colony (multi-building Projects already covers this)
+- [Exists] Verified vendor directory
+- [E1.1 — to extend] **Community action plans** with phased recommendations (per project)
+- [**New, core**] **Subsidy Navigator** — central + state subsidies auto-matched
+- [Partial] **Impact dashboard** for annual reports (BRSR-style but RWA-friendly)
+
+### 2.3 Vendor modules
+- [Exists] Public vendor profile (we have it; needs verified badge + reviews)
+- [Exists] Lead inflow (we have Lead form; needs proper inbox)
+- [New] **Proposal & scoping tools** (templates, quote generator)
+- [**New**] **Subsidy & compliance navigator** (shared with RWA)
+- [Future] Subcontractor/supplier marketplace
+
+---
+
+## 3. Monetization model (revised — not seats)
+
+### 3.1 Freemium core + Pay-per-Deliverable
+
+| Tier | What you get | Pricing model |
 |---|---|---|
-| `/` | Landing | Public, CMS overlay possible |
-| `/search` | Building Search | Public |
-| `/buildings/:id` | Building Report (1700+ lines) | Public read, edit gated |
-| `/providers` | Provider Marketplace | Public |
-| `/providers/:id` | Provider Detail | Public |
-| `/initiatives` | Initiatives | Public |
-| `/initiatives/:id` | Initiative Detail | Public |
-| `/resources`, `/blog` | Resources/Blog Index | Public |
-| `/blog/:slug` | Blog post (CMS) | Public |
-| `/:slug` | CMS Landing page (e.g. `/green-roof`) | Public |
-| `/dashboard` | User Dashboard | Auth required |
-| `/projects`, `/projects/:id` | Multi-building portfolios (BRSR) | Auth required, **no admin link** |
-| `/leads/new` | Lead form | Auth required |
-| `/profile` | (alias of Dashboard) | Auth required |
-| `/admin` | Admin Panel — **3 tabs only**: Feature Flags / Buildings / Providers | Admin gated |
-| `/admin/discover` | Building Discovery | Admin gated |
-| `/admin/cms`, `/admin/cms/new`, `/admin/cms/:id/edit` | CMS Admin & Editor | Admin gated, **but not linked from /admin** |
+| **🟢 Free — Discover** | • Building search & report (view-only)<br>• Sustenance Potential at-a-glance (read-only, no slider tweaks)<br>• Public vendor directory<br>• Read CMS resources/blogs | Free, forever |
+| **🟡 Assess — Free with sign-up** | • Save buildings (up to 5)<br>• Edit rooftop polygon<br>• Adjust biogas inputs (kitchen waste slider)<br>• See subsidy matches for your project (read-only)<br>• Follow Initiatives | Free, email-verified |
+| **🟠 Design — Pay-per-Project** | • AI-generated rooftop **design** (garden layout, panel layout, RWH sizing)<br>• N design iterations per project (e.g., 3 included)<br>• Generated PDF Feasibility Report (with persona-tuned template)<br>• Material checklist / BOQ<br>• Vendor RFQ outreach | **₹X / project (one-time)**<br>e.g. ₹999 — ₹2,499 / project |
+| **🔴 Execute — Pay-per-Project Plus** | • Above +<br>• Multi-iteration design refinement (up to 10)<br>• White-label PDF for RWA/builder branding<br>• Procurement assistance / formal RFQ to vetted vendors<br>• Subsidy filing assistance (concierge) | **₹Y / project**<br>e.g. ₹4,999 — ₹9,999 |
 
-### 1.2 Gaps & orphans (the actual problem)
+### 3.2 Vendor / Partner model (revenue stream B)
 
-- **CMS is orphaned.** No link from `/admin` to `/admin/cms`. You have to know the URL.
-- **Projects / Portfolios** have no admin presence — admins can't see "all projects across all users".
-- **Initiatives & Leads** have no admin tab.
-- **Tax / Intelligence layer** (B1.6 — wind/slab/heritage notes per building) has no UI home yet.
-- **Discovery (`/admin/discover`)** isn't visible from `/admin` either — it's reached only by typing the URL.
-- **No total record counts, no pagination, no filters** on admin tables (B1.5 / B1.7).
-- **No clear separation** between the *Customer App* (what end users do) and the *Internal Console* (what your team does).
+| Tier | What vendor gets | Price |
+|---|---|---|
+| **Listed** | Public profile, 3 leads/mo, city geo | Free |
+| **Verified** | Verified badge, customer reviews, 25 leads/mo, proposal tools | ₹2,499 / mo (or ₹24,999/yr) |
+| **Featured** | Top placement, unlimited leads, featured slots on RWA pages | ₹9,999 / mo |
+| **Lead per conversion** *(alt model)* | Pay only when a lead converts to RFQ | ₹X per lead (TBD via survey) |
 
----
+We'll pick **subscription vs pay-per-lead** based on vendor survey results.
 
-## 2. Proposed Information Architecture
+### 3.3 Add-ons / one-time
+- White-label PDF brand kit: **₹2,500** one-time per project
+- Extra design iteration beyond plan cap: **₹299/iteration**
+- Bulk RWA pilot (>10 buildings): **₹9,999** one-time
+- BRSR consulting session (Enterprise): **₹14,999/session**
 
-### 2.1 Two distinct shells
+### 3.4 Enterprise / Corporate ESG (revenue stream C)
+- Per-portfolio annual contract (not per-seat)
+- BRSR-grade rollup + custom branding + dedicated CSM
+- Pricing: **Talk-to-us** (anchor ~ ₹5L–25L / yr)
 
-We split the product into two clearly-branded shells:
-
-**A. Customer App** (the public + signed-in user product)
-**B. Internal Console** (the Sus10 team's operational backstage — like Stripe Dashboard / Vercel Admin)
-
-This is the same database, same backend, but two different navigations and two different "feels". This is exactly how mature SaaS products (Stripe, Linear, Vercel, Notion) reduce cognitive load for both audiences.
-
-### 2.2 Customer App navigation (top nav)
-
-```
-[Logo Sus10] ── Explore ── Solutions ── Projects ── Resources ── [Profile]
-                  │           │            │           │
-                  │           │            │           ├─ Blog
-                  │           │            │           ├─ Guides
-                  │           │            │           └─ Case Studies
-                  │           │            │
-                  │           │            ├─ My Projects (portfolios)
-                  │           │            └─ Initiatives I follow
-                  │           │
-                  │           ├─ Solar
-                  │           ├─ Green Roof / Plantation
-                  │           ├─ Rainwater Harvesting
-                  │           ├─ Biogas & Composting
-                  │           └─ Sustenance Potential at a glance (E1.2)
-                  │
-                  ├─ Search by Building
-                  ├─ Search by City / Locality
-                  └─ Discover by Type (Mall, IT Park, Hospital, …)
-```
-
-User Account dropdown: My Dashboard, My Buildings, My Reports, Billing, Settings, Sign out.
-
-### 2.3 Internal Console navigation (left sidebar, /admin/...)
-
-A proper sidebar (collapsible) — not 3 tabs. Sections grouped by job-to-be-done:
-
-```
-─ Overview          /admin                 (KPIs, health, recent activity)
-─ Data
-   ├─ Discover      /admin/discover        (B1.3, B1.4 — searchable city, multi-select types)
-   ├─ Buildings     /admin/buildings       (B1.5 — filters, pagination, reject, bulk)
-   ├─ Intelligence  /admin/intelligence    (B1.6 — building notes, tag dictionary)
-   └─ Imports       /admin/imports         (Pilot import jobs, OSM batches, run history)
-─ Engagement
-   ├─ Projects      /admin/projects        (all user portfolios)
-   ├─ Initiatives   /admin/initiatives
-   ├─ Leads         /admin/leads
-   └─ Providers     /admin/providers
-─ Content
-   ├─ Pages         /admin/cms             (landing pages)
-   ├─ Blog          /admin/cms?type=blog
-   └─ Media Library /admin/cms/media       (GridFS browser)
-─ Customers
-   ├─ Users         /admin/users
-   ├─ Organizations /admin/orgs            (multi-seat tenancy — future)
-   └─ Billing       /admin/billing         (subscriptions, plan changes — future)
-─ Settings
-   ├─ Feature Flags /admin/feature-flags
-   ├─ API Keys      /admin/api-keys
-   ├─ Allowlist     /admin/allowlist       (private beta gate config)
-   └─ Audit Log     /admin/audit
-```
+### 3.5 What we do NOT charge for (core acquisition strategy)
+- Basic assessment & potential numbers → **always free** (drives top-of-funnel SEO + trust)
+- Browsing verified vendors → **free** (network effect)
+- Reading subsidy info → **free** (gov data is public)
 
 ---
 
-## 3. Roles & RBAC
+## 4. Roles (simplified from v1)
 
-| Role | Who | Customer App access | Internal Console access |
-|---|---|---|---|
-| `guest` | Not signed-in | Explore, Solutions overview, Resources, public CMS pages, single Building Report (read-only, watermarked) | None |
-| `viewer` | Free signed-in | Above + save up to 1 building, follow initiatives | None |
-| `member` | Paid (Starter+) | Full Customer App per tier | None |
-| `org_admin` | Paid org admin | Above + manage org seats & projects | None |
-| `provider` | Verified solution provider | Provider profile + leads inbox | None |
-| `staff` | Sus10 internal | Customer App | Internal Console — Data, Engagement, Content (no Customers/Settings) |
-| `admin` | Sus10 internal lead | Customer App | Internal Console — full |
-| `superadmin` | Founders | Everything | Everything + Feature Flags + Allowlist + Billing |
+Collapsing v1's 8 roles into **4 + special** as the user implied this is not seat-based:
 
----
+| Role | Customer App | Internal Console |
+|---|---|---|
+| `guest` | Public pages + read-only reports | None |
+| `user` | Free + Assess + can pay per project | None |
+| `vendor` | Vendor profile + leads inbox + proposal tools | None |
+| `admin` | Customer App + everything | Internal Console — full |
 
-## 4. Packaging — Starter / Growth / Scale
-
-> Numbers below are placeholder anchors. Final pricing TBD with you.
-
-### 4.1 Pricing tiers
-
-| Capability | **Free / Guest** | **Starter** | **Growth** | **Scale** | **Enterprise** |
-|---|---|---|---|---|---|
-| Price (₹/mo) | ₹0 | ₹999 | ₹4,999 | ₹14,999 | Talk to us |
-| Saved buildings | 1 | 5 | 50 | 500 | Unlimited |
-| Building Reports | View only (watermark) | 5/mo full | 50/mo full | Unlimited | Unlimited |
-| Editable rooftop polygon | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Sustenance Potential page (E1.2) | Read-only with paywall on biogas slider | ✅ | ✅ | ✅ | ✅ |
-| Gemini AI Rooftop visual analysis | ❌ | 1/mo | 10/mo | 100/mo | Custom |
-| Heat island / AQI deep-dive | Locked | Locked | ✅ | ✅ | ✅ |
-| Multi-building Projects / Portfolios | — | 1 project, 3 bldgs | 5 projects, 25 bldgs | Unlimited | Unlimited |
-| BRSR / ESG rollup narrative | — | — | ✅ | ✅ | ✅ + custom export |
-| PDF Feasibility Report (E1.1) | Watermarked sample | Standard template | + user-type toggles | + brand white-label | + co-branded |
-| Provider leads (inbound) | — | — | — | — | Provider-only addon |
-| Team seats | 1 | 1 | 3 | 10 | Custom |
-| API access | ❌ | ❌ | Read-only | Read/write | Read/write + SLA |
-| Support | Community | Email | Email + chat | Priority + CSM | Dedicated CSM |
-
-### 4.2 Provider plans (separate vertical)
-
-| | Listed | Verified | Featured |
-|---|---|---|---|
-| Provider profile | ✅ | ✅ Verified badge | ✅ Verified + Featured slot |
-| Leads/month | 3 | 25 | Unlimited |
-| Geo-targeting | City | City + State | National |
-| Price (₹/mo) | ₹0 | ₹2,499 | ₹9,999 |
-
-### 4.3 Add-ons
-- White-label PDF brand: ₹2,500 one-time
-- Extra Gemini AI analyses: ₹49/analysis
-- Bulk CSV import (>50 buildings): ₹4,999 one-time
-- BRSR consulting session: ₹14,999/session
+Optional `staff` for limited internal access (CMS-only, support-only) added when team grows.
 
 ---
 
-## 5. Guardrails for opening to public testing
+## 5. Modules to build / import / fix (consolidated)
 
-Before flipping the allowlist off, ship these:
+> Includes everything in `FEEDBACK_LOG.md` + new asks from this message.
 
-### 5.1 Abuse & rate-limit guardrails
-- **Per-IP / per-user rate limit** on `/api/buildings/{id}/analyze-rooftop` (Gemini calls cost money). E.g. 2/day for `guest`, 5/day for `viewer`.
-- **Per-IP rate limit** on `/api/admin/discover` triggers (it spends Google Places quota).
-- **CAPTCHA** (or Cloudflare Turnstile) on Lead form + Sign-up if we open it.
-- **Per-user soft quota**: count Building Reports / Gemini analyses / project creates per month against the plan above; show progress + upgrade CTA.
+### 5.1 Existing bugs (in priority order — proposed)
 
-### 5.2 Cost / quota guardrails
-- **Daily ceiling** on Gemini calls (e.g., ₹500/day). If exceeded → AI Visual tab shows "Try again tomorrow / Upgrade".
-- **Daily ceiling** on Google Places calls in Discovery (10 cities/day across all admins).
-- **Email alert** to `gp@sus10.ai` when 80% of either ceiling is hit.
+| ID | Issue | Suggested Priority |
+|---|---|---|
+| B1.1 | Terrace area mismatch (Home 96 sqm vs Explainability 10 sqft) — single source of truth + unit fix | **P0** |
+| B1.2 | PDF report miscalculations + abrupt text | **P0** (bundled with E1.1 rebuild) |
+| B1.3 | Building Type filter not respected on /admin/discover (post-enrichment reclassification leaks) | **P0** |
+| B1.7 | Discover imports not showing in /admin → Buildings (likely limit/sort bug) | **P0** |
+| B1.5 | Admin Buildings: filter bar + Reject + bulk + pagination + total count | **P1** |
+| B1.4 | Filter UX expansion (multi-select types, strict-match toggle) | **P1** (bundled with B1.3) |
+| B1.6 | Building Intelligence notes (wind / slab / heritage / flood) | **P1** |
 
-### 5.3 Content & data integrity
-- All public-facing AI text (BRSR narrative, plant recommendations) carries a small **"AI-generated — verify before action"** badge.
-- Block public submissions of new buildings; route them through a **"Suggest a building"** form that lands in `/admin/buildings?status=suggested`.
-- Profanity / PII filter on Lead form free-text fields.
+### 5.2 Existing enhancements
 
-### 5.4 Auth & access
-- Keep the **allowlist** infra (already shipped) but switch the default mode to:
-  - **Public:** Sign-ups open, but new accounts are auto-assigned `viewer` role with a feature-flagged sub-tier `public_beta_v1`.
-  - **Allowlist still hot:** Only allowlisted emails can access `/admin/*` (becomes the staff gate, not the sign-in gate).
-- **Email verification required** before saving > 1 building.
-- Sticky **"Public Beta"** ribbon on every page until we exit beta.
+| ID | Enhancement | Priority |
+|---|---|---|
+| B1.8 / Admin IA | Internal Console sidebar + add CMS / Projects / Initiatives / Leads / Discover links | **P0** |
+| E1.3 | Searchable city autocomplete on /admin/discover | **P0** (tiny, ships with B1.3) |
+| E1.2 | Sustenance Potential at-a-glance top-level page (4 widgets → solution details) | **P1** |
+| E1.1 | Configurable PDF report by user-type/persona | **P1** (bundled with B1.2) |
 
-### 5.5 Legal / trust
-- Add `/terms`, `/privacy`, `/data-sources` CMS pages before opening.
-- Add a footer **"Data sources & methodology"** link explaining OSM + Google Places + Open-Meteo + Esri.
-- Show a clear **"Estimates only, not engineering advice"** disclaimer on the Sustenance Potential page and PDF report.
+### 5.3 New asks from this message
 
-### 5.6 Observability
-- Server log for every Gemini call with cost-estimate.
-- A `/admin/audit` log: signup, sign-in, building create/approve/reject, gemini-run, plan-change.
-- Sentry (or similar) for frontend & backend errors before public open.
+| ID | Module | Priority |
+|---|---|---|
+| **N1** | **4 persona teaser landing pages** (`/for-homeowners`, `/for-homeowners/heat-action`, `/for-communities`, `/for-installers`) — port from supplied HTMLs into CMS/landing layout. Each links to its survey + signup-for-beta. | **P0** — pre-launch teaser |
+| **N2** | **Persona-aware homepage** — smart router or persona switcher on `/`. | P1 |
+| **N3** | **"Design it for me" AI generator** (paid) — generate rooftop design from polygon: panel layout, garden layout, RWH sizing. Use Gemini for narrative + structured output. Iteration limit per project. | **P1** |
+| **N4** | **Material checklist / BOQ generator** (paid) — per project, downloadable, linked to vendor RFQ. | **P2** |
+| **N5** | **Import the Garden Design module** from previous iterations. *(User to provide source/repo location or describe the module so we can lift it cleanly.)* | **P1** — blocker on user input |
+| **N6** | **Subsidies & Financing Navigator** — searchable directory of central + state subsidies for rooftop solar (PM Surya Ghar Muft Bijli Yojana), RWH, green building (GRIHA/IGBC incentives), urban farming subsidies, MNRE programs, etc. + match-to-project. Reuse Initiatives infra where possible. | **P1 — core** |
+| **N7** | **Vendor proposal / scoping tools** — site survey templates + quote generator. | P2 |
+| **N8** | **Razorpay integration** — once monetization model is validated. | P2 (post-validation) |
+| **N9** | **Project-based billing model** — replace seat-based plan logic with project entitlements (e.g., "user has 1 paid 'Design' project credit"). | P1 (after model validation) |
+| **N10** | **Pre-launch beta waitlist** — collect emails from teaser pages, store in DB, integrate with marketing email later. | **P0** |
+
+### 5.4 Guardrails for opening to public (unchanged from v1, summarized)
+- Rate limits on Gemini & Discovery
+- Daily ₹ cost ceilings + 80% email alerts
+- Captcha on lead/signup
+- Email verification before saving >1 building
+- `/terms`, `/privacy`, `/data-sources` CMS pages
+- "Estimates only — verify before action" disclaimers
+- Allowlist switches role from "sign-in gate" → "staff gate"
+- Sentry + audit log
 
 ---
 
-## 6. Recommended phased rollout
+## 6. Recommended phased plan (revised)
 
-**Phase 1 — IA reorganization + admin holes (1 week)**
-- Add CMS / Projects / Initiatives / Leads links to `/admin`.
-- Implement sidebar Internal Console shell.
-- Fix B1.5 + B1.7 (filters, pagination, total counts, reject, bulk).
-- Fix B1.3 (Type filter respected after enrichment).
-- Fix B1.1 (terrace area mismatch — single source of truth).
+### **Phase 0 — Teaser launch (this week)**
+*Goal: validate audience demand. No new functional features.*
+- N1 — port the 4 teaser pages into the app (CMS or hard-coded routes).
+- N10 — beta waitlist collector + thank-you screen.
+- Fix B1.1 (visible to all signed-in users on the report).
+- Fix B1.7 (so admins can actually triage incoming discoveries).
+- Light visual polish on existing public report so the teaser-driven traffic doesn't bounce.
+- *Tooling:* keep Zoho Survey link if surveys are already running there; or wire in-app forms.
 
-**Phase 2 — Customer value & packaging skeleton (1–2 weeks)**
-- Ship Sustenance Potential at-a-glance (E1.2).
-- Ship configurable PDF report (E1.1).
-- Add the plan/role enforcement middleware (no real billing yet — only quotas + role gates).
-- Building Intelligence notes (B1.6) usable from admin and surfaced on report.
+### **Phase 1 — Admin reorg + core data integrity (1 week)**
+- B1.8 — Internal Console sidebar + link all orphaned modules.
+- B1.5 + B1.3 + B1.4 + E1.3 — Admin Buildings/Discover full overhaul (filter bar, reject, bulk, pagination, searchable city, strict-type match).
+- B1.6 — Building Intelligence notes (DB model + admin UI + warning badges on public report).
 
-**Phase 3 — Public beta enablement (1 week)**
-- Rate limiters + Cloudflare Turnstile.
-- Cost ceilings + email alerts.
-- Disclaimers, Terms/Privacy, Data Sources pages.
-- Sentry / audit log.
+### **Phase 2 — Customer-facing depth (1–2 weeks)**
+- E1.2 — Sustenance Potential at-a-glance.
+- N6 — Subsidies & Financing Navigator (free read).
+- E1.1 + B1.2 — Persona-tuned PDF report (free baseline + paid premium template).
+- N5 — Import Garden Design module *(needs user input on source)*.
+
+### **Phase 3 — Monetization scaffolding (1–2 weeks)**
+- N9 — Project-credit entitlement model in DB & API.
+- N3 — "Design it for me" AI generator (Gemini-powered).
+- N4 — Material checklist / BOQ.
+- Guardrails (rate limits, captcha, cost ceilings).
+
+### **Phase 4 — Public beta on**
 - Flip allowlist → staff-only.
+- Sentry + audit log.
+- Public-beta banner.
+- Disclaimer / Terms / Privacy.
 
-**Phase 4 — Monetization (later)**
-- Stripe / Razorpay integration.
-- Plan upgrade flows.
-- Provider plans.
+### **Phase 5 — Charging**
+- N8 — Razorpay integration.
+- Vendor subscription plans.
+- Plan-upgrade & checkout flows.
 
 ---
 
 ## 7. Open questions for sign-off
 
-1. **Customer App top nav** — confirm the 4 groups (Explore, Solutions, Projects, Resources). Anything to add/drop?
-2. **Internal Console sidebar groups** — confirm: Data / Engagement / Content / Customers / Settings.
-3. **Role names** — does `guest / viewer / member / org_admin / provider / staff / admin / superadmin` work? Or do you want fewer? (We can collapse to 4: guest, user, provider, admin.)
-4. **Pricing anchors** — are ₹999 / ₹4,999 / ₹14,999 reasonable as starting points? Or do you want me to research India-market SaaS-for-ESG comparables?
-5. **Guardrails for public open** — confirm we should ship Phase 1 + Phase 3 before flipping the allowlist off.
-6. **Stripe vs Razorpay** — for India-first SaaS, Razorpay is usually a better fit (UPI, GST handling, INR-native). Confirm.
-7. **Provider plans** — should we monetize providers separately as proposed, or keep them free during beta and monetize only the customer side first?
+1. **Brand name** — teasers say `suss10.ai` (double-s). Domain is `sus10.ai`. Which is the official brand?
+2. **Teaser routes** — confirm `/for-homeowners`, `/for-homeowners/heat-action`, `/for-communities`, `/for-installers`? Or different slugs?
+3. **Surveys** — are they currently Zoho-hosted, or do you want them in-app from day 1?
+4. **Garden Design module (N5)** — where does this module live? GitHub repo / old preview / commercial product? Need source or detailed spec to port.
+5. **Subsidy data source (N6)** — do you want us to curate a starter list manually (PM Surya Ghar, MNRE, state DISCOMs, GRIHA, etc.), scrape gov sources, or partner with a data provider?
+6. **Pricing anchors** — are ₹999 / ₹2,499 / ₹4,999 / ₹9,999 the right project anchors, or should we leave it open until WTP survey results?
+7. **Vendor monetization** — subscription (₹2,499/mo Verified) or pay-per-lead — which is your gut preference for the initial test?
+8. **Persona switcher on `/`** — single smart router (cookies / geo / referrer) or four hard-segmented domains/subdomains?
+9. **Confirm phase order** — Phase 0 (teaser + critical bugs) first, then Phase 1 (admin reorg)?
 
 ---

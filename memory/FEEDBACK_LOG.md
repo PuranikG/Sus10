@@ -159,17 +159,28 @@
 ---
 
 ### Priority placeholders (user will confirm)
-- [ ] B1.1 — Home vs Explainability tab area mismatch  →  P?
-- [ ] B1.2 — PDF report miscalculations & abrupt text  →  P?
-- [ ] B1.3 — Building Type filter not respected on /admin/discover →  P?
-- [ ] B1.4 — Filter UX expansion (multi-select, strict match, etc.) →  P?
-- [ ] B1.5 — Admin Buildings: top filters + Reject + bulk actions + pagination →  P?
-- [ ] B1.6 — Building intelligence notes (wind, slab, heritage, etc.) →  P?
-- [ ] B1.7 — Discover imports not showing in Admin → Buildings list (likely query limit / sort) →  P?
-- [ ] B1.8 — Admin IA: CMS / Projects / Initiatives / Leads not linked from /admin →  P?
-       *(Full proposal in /app/memory/IA_AND_PACKAGING_PROPOSAL.md — includes pkg tiers & public-beta guardrails)*
-- [ ] E1.1 — Report toggles by user type            →  P?
-- [ ] E1.2 — Sustenance Potential at-a-glance screen →  P?
-- [ ] E1.3 — Searchable city autocomplete on /admin/discover →  P?
+- [ ] B1.1 — Home vs Explainability tab area mismatch  →  P0 (proposed)
+- [ ] B1.2 — PDF report miscalculations & abrupt text  →  P0 (proposed, bundled w/ E1.1)
+- [ ] B1.3 — Building Type filter not respected on /admin/discover →  P0 (proposed)
+- [ ] B1.4 — Filter UX expansion (multi-select, strict match, etc.) →  P1
+- [ ] B1.5 — Admin Buildings: top filters + Reject + bulk actions + pagination →  P1
+- [ ] B1.6 — Building intelligence notes (wind, slab, heritage, etc.) →  P1
+- [ ] B1.7 — Discover imports not showing in Admin → Buildings list (likely query limit / sort) →  P0 (proposed)
+- [ ] B1.8 — Admin IA: Internal Console sidebar + CMS/Projects/Initiatives/Leads links →  P0 (proposed)
+- [ ] E1.1 — Persona-tuned PDF report                →  P1 (bundled w/ B1.2)
+- [ ] E1.2 — Sustenance Potential at-a-glance screen →  P1
+- [ ] E1.3 — Searchable city autocomplete on /admin/discover →  P0 (tiny, ships w/ B1.3)
+- [ ] N1  — 4 persona teaser landing pages (port from supplied HTMLs) →  P0
+- [ ] N2  — Persona-aware homepage / smart router →  P1
+- [ ] N3  — "Design it for me" AI generator (paid) →  P1
+- [ ] N4  — Material checklist / BOQ generator (paid) →  P2
+- [ ] N5  — Import Garden Design module (needs user input on source) →  P1 (blocked on user)
+- [ ] N6  — Subsidies & Financing Navigator (core) →  P1
+- [ ] N7  — Vendor proposal/scoping tools →  P2
+- [ ] N8  — Razorpay integration →  P2 (post-validation)
+- [ ] N9  — Project-credit entitlement model →  P1
+- [ ] N10 — Pre-launch beta waitlist collector →  P0
+
+> Full strategy doc in /app/memory/IA_AND_PACKAGING_PROPOSAL.md (v2 — incorporates 4 persona teasers, freemium + pay-per-project model, garden-design import, subsidy navigator).
 
 ---
