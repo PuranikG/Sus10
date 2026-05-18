@@ -164,22 +164,23 @@
 - [x] B1.3 — Building Type filter not respected on /admin/discover →  **P0 — ✅ FIXED** (strict_type toggle, post-enrichment filter)
 - [x] B1.4 — Filter UX expansion (multi-select, strict match, etc.) →  **P0 — ✅ DONE** (chip multi-select + strict-type)
 - [x] B1.5 — Admin Buildings: top filters + Reject + bulk actions + pagination →  **P0 — ✅ DONE**
-- [ ] B1.6 — Building intelligence notes (wind, slab, heritage, etc.) →  P1 (backend DONE, admin UI pending detail page)
+- [x] B1.6 — Building intelligence notes (wind, slab, heritage, etc.) →  **P1 — ✅ backend DONE** (admin per-building UI pending)
 - [x] B1.7 — Discover imports not showing in Admin → Buildings list →  **P0 — ✅ FIXED**
 - [x] B1.8 — Admin IA: Internal Console sidebar + CMS/Projects/Initiatives/Leads links →  **P0 — ✅ DONE**
-- [ ] E1.1 — Persona-tuned PDF report                →  P1
-- [ ] E1.2 — Sustenance Potential at-a-glance screen →  P1
-- [x] E1.3 — Searchable city autocomplete on /admin/discover →  **P0 — ✅ DONE** (Combobox + 33 cities)
+- [ ] E1.1 — Persona-tuned PDF report                →  P1 (NEXT TURN — bundled w/ B1.2)
+- [x] E1.2 — Sustenance Potential at-a-glance screen →  **P1 — ✅ DONE** (`/buildings/:id/potential`)
+- [x] E1.3 — Searchable city autocomplete on /admin/discover →  **P0 — ✅ DONE**
 - [x] N1  — 4 persona teaser landing pages (in CMS) →  **P0 — ✅ DONE**
-- [ ] N2  — Persona-aware homepage / smart router →  partially done (cards on `/`)
+- [ ] N2  — Persona-aware homepage / smart router →  partial (cards on `/`)
 - [ ] N3  — "Design it for me" AI generator (paid) →  P1
 - [ ] N4  — Material checklist / BOQ generator (paid) →  P2
 - [ ] N5  — Import Garden Design module →  hold per user
-- [ ] N6  — Subsidies & Financing Navigator →  P1
+- [ ] N6  — Subsidies & Financing Navigator →  P1 (NEXT TURN — scrape api.solarrooftop.gov.in)
 - [ ] N7  — Vendor proposal/scoping tools →  P2
 - [ ] N8  — Razorpay integration →  post-validation
 - [ ] N9  — Project-credit entitlement model →  P1
 - [x] N10 — Pre-launch beta waitlist collector →  **P0 — ✅ DONE**
+- [x] N11 — Admin Audit Log →  **✅ DONE** (`/admin/audit` + audit calls in approve/reject/bulk/intel)
 
 > Phase 0 + P0 IA reorg test reports: iteration_8.json, iteration_9.json, iteration_10.json (all PASS).
 

@@ -25,6 +25,14 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 
 ## What's Been Implemented (Feb 19, 2026)
 
+### Phase 2 — Audit Log + Sustenance Potential at-a-glance (Feb 19, 2026) ✅
+- **`/admin/audit`** — Internal Console page tracking every admin mutation. Backend `admin_audit_log` collection + `record_audit()` helper wired into approve/reject/bulk-action/intel.add endpoints. Filterable list with pagination.
+- **`/buildings/:id/potential`** — new top-level page (E1.2). 4 widget cards (Solar, Biogas, Rainwater Harvesting, Greening & Plantation), each clickable → solution detail. Headline strip shows total annual savings, CO₂ avoided, solar kWh, rainwater kL.
+- **Adjustable biogas inputs** — sliders for families × kitchen-waste (kg/family/day). Default 10 families × 0.5 kg per CPCB norms. Widget updates live as user tweaks.
+- Backend `GET /api/buildings/{id}/potential` returns `{building, widgets, summary, pillars, inputs}` shape. `calculate_biogas_potential` extended with `families` + `waste_kg_per_family_per_day` overrides.
+- **`view-potential-btn`** added to Building Report so users can hop to the at-a-glance view.
+- **Testing:** iteration_11.json + iteration_12.json — 16/16 backend, frontend slider live-updates verified.
+
 ### Phase 1 — P0 IA reorg + admin buildings overhaul (Feb 19, 2026) ✅
 - **Internal Console** with collapsible sidebar (`/app/frontend/src/components/layout/AdminShell.js`) — sections Overview / Data / Engagement / Content / Customers / Settings.
 - New admin routes: `/admin` (overview with stat cards + persona-waitlist breakdown), `/admin/buildings`, `/admin/waitlist`, `/admin/zoho-surveys`, `/admin/feature-flags`, `/admin/projects`, `/admin/initiatives`, `/admin/leads`, `/admin/intelligence`. Old `/admin` moved to `/admin/legacy`.
