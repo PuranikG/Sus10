@@ -11,12 +11,15 @@ Production allowlist (Feb 19, 2026) — controlled by `AUTH_ALLOWLIST_EMAILS` in
 Disable the allowlist by setting `AUTH_ALLOWLIST_ENABLED=false`.
 Beta-rejection contact email: `hello@sus10.ai` (via `AUTH_CONTACT_EMAIL`).
 
-## Temporary Test Session Token (for backend testing)
-**NOTE:** This is a development-only token for E2E testing of the Incubex flow. Created Feb 12, 2026.
-- Token: `test_session_5c7f95f52d2d493991c8e6aa1d54e2c2`
+## Temporary Test Session Token (for backend / Playwright testing)
+**NOTE:** Dev-only token. Created May 18, 2026 (iteration_10).
+- Token: `iter10_fe_session`
 - Bound user: `gp@sus10.ai` (user_id: `user_e4e27c763fa2`, role: admin)
-- Expires: 24 hours from creation
-- Usage: `curl -H "Authorization: Bearer test_session_5c7f95f52d2d493991c8e6aa1d54e2c2" ...`
+- Storage: `db.user_sessions` collection (NOT `db.sessions`) — backend `get_current_user` reads from `user_sessions`.
+- Expires: 24 hours from creation.
+- Usage:
+  - HTTP: `curl -H "Authorization: Bearer iter10_fe_session" $REACT_APP_BACKEND_URL/api/auth/me`
+  - Playwright: set cookie `session_token=iter10_fe_session` on domain `sus10-preview.preview.emergentagent.com`, path `/`, secure, sameSite Lax.
 
 ## Test Project (Incubex Bangalore)
 - Group ID: `grp_12f524b3caa6`

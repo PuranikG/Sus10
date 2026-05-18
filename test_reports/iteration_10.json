@@ -1,0 +1,36 @@
+{
+  "summary": "P0 retest after fixing the iteration_9 blocking bug. /admin now correctly mounts AdminOverviewPage (App.js line 96). Verified via Playwright on REACT_APP_BACKEND_URL: admin-sidebar present, admin-page-title='Internal Console', all 4 stat cards (stat-pending=82, stat-approved=11, stat-waitlist=13, stat-surveys=9) render and link out. Click on admin-nav-buildings navigates to /admin/buildings. Regression scan: all 9 admin sub-pages (/admin/buildings, /admin/discover, /admin/waitlist, /admin/zoho-surveys, /admin/feature-flags, /admin/projects, /admin/initiatives, /admin/leads, /admin/intelligence) render with admin-sidebar and the correct admin-page-title. No new bugs introduced by the route swap.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "AdminGenericListPage data fetch for /admin/leads and /admin/intelligence", "issue": "Browser console shows 404s on those list endpoints (likely /api/admin/leads not implemented yet — fallback /leads also 404 for non-building rows). Pages still render header + sidebar via AdminShell, but the data tables are empty. Not blocking for P0 IA verification; main agent should confirm desired behavior (404 vs empty 200).", "affected_selectors": ["[data-testid='admin-sidebar']"]}
+    ],
+    "design_issues": [
+      {"screen": "AdminOverviewPage stat cards", "issues": ["Long labels 'Approved buildings', 'Beta waitlist signups', 'Zoho survey responses' truncate with ellipsis on lg viewport (visible in screenshot as 'Approved buildi…', 'Beta waitlist sig…', 'Zoho survey res…'). Cosmetic; consider using a 2-row stack (value on top, full label below) or tightening icon column width."]},
+      {"screen": "Console warnings (carry-over, not blocking)", "issues": ["Google Maps JS API loaded without loading=async deprecation warning.", "Emergent host-script DataCloneError when fetching feature flags via postMessage — appears benign, flags still resolved from backend."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_10.json"
+  ],
+  "action_items": [
+    "(optional) Implement or stub /api/admin/leads and ensure /admin/intelligence list endpoint returns 200 with [] when empty, to silence console 404s.",
+    "(cosmetic) Fix stat-card label truncation on AdminOverviewPage — consider stacking icon over text, or using a shorter label set."
+  ],
+  "critical_code_review_comments": [
+    "Fix verified: /app/frontend/src/App.js line 96 now wires <Route path='/admin'> to <AdminOverviewPage />. Legacy AdminPage correctly preserved at /admin/legacy. /admin/providers still points to legacy AdminPage — fine for now since the task explicitly excluded it from retest.",
+    "AuthContext uses cookie-based session (credentials: 'include'). For Playwright testing, the session cookie MUST be inserted into MongoDB collection user_sessions (NOT sessions). Documented in /app/memory/test_credentials.md.",
+    "Carry-over from iter_9: server.py >3000 lines; AdminBuildingsPage.js 377 lines — still recommend modular splits before next phase."
+  ],
+  "updated_files": [
+    "/app/memory/test_credentials.md (updated test session token to iter10_fe_session; clarified that it lives in db.user_sessions, not db.sessions)"
+  ],
+  "success_rate": {"backend": "n/a (frontend-only retest)", "frontend": "100% (15/15 assertions: 6 on /admin overview, 1 sidebar-click navigation, 8 sub-pages with sidebar+title checks)"},
+  "test_credentials": "Created session_token=iter10_fe_session in db.user_sessions bound to gp@sus10.ai (user_e4e27c763fa2, admin). Verified via curl /api/auth/me → 200. 24h TTL.",
+  "seed_data_creation": "Only an admin session row in db.user_sessions. No business data created or mutated.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "B1.8 IA reorg is now fully landed and verified end-to-end. For future admin-page Playwright tests: (a) insert session into db.user_sessions, NOT db.sessions; (b) set cookie session_token on domain sus10-preview.preview.emergentagent.com, secure, sameSite=Lax, BEFORE first navigation; (c) use viewport >= 1024px width — admin-sidebar is hidden lg:block. Existing seed admin session: iter10_fe_session (24h from 2026-05-18). Phase1 backend regression: /app/backend/tests/test_phase1_admin_overhaul.py — still the source of truth.",
+  "rca of the issue": "Bug was: /admin rendered legacy AdminPage despite AdminOverviewPage being imported. Fix applied by main agent in App.js: <Route path='/admin'> element switched from <AdminPage/> to <AdminOverviewPage/>; legacy moved to /admin/legacy. Verification: Playwright load of /admin with admin cookie shows Internal Console title, sidebar with all 12 nav items (admin-nav-overview / discover / buildings / intelligence / projects / initiatives / leads / providers / cms / blog / waitlist / surveys / flags), 4 stat cards with live counts, and click on admin-nav-buildings navigates to /admin/buildings. Bug fully resolved."
+}
