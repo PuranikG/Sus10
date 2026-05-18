@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Building2, MapPin, Filter, Check,
-  Loader2, ArrowLeft
+  Loader2, ArrowLeft, X, ChevronsUpDown,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
@@ -11,25 +11,51 @@ import { Badge } from '../components/ui/badge';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Slider } from '../components/ui/slider';
+import { Switch } from '../components/ui/switch';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../components/ui/command';
 import { apiRequest } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
-import Navbar from '../components/layout/Navbar';
+import AdminShell from '../components/layout/AdminShell';
 import { toast } from 'sonner';
 
 const CITIES = [
   { value: 'Mumbai', label: 'Mumbai' },
   { value: 'Delhi', label: 'Delhi' },
+  { value: 'Bengaluru', label: 'Bengaluru' },
+  { value: 'Hyderabad', label: 'Hyderabad' },
+  { value: 'Chennai', label: 'Chennai' },
+  { value: 'Kolkata', label: 'Kolkata' },
+  { value: 'Ahmedabad', label: 'Ahmedabad' },
   { value: 'Gurugram', label: 'Gurugram' },
   { value: 'Noida', label: 'Noida' },
   { value: 'Faridabad', label: 'Faridabad' },
   { value: 'Ghaziabad', label: 'Ghaziabad' },
   { value: 'Pune', label: 'Pune' },
   { value: 'Navi Mumbai', label: 'Navi Mumbai' },
+  { value: 'Thane', label: 'Thane' },
   { value: 'Amravati', label: 'Amravati' },
+  { value: 'Nagpur', label: 'Nagpur' },
+  { value: 'Surat', label: 'Surat' },
+  { value: 'Jaipur', label: 'Jaipur' },
+  { value: 'Lucknow', label: 'Lucknow' },
+  { value: 'Kanpur', label: 'Kanpur' },
+  { value: 'Indore', label: 'Indore' },
+  { value: 'Bhopal', label: 'Bhopal' },
+  { value: 'Patna', label: 'Patna' },
+  { value: 'Vadodara', label: 'Vadodara' },
+  { value: 'Coimbatore', label: 'Coimbatore' },
+  { value: 'Visakhapatnam', label: 'Visakhapatnam' },
+  { value: 'Kochi', label: 'Kochi' },
+  { value: 'Thiruvananthapuram', label: 'Thiruvananthapuram' },
+  { value: 'Mysuru', label: 'Mysuru' },
+  { value: 'Mangaluru', label: 'Mangaluru' },
+  { value: 'Chandigarh', label: 'Chandigarh' },
+  { value: 'Dehradun', label: 'Dehradun' },
+  { value: 'Goa', label: 'Goa' },
 ];
 
 const BUILDING_TYPES = [
-  { value: 'all', label: 'All Types' },
   { value: 'it_park', label: 'IT Park / Tech Park' },
   { value: 'commercial', label: 'Commercial Complex' },
   { value: 'mall', label: 'Shopping Mall' },
@@ -44,12 +70,19 @@ const BUILDING_TYPES = [
 export default function AdminBuildingDiscoveryPage() {
   const { user } = useAuth();
   const [selectedCity, setSelectedCity] = useState('');
-  const [selectedType, setSelectedType] = useState('');
+  const [cityOpen, setCityOpen] = useState(false);
+  const [selectedTypes, setSelectedTypes] = useState([]); // multi-select
+  const [strictType, setStrictType] = useState(true);     // B1.3 default ON
   const [minArea, setMinArea] = useState(1000);
   const [discoveredBuildings, setDiscoveredBuildings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedBuildings, setSelectedBuildings] = useState(new Set());
   const [importing, setImporting] = useState(false);
+
+  const cityLabel = useMemo(
+    () => CITIES.find((c) => c.value === selectedCity)?.label || '',
+    [selectedCity],
+  );
 
   // Discover buildings using backend API (OSM + Google Places enrichment)
   const discoverBuildings = useCallback(async () => {
@@ -63,25 +96,40 @@ export default function AdminBuildingDiscoveryPage() {
     setSelectedBuildings(new Set());
 
     try {
-      // Call backend discovery API
-      const result = await apiRequest('/admin/buildings/discover', {
-        method: 'POST',
-        body: JSON.stringify({
-          city: selectedCity,
-          building_type: selectedType && selectedType !== 'all' ? selectedType : undefined,
-          min_area: minArea,
-          limit: 30,
-        })
-      });
-      
-      if (!result.buildings || result.buildings.length === 0) {
-        toast.info(`No new buildings found. Discovered: ${result.discovered}, Skipped (duplicates): ${result.skipped}`);
+      // For multi-select: run the discovery for each type sequentially. The
+      // backend supports a single building_type per request, so loop.
+      const typesToRun = selectedTypes.length > 0 ? selectedTypes : [undefined];
+      const collected = [];
+      let totalImported = 0, totalDiscovered = 0, totalSkipped = 0, totalMismatch = 0;
+
+      for (const t of typesToRun) {
+        const result = await apiRequest('/admin/buildings/discover', {
+          method: 'POST',
+          body: JSON.stringify({
+            city: selectedCity,
+            building_type: t,
+            min_area: minArea,
+            limit: 30,
+            strict_type: strictType,
+          }),
+        });
+        totalDiscovered += result?.discovered || 0;
+        totalSkipped += result?.skipped || 0;
+        totalImported += result?.imported || 0;
+        totalMismatch += result?.skipped_type_mismatch || 0;
+        (result?.buildings || []).forEach((b) => collected.push(b));
+      }
+
+      if (!collected.length) {
+        toast.info(
+          `No new buildings. Discovered ${totalDiscovered}, duplicates ${totalSkipped}` +
+            (totalMismatch ? `, type-mismatch ${totalMismatch}` : '')
+        );
         setLoading(false);
         return;
       }
 
-      // Transform to display format
-      const buildings = result.buildings.map((building, index) => ({
+      const buildings = collected.map((building) => ({
         temp_id: building.building_id,
         building_id: building.building_id,
         name: building.name,
@@ -89,18 +137,21 @@ export default function AdminBuildingDiscoveryPage() {
         building_type: building.type,
         estimated_footprint: building.footprint,
         estimated_terrace: building.terrace,
-        already_imported: true, // These are already in DB
+        already_imported: true,
       }));
-      
+
       setDiscoveredBuildings(buildings);
-      toast.success(`Imported ${result.imported} buildings! (${result.discovered} discovered, ${result.skipped} duplicates skipped)`);
+      toast.success(
+        `Imported ${totalImported} buildings` +
+          (totalMismatch ? ` · skipped ${totalMismatch} type mismatches` : '')
+      );
     } catch (error) {
       console.error('Discovery error:', error);
       toast.error(error.message || 'Failed to discover buildings. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [selectedCity, selectedType, minArea]);
+  }, [selectedCity, selectedTypes, strictType, minArea]);
 
   // Toggle building selection
   const toggleBuildingSelection = (tempId) => {
@@ -186,41 +237,15 @@ export default function AdminBuildingDiscoveryPage() {
 
   if (user?.user_type !== 'admin') {
     return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container-max section-padding py-20 text-center">
-          <Building2 className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-          <h1 className="text-2xl font-heading font-bold mb-2">Access Denied</h1>
-          <p className="text-muted-foreground mb-6">You need admin privileges to access this page.</p>
-          <Link to="/dashboard">
-            <Button>Go to Dashboard</Button>
-          </Link>
-        </div>
-      </div>
+      <AdminShell title="Discover Buildings"><div /></AdminShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
-      <div className="container-max section-padding py-8">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Link to="/admin">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-heading font-bold tracking-tight mb-1">
-              Building Discovery
-            </h1>
-            <p className="text-muted-foreground">
-              Discover buildings from OpenStreetMap, auto-enriched with Google Places
-            </p>
-          </div>
-        </div>
+    <AdminShell
+      title="Discover Buildings"
+      subtitle="Pull buildings from OpenStreetMap + Google Places, then approve them."
+    >
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Filters Panel */}
@@ -235,38 +260,93 @@ export default function AdminBuildingDiscoveryPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* City Selection */}
+              {/* City — searchable combobox (E1.3) */}
               <div className="space-y-2">
                 <Label>City *</Label>
-                <Select value={selectedCity} onValueChange={setSelectedCity}>
-                  <SelectTrigger data-testid="city-select">
-                    <SelectValue placeholder="Select city" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CITIES.map(city => (
-                      <SelectItem key={city.value} value={city.value}>
-                        {city.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={cityOpen} onOpenChange={setCityOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={cityOpen}
+                      className="w-full justify-between font-normal"
+                      data-testid="city-combobox-trigger"
+                    >
+                      {cityLabel || <span className="text-muted-foreground">Type to search 30+ cities…</span>}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]">
+                    <Command>
+                      <CommandInput placeholder="Search city…" data-testid="city-combobox-input" />
+                      <CommandList>
+                        <CommandEmpty>No city found.</CommandEmpty>
+                        <CommandGroup>
+                          {CITIES.map((c) => (
+                            <CommandItem
+                              key={c.value}
+                              value={c.label}
+                              onSelect={() => {
+                                setSelectedCity(c.value);
+                                setCityOpen(false);
+                              }}
+                              data-testid={`city-option-${c.value}`}
+                            >
+                              <Check className={`mr-2 h-4 w-4 ${selectedCity === c.value ? 'opacity-100' : 'opacity-0'}`} />
+                              {c.label}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
-              {/* Building Type */}
+              {/* Building Type — multi-select chips (B1.4) */}
               <div className="space-y-2">
-                <Label>Building Type (Optional)</Label>
-                <Select value={selectedType} onValueChange={setSelectedType}>
-                  <SelectTrigger data-testid="type-select">
-                    <SelectValue placeholder="All building types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BUILDING_TYPES.map(type => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Building Types <span className="text-muted-foreground text-xs font-normal">(optional · pick any)</span></Label>
+                <div className="flex flex-wrap gap-2" data-testid="type-chip-row">
+                  {BUILDING_TYPES.map((t) => {
+                    const active = selectedTypes.includes(t.value);
+                    return (
+                      <button
+                        key={t.value}
+                        type="button"
+                        onClick={() => setSelectedTypes((prev) => active ? prev.filter(x => x !== t.value) : [...prev, t.value])}
+                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                          active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted'
+                        }`}
+                        data-testid={`type-chip-${t.value}`}
+                      >
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedTypes.length > 1 && (
+                  <p className="text-xs text-muted-foreground">
+                    We'll run discovery once per type and combine results.
+                  </p>
+                )}
+              </div>
+
+              {/* Strict type filter — B1.3 */}
+              <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3">
+                <Switch
+                  checked={strictType}
+                  onCheckedChange={setStrictType}
+                  id="strict-type-toggle"
+                  data-testid="strict-type-toggle"
+                />
+                <div className="flex-1">
+                  <Label htmlFor="strict-type-toggle" className="text-sm font-medium cursor-pointer">
+                    Strict type match
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Skip buildings that Google re-classifies into a different category after enrichment.
+                  </p>
+                </div>
               </div>
 
               {/* Minimum Area Filter */}
@@ -396,7 +476,6 @@ export default function AdminBuildingDiscoveryPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
-    </div>
+    </AdminShell>
   );
 }

@@ -16,6 +16,12 @@ import ProviderDetailPage from './pages/ProviderDetailPage';
 import InitiativesPage from './pages/InitiativesPage';
 import InitiativeDetailPage from './pages/InitiativeDetailPage';
 import AdminPage from './pages/AdminPage';
+import AdminOverviewPage from './pages/AdminOverviewPage';
+import AdminBuildingsPage from './pages/AdminBuildingsPage';
+import AdminWaitlistPage from './pages/AdminWaitlistPage';
+import AdminZohoSurveysPage from './pages/AdminZohoSurveysPage';
+import AdminFeatureFlagsPage from './pages/AdminFeatureFlagsPage';
+import AdminGenericListPage from './pages/AdminGenericListPage';
 import AdminBuildingDiscoveryPage from './pages/AdminBuildingDiscoveryPage';
 import LeadFormPage from './pages/LeadFormPage';
 import BlogPage from './pages/BlogPage';
@@ -96,6 +102,127 @@ function AppRouter() {
         element={
           <ProtectedRoute>
             <AdminBuildingDiscoveryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/buildings"
+        element={
+          <ProtectedRoute>
+            <AdminBuildingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/waitlist"
+        element={
+          <ProtectedRoute>
+            <AdminWaitlistPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/zoho-surveys"
+        element={
+          <ProtectedRoute>
+            <AdminZohoSurveysPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/feature-flags"
+        element={
+          <ProtectedRoute>
+            <AdminFeatureFlagsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/providers"
+        element={
+          <ProtectedRoute>
+            <AdminPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/projects"
+        element={
+          <ProtectedRoute>
+            <AdminGenericListPage
+              title="Projects"
+              subtitle="All multi-building portfolios across users"
+              endpoint="/projects"
+              columns={[
+                { key: 'name', label: 'Name' },
+                { key: 'building_ids', label: 'Buildings', render: (r) => (r.building_ids || []).length },
+                { key: 'created_at', label: 'Created', render: (r) => r.created_at ? new Date(r.created_at).toLocaleDateString('en-IN') : '—' },
+              ]}
+              getId={(r) => r.group_id || r.project_id || r._id}
+              linkTo={(r) => `/projects/${r.group_id || r.project_id}`}
+              emptyHint="No projects yet."
+            />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/initiatives"
+        element={
+          <ProtectedRoute>
+            <AdminGenericListPage
+              title="Initiatives"
+              subtitle="Community campaigns and pledges"
+              endpoint="/initiatives"
+              columns={[
+                { key: 'title', label: 'Title' },
+                { key: 'city', label: 'City' },
+                { key: 'initiative_type', label: 'Type' },
+              ]}
+              getId={(r) => r.initiative_id}
+              linkTo={(r) => `/initiatives/${r.initiative_id}`}
+              emptyHint="No initiatives yet."
+            />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/leads"
+        element={
+          <ProtectedRoute>
+            <AdminGenericListPage
+              title="Leads"
+              subtitle="Inbound lead form submissions"
+              endpoint="/admin/leads"
+              fallbackEndpoint="/leads"
+              columns={[
+                { key: 'user_name', label: 'Name' },
+                { key: 'email', label: 'Email' },
+                { key: 'building_id', label: 'Building' },
+                { key: 'lead_status', label: 'Status' },
+              ]}
+              getId={(r) => r.lead_id || r._id}
+              emptyHint="No leads yet."
+            />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/intelligence"
+        element={
+          <ProtectedRoute>
+            <AdminGenericListPage
+              title="Intelligence Notes"
+              subtitle="Curated caveats per building (wind, slab, heritage…)"
+              endpoint="/admin/buildings?status=all&limit=2000"
+              columns={[
+                { key: 'address', label: 'Building' },
+                { key: 'city', label: 'City' },
+                { key: 'intel_notes', label: 'Notes', render: (r) => (r.intel_notes || []).length },
+              ]}
+              getId={(r) => r.building_id}
+              linkTo={(r) => `/buildings/${r.building_id}`}
+              emptyHint="No buildings with intelligence notes yet."
+            />
           </ProtectedRoute>
         }
       />

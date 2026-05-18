@@ -1,0 +1,41 @@
+{
+  "summary": "Phase 1 (P0 IA reorg + admin overhaul) backend + frontend testing. Backend: 21/21 pytest tests pass — new /api/admin/buildings shape with counts+pagination+multi-type filter+sort, PUT /reject, POST /bulk-action (approve/reject), Intel notes CRUD (admin + public), discover strict_type wiring, and regression on /api/beta-waitlist + /api/webhooks/zoho-survey. Frontend: AdminBuildingsPage, AdminBuildingDiscoveryPage (multi-select chips + searchable city combobox + strict-type toggle), AdminWaitlistPage, AdminFeatureFlagsPage, AdminZohoSurveysPage, AdminGenericListPage (/projects, /initiatives, /leads, /intelligence) — all render with admin-sidebar and required test IDs. ONE BLOCKING BUG: /admin route is still wired to OLD AdminPage in App.js — AdminOverviewPage is imported but never mounted, so the new Overview screen with stat-pending/approved/waitlist/surveys cards + sidebar is NOT visible at /admin.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "App.js route '/admin'", "issue": "Route still renders OLD AdminPage instead of new AdminOverviewPage. AdminOverviewPage is imported (line 19) but never used in any <Route>. Result: admin-sidebar testid + stat-pending/approved/waitlist/surveys testids + admin-nav-* items all MISSING on /admin.", "selector": "[data-testid=\"admin-sidebar\"], [data-testid=\"stat-pending\"]", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Console warnings", "issues": ["Google Maps JS API loaded without loading=async (deprecation warning) — pre-existing.", "Carry-over from iter_8: GeminiAnalysisDialog hydration warning <p>/<div> nesting."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase1_admin_overhaul.py",
+    "/app/test_reports/pytest/phase1_results.xml"
+  ],
+  "action_items": [
+    "CRITICAL: In /app/frontend/src/App.js, change the <Route path=\"/admin\"> from <AdminPage /> to <AdminOverviewPage /> so the new Internal Console Overview (with stat cards + sidebar) renders. Verified by testing agent: AdminOverviewPage file exists and is imported but unused; switching the JSX restores B1.8 IA reorg compliance.",
+    "(nice-to-have) The /admin/providers route also still points to <AdminPage />. If providers should also live under the new AdminShell, wire it to a new AdminProvidersPage or reuse AdminGenericListPage.",
+    "(carry-over from iter_8, optional) Hello-world placeholder Zoho survey URLs on CMS persona pages still show 'Survey is not available'."
+  ],
+  "critical_code_review_comments": [
+    "Routing inconsistency in App.js: AdminOverviewPage imported but unused; /admin still hits legacy AdminPage. This is the only frontend wiring gap for B1.8.",
+    "server.py admin_list_buildings: when status=pending the query uses both is_approved and is_rejected $ne True — works, but consider migrating older records that lack is_rejected to explicitly false so the counts.pending derivation total - approved - rejected stays correct in future. (Currently passes because all rejected docs have is_rejected=true.)",
+    "admin_bulk_building_action does not enforce status validation per id (e.g., approving an already-approved building is silently accepted) — fine for MVP, but consider returning skipped vs modified for UX clarity.",
+    "POST /admin/buildings/{id}/intel: severity normalisation silently coerces invalid values to 'medium' — consider returning 400 instead to surface UI bugs early.",
+    "GET /buildings/{id}/intel (public): no rate limit on a public endpoint that touches Mongo per call — recommend caching or rate limit before launch.",
+    "server.py is now 3097 lines — Phase 1 added bulk-action + intel + reject inline. Recommend extracting admin/buildings + intel routes into routers/ modules (<700 line guideline).",
+    "AdminBuildingsPage.js (377 lines) handles filter+sort+pagination+bulk in one component. Consider extracting BulkActionBar and BuildingsFilterBar for testability."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase1_admin_overhaul.py (NEW — 21 tests covering Phase 1 endpoints)"
+  ],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "~92% (12/13 surfaces — only /admin route broken)"},
+  "test_credentials": "Reused gp@sus10.ai (user_e4e27c763fa2) via direct Mongo session insert. Frontend test used cookie session_token=phase1_fe_session (still valid 24h). Backend pytest fixture creates per-run sessions and cleans them up. No new persistent credentials.",
+  "seed_data_creation": "Tests insert ~2 TEST_ beta-waitlist rows, ~1 zoho-survey-response, transient intel notes (created + deleted), and toggle approve/reject on 2 existing buildings (final state: approved). No destructive data changes.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend Phase 1 is solid — re-run /app/backend/tests/test_phase1_admin_overhaul.py with REACT_APP_BACKEND_URL set. Frontend bug is a one-line fix in App.js (swap AdminPage → AdminOverviewPage on <Route path='/admin'>). After the fix, re-test stat-pending/approved/waitlist/surveys testids and the 12 admin-nav-* items inside admin-sidebar on /admin. Phase0 tests (test_phase0_teaser_and_bugfixes.py) and Phase1 tests are independent — both should be in regression suite. Cookie-based admin auth works in Playwright via context.add_cookies (session_token cookie, domain=sus10-preview.preview.emergentagent.com).",
+  "rca of the issue": "Issue: /admin renders legacy AdminPage instead of new AdminOverviewPage. Reproduction: open /admin in browser as authenticated admin → see 'Admin Panel' header + Feature Flags/Buildings/Providers tabs (the old UI) — NOT the Internal Console sidebar + stat cards. Root cause: in /app/frontend/src/App.js around line 96, the JSX for <Route path='/admin'> is <AdminPage /> while AdminOverviewPage (line 19) is imported but never used. Mitigation: replace <AdminPage /> with <AdminOverviewPage /> for /admin and confirm /admin/providers desired behavior. No DB or backend change needed."
+}

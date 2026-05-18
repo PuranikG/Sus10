@@ -403,17 +403,24 @@ async def discover_and_import_buildings(
     limit: int = 20,
     google_api_key: str = "",
     db = None,
-    admin_user_id: str = None
+    admin_user_id: str = None,
+    strict_type: bool = False,
 ) -> Dict:
     """
     Full pipeline: Discover from OSM → Enrich with Google → Import to DB
+
+    When `strict_type=True` and a `building_type` is provided, buildings whose
+    final type (after Google Places re-tagging) doesn't match are skipped
+    instead of imported. Fixes B1.3 — "I asked for Malls but got a school".
     """
     results = {
         "city": city,
         "building_type": building_type,
+        "strict_type": strict_type,
         "discovered": 0,
         "imported": 0,
         "skipped": 0,
+        "skipped_type_mismatch": 0,
         "failed": 0,
         "buildings": []
     }
@@ -453,6 +460,13 @@ async def discover_and_import_buildings(
                 if gtype in google_type_mapping:
                     final_type = google_type_mapping[gtype]
                     break
+
+            # B1.3 — Strict type filter: if caller asked for a specific
+            # building_type and the post-enrichment classification doesn't
+            # match, drop it instead of importing under the wrong tag.
+            if strict_type and building_type and final_type != building_type:
+                results["skipped_type_mismatch"] += 1
+                continue
             
             # Calculate terrace area
             footprint = osm_building["area_in_meters"]

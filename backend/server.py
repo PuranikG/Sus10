@@ -619,22 +619,48 @@ async def admin_list_buildings(
     city: Optional[str] = None,
     ward: Optional[str] = None,
     is_approved: Optional[bool] = None,
+    status: Optional[str] = Query(default=None, description="pending | approved | rejected | all"),
+    building_type: Optional[str] = Query(default=None, description="Comma-separated types"),
+    q: Optional[str] = Query(default=None, description="Full-text address search"),
     sort: str = Query(default="created_at_desc"),
-    limit: int = Query(default=500, le=2000)
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=50, ge=1, le=2000)
 ):
-    """Admin: List all buildings with filters + total count.
+    """Admin: List buildings with rich filters + pagination.
 
-    Response shape: { buildings: [...], total: int, limit: int, sort: str }
+    Response: { buildings: [...], total: int, page, limit, sort,
+                counts: { pending, approved, rejected, total } }
     """
     await require_admin(request)
 
-    query = {}
+    query: Dict[str, Any] = {}
     if city:
         query["city"] = {"$regex": city, "$options": "i"}
     if ward:
         query["ward"] = ward
+    # Legacy bool param kept for backwards compatibility
     if is_approved is not None:
         query["is_approved"] = is_approved
+    # New status param (B1.5)
+    if status and status != "all":
+        if status == "rejected":
+            query["is_rejected"] = True
+        elif status == "approved":
+            query["is_approved"] = True
+            query["is_rejected"] = {"$ne": True}
+        elif status == "pending":
+            query["$and"] = [
+                {"$or": [{"is_approved": {"$ne": True}}, {"is_approved": False}]},
+                {"$or": [{"is_rejected": {"$ne": True}}, {"is_rejected": False}]},
+            ]
+    if building_type:
+        types = [t.strip() for t in building_type.split(",") if t.strip()]
+        if len(types) == 1:
+            query["building_type"] = types[0]
+        elif len(types) > 1:
+            query["building_type"] = {"$in": types}
+    if q:
+        query["address"] = {"$regex": q, "$options": "i"}
 
     total = await db.buildings.count_documents(query)
 
@@ -646,10 +672,176 @@ async def admin_list_buildings(
         sort_field = "city"; sort_dir = 1
     elif sort == "area_desc":
         sort_field = "usable_terrace_area"; sort_dir = -1
+    elif sort == "area_asc":
+        sort_field = "usable_terrace_area"; sort_dir = 1
 
-    cursor = db.buildings.find(query, {"_id": 0}).sort(sort_field, sort_dir).limit(limit)
+    skip = (page - 1) * limit
+    cursor = db.buildings.find(query, {"_id": 0}).sort(sort_field, sort_dir).skip(skip).limit(limit)
     buildings = await cursor.to_list(limit)
-    return {"buildings": buildings, "total": total, "limit": limit, "sort": sort}
+
+    # Quick status counts (independent of current query — useful header chips)
+    base = {}
+    if city:
+        base["city"] = {"$regex": city, "$options": "i"}
+    counts = {
+        "total": await db.buildings.count_documents(base),
+        "approved": await db.buildings.count_documents({**base, "is_approved": True, "is_rejected": {"$ne": True}}),
+        "rejected": await db.buildings.count_documents({**base, "is_rejected": True}),
+    }
+    counts["pending"] = counts["total"] - counts["approved"] - counts["rejected"]
+
+    return {
+        "buildings": buildings,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "sort": sort,
+        "counts": counts,
+    }
+
+
+@api_router.put("/admin/buildings/{building_id}/reject")
+async def admin_reject_building(building_id: str, request: Request):
+    """Admin: Reject a discovered building so it doesn't keep resurfacing.
+
+    Optional body: { "reason": "..." }
+    """
+    user = await require_admin(request)
+    reason = None
+    try:
+        body = await request.json()
+        reason = (body or {}).get("reason")
+    except Exception:
+        pass
+
+    result = await db.buildings.update_one(
+        {"building_id": building_id},
+        {"$set": {
+            "is_rejected": True,
+            "is_approved": False,
+            "rejection_reason": reason,
+            "rejected_by_admin_id": user.user_id,
+            "rejected_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Building not found")
+    return {"building_id": building_id, "is_rejected": True, "reason": reason}
+
+
+@api_router.post("/admin/buildings/bulk-action")
+async def admin_bulk_building_action(request: Request):
+    """Admin: Approve / reject many buildings at once.
+
+    Body: { "building_ids": [...], "action": "approve" | "reject", "reason": "..." }
+    """
+    user = await require_admin(request)
+    body = await request.json()
+    ids = body.get("building_ids") or []
+    action = body.get("action")
+    reason = body.get("reason")
+
+    if not ids or not isinstance(ids, list):
+        raise HTTPException(status_code=400, detail="building_ids required")
+    if action not in ("approve", "reject"):
+        raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
+
+    now = datetime.now(timezone.utc).isoformat()
+    if action == "approve":
+        update = {
+            "is_approved": True,
+            "is_rejected": False,
+            "curated_by_admin_id": user.user_id,
+            "updated_at": now,
+        }
+    else:
+        update = {
+            "is_rejected": True,
+            "is_approved": False,
+            "rejection_reason": reason,
+            "rejected_by_admin_id": user.user_id,
+            "rejected_at": now,
+            "updated_at": now,
+        }
+    res = await db.buildings.update_many({"building_id": {"$in": ids}}, {"$set": update})
+    return {"action": action, "matched": res.matched_count, "modified": res.modified_count, "count": len(ids)}
+
+
+# ==================== BUILDING INTELLIGENCE NOTES (B1.6) ====================
+INTEL_TAG_VOCABULARY = [
+    "high_wind_exposure", "weak_slab", "heritage_protected",
+    "gov_approval_required", "flood_prone", "low_sunlight",
+    "structural_concern", "fire_hazard", "no_water_access",
+    "neighbour_objection",
+]
+
+
+class IntelNoteCreate(BaseModel):
+    tag: str
+    note: str
+    severity: Optional[str] = "medium"  # low | medium | high
+
+
+@api_router.get("/admin/intelligence/tags")
+async def list_intel_tags(request: Request):
+    await require_admin(request)
+    return {"tags": INTEL_TAG_VOCABULARY}
+
+
+@api_router.get("/admin/buildings/{building_id}/intel")
+async def list_building_intel(building_id: str, request: Request):
+    await require_admin(request)
+    bld = await db.buildings.find_one({"building_id": building_id}, {"_id": 0, "intel_notes": 1})
+    if not bld:
+        raise HTTPException(status_code=404, detail="Building not found")
+    return {"building_id": building_id, "intel_notes": bld.get("intel_notes", [])}
+
+
+@api_router.post("/admin/buildings/{building_id}/intel")
+async def add_building_intel(building_id: str, note: IntelNoteCreate, request: Request):
+    user = await require_admin(request)
+    bld = await db.buildings.find_one({"building_id": building_id})
+    if not bld:
+        raise HTTPException(status_code=404, detail="Building not found")
+    severity = note.severity if note.severity in ("low", "medium", "high") else "medium"
+    new_note = {
+        "note_id": f"intel_{uuid.uuid4().hex[:10]}",
+        "tag": note.tag,
+        "note": note.note,
+        "severity": severity,
+        "author": user.email,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.buildings.update_one(
+        {"building_id": building_id},
+        {"$push": {"intel_notes": new_note}, "$set": {"updated_at": new_note["created_at"]}},
+    )
+    return new_note
+
+
+@api_router.delete("/admin/buildings/{building_id}/intel/{note_id}")
+async def delete_building_intel(building_id: str, note_id: str, request: Request):
+    await require_admin(request)
+    res = await db.buildings.update_one(
+        {"building_id": building_id},
+        {"$pull": {"intel_notes": {"note_id": note_id}}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Building or note not found")
+    return {"removed": True, "note_id": note_id}
+
+
+@api_router.get("/buildings/{building_id}/intel")
+async def get_public_building_intel(building_id: str):
+    """Public read of intel notes so the Building Report can show warning badges."""
+    bld = await db.buildings.find_one(
+        {"building_id": building_id, "is_approved": True},
+        {"_id": 0, "intel_notes": 1},
+    )
+    if not bld:
+        return {"intel_notes": []}
+    return {"intel_notes": bld.get("intel_notes", [])}
 
 @api_router.post("/admin/buildings")
 async def admin_create_building(request: Request, building: BuildingCreate):
@@ -1087,10 +1279,11 @@ async def admin_discover_buildings(request: Request):
     building_type = body.get("building_type")
     min_area = body.get("min_area", 1000)
     limit = min(body.get("limit", 20), 50)  # Max 50 per request
-    
+    strict_type = bool(body.get("strict_type", False))
+
     google_api_key = os.environ.get("GOOGLE_PLACES_API_KEY", "")
     
-    logger.info(f"Admin {user.email} starting building discovery for {city}")
+    logger.info(f"Admin {user.email} starting building discovery for {city} (strict_type={strict_type})")
     
     try:
         from building_discovery import discover_and_import_buildings
@@ -1102,7 +1295,8 @@ async def admin_discover_buildings(request: Request):
             limit=limit,
             google_api_key=google_api_key,
             db=db,
-            admin_user_id=user.user_id
+            admin_user_id=user.user_id,
+            strict_type=strict_type,
         )
         
         logger.info(f"Discovery complete: discovered={results.get('discovered', 0)}, imported={results.get('imported', 0)}")
