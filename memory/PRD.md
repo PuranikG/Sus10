@@ -25,6 +25,16 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 
 ## What's Been Implemented (Feb 19, 2026)
 
+### Phase 1 — P0 IA reorg + admin buildings overhaul (Feb 19, 2026) ✅
+- **Internal Console** with collapsible sidebar (`/app/frontend/src/components/layout/AdminShell.js`) — sections Overview / Data / Engagement / Content / Customers / Settings.
+- New admin routes: `/admin` (overview with stat cards + persona-waitlist breakdown), `/admin/buildings`, `/admin/waitlist`, `/admin/zoho-surveys`, `/admin/feature-flags`, `/admin/projects`, `/admin/initiatives`, `/admin/leads`, `/admin/intelligence`. Old `/admin` moved to `/admin/legacy`.
+- **B1.5** Buildings overhaul: status tabs (Pending/Approved/Rejected/All) with counts, type-chip multi-select, address/city search, sort options, per-row Approve + Reject, bulk Approve + bulk Reject via checkboxes + sticky action bar, server-side pagination.
+- **B1.3 + B1.4** Discover overhaul: multi-select Type chips (runs discovery once per type and combines), `strict_type` toggle (default ON) that excludes buildings re-classified by Google Places, and `skipped_type_mismatch` counter in response.
+- **E1.3** Searchable city combobox on /admin/discover with 33 Indian cities (Shadcn `command` + `popover`).
+- **B1.6** (backend done): `intel_notes` array on buildings, curated tag vocabulary (`high_wind_exposure`, `weak_slab`, `heritage_protected`…), admin CRUD endpoints + public read.
+- New backend endpoints: `PUT /api/admin/buildings/{id}/reject`, `POST /api/admin/buildings/bulk-action`, intel CRUD, `GET /api/admin/buildings` now returns `{buildings, total, page, limit, sort, counts}`.
+- **Testing:** iteration_9.json + iteration_10.json — 21/21 backend pass, all frontend acceptance criteria met.
+
 ### Phase 0 — Pre-launch teasers + critical bug fixes (Feb 19, 2026) ✅
 - **4 persona teaser CMS pages** seeded into `cms_pages` (editable from /admin/cms):
   - `/for-homeowners` (citizen-aspirational)
