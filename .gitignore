@@ -103,10 +103,11 @@ frontend/node_modules/.cache/default-development/13.pack
 frontend/node_modules/.cache/default-development/10.pack
 -e 
 # Environment and credential files
-.env
-.env.*
-*.env
+# (Emergent native deploy requires .env files present in repo; they are auto-updated at deploy time)
+# DO NOT add .env / .env.* / *.env here — they MUST be committed for Emergent deployment.
 credentials.json
 *.pem
 *.key
 .credentials
+# Local-only dev artifacts that must never be deployed
+memory/test_credentials.md
