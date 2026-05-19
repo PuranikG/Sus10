@@ -160,14 +160,17 @@
 
 ### Priority placeholders (user will confirm)
 - [x] B1.1 — Home vs Explainability tab area mismatch  →  **P0 — ✅ FIXED**
-- [ ] B1.2 — PDF report miscalculations & abrupt text  →  P1 (with E1.1)
+- [x] B1.2 — PDF report miscalculations & abrupt text →  **✅ FIXED** (server-side WeasyPrint, persona-tuned)
+- [x] E1.1 — Persona-tuned PDF report →  **✅ DONE** (4 personas × 7 section toggles)
+- [x] N12 — "Email me this PDF" capture →  **✅ DONE** (Sustenance Potential page; emails join beta_waitlist)
+- [ ] N12b — Wire Resend / SendGrid for actual email delivery →  P1 (currently MOCKED — user gets download URL)
 - [x] B1.3 — Building Type filter not respected on /admin/discover →  **P0 — ✅ FIXED** (strict_type toggle, post-enrichment filter)
 - [x] B1.4 — Filter UX expansion (multi-select, strict match, etc.) →  **P0 — ✅ DONE** (chip multi-select + strict-type)
 - [x] B1.5 — Admin Buildings: top filters + Reject + bulk actions + pagination →  **P0 — ✅ DONE**
 - [x] B1.6 — Building intelligence notes (wind, slab, heritage, etc.) →  **P1 — ✅ backend DONE** (admin per-building UI pending)
 - [x] B1.7 — Discover imports not showing in Admin → Buildings list →  **P0 — ✅ FIXED**
 - [x] B1.8 — Admin IA: Internal Console sidebar + CMS/Projects/Initiatives/Leads links →  **P0 — ✅ DONE**
-- [ ] E1.1 — Persona-tuned PDF report                →  P1 (NEXT TURN — bundled w/ B1.2)
+- [x] E1.1 — Persona-tuned PDF report                →  **✅ DONE** (server-side WeasyPrint)
 - [x] E1.2 — Sustenance Potential at-a-glance screen →  **P1 — ✅ DONE** (`/buildings/:id/potential`)
 - [x] E1.3 — Searchable city autocomplete on /admin/discover →  **P0 — ✅ DONE**
 - [x] N1  — 4 persona teaser landing pages (in CMS) →  **P0 — ✅ DONE**

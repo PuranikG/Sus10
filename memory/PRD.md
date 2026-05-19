@@ -25,6 +25,23 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 
 ## What's Been Implemented (Feb 19, 2026)
 
+### Phase 4 — Persona-tuned PDF report + "Email me this PDF" (Feb 19, 2026) ✅
+- **Server-side PDF rendering** via Jinja2 + WeasyPrint (cleaner typography, exact CSS, no client-side jsPDF "abrupt text" issues).
+- **Template** `/app/backend/templates/report.html` — cover (persona-tinted gradient), executive summary, KPI grid, 4-pillar cards (Solar, Plantation, Biogas, Rainwater), intel-notes callout, matched-subsidies block, persona-specific action checklist, methodology.
+- **4 personas**: `citizen_owner` (monthly savings + next steps), `rwa` (committee AGM checklist + GHS CFA), `provider` (technical scoping + warm-lead context), `corporate_esg` (BRSR Principle-6 alignment).
+- **Section toggles**: 7 toggleable sections (summary, solar, plantation, biogas, rainwater, subsidies, methodology) — each persona has sensible defaults.
+- **Backend endpoints:**
+  - `GET /api/buildings/{id}/report.pdf?persona=&sections=&families=&waste_kg_per_family_per_day=` — inline PDF stream.
+  - `POST /api/buildings/{id}/report-email` — generates PDF, stores in `pdf_uploads`, returns download URL, auto-joins email to `beta_waitlist` with `persona='pdf-request'`.
+  - `GET /api/pdf-reports/{upload_id}` — public PDF serve.
+  - `GET /api/admin/pdf-email-requests` — admin warm-lead funnel.
+- **Frontend** `ReportDownloadDialog` (shared, two modes: download + email):
+  - Building Report `download-report-btn` → opens download mode.
+  - Sustenance Potential `email-me-pdf-btn` → opens email mode with name/email fields → success state with direct download link.
+- **Matched subsidies auto-attach** in the PDF for personas that include the section.
+- **Testing:** iteration_14.json — 14/14 backend pytests + frontend flows verified via pdfminer text extraction.
+- **NOTE:** Email delivery itself is MOCKED (no Resend integration yet) — the user gets a download URL in the success screen. Wire Resend in a later turn when ready.
+
 ### Phase 3 — Subsidies & Financing Navigator (Feb 19, 2026) ✅ (N6)
 - **Public `/subsidies` page** with hero ("Money you might be leaving on the table"), 4-axis filter bar (search, category, type, state), 15 curated entries seeded from PMSGMBY + MNRE + state DISCOMs + 4 bank-loan products. Card click opens a markdown-rich dialog with "Apply on official portal" CTA.
 - **Backend** `GET /api/subsidies`, `GET /api/subsidies/match/{building_id}` (state + type-eligible matching), full admin CRUD `/api/admin/subsidies` with audit-log entries (`subsidy.create/update/delete`).
