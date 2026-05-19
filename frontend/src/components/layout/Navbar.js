@@ -23,6 +23,7 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   const navLinks = [
+    { href: '/calculate', label: 'Calculate', highlight: true },
     { href: '/search', label: 'Buildings' },
     { href: '/providers', label: 'Providers' },
     { href: '/subsidies', label: 'Subsidies' },
@@ -60,9 +61,12 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 to={link.href}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className={link.highlight
+                  ? "text-sm font-semibold text-emerald-500 hover:text-emerald-400 transition-colors flex items-center gap-1"
+                  : "text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"}
                 data-testid={`nav-${link.label.toLowerCase()}`}
               >
+                {link.highlight && <span className="text-xs">✨</span>}
                 {link.label}
               </Link>
             ))}

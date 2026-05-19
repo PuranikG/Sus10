@@ -71,18 +71,18 @@ function PillarWidget({ widget, index }) {
 
 function BiogasAdjuster({ families, waste, onChange }) {
   return (
-    <Card className="border-emerald-200 bg-emerald-50/40" data-testid="biogas-adjuster">
+    <Card className="border-emerald-700/40 bg-slate-900/80 backdrop-blur-sm" data-testid="biogas-adjuster">
       <CardContent className="p-5 md:p-6">
         <div className="flex items-center gap-3 mb-4">
-          <Recycle className="h-5 w-5 text-emerald-600" />
+          <Recycle className="h-5 w-5 text-emerald-400" />
           <div>
-            <div className="font-medium">Tune biogas inputs</div>
-            <p className="text-xs text-muted-foreground">Drag the sliders to match your building. Numbers above update live.</p>
+            <div className="font-medium text-slate-50">Tune biogas inputs</div>
+            <p className="text-xs text-slate-400">Drag the sliders to match your building. Numbers above update live.</p>
           </div>
         </div>
         <div className="grid sm:grid-cols-2 gap-6">
           <div>
-            <div className="flex justify-between mb-2 text-sm">
+            <div className="flex justify-between mb-2 text-sm text-slate-200">
               <span>Families / apartments</span>
               <span className="font-medium" data-testid="adjuster-families-value">{families}</span>
             </div>
@@ -94,7 +94,7 @@ function BiogasAdjuster({ families, waste, onChange }) {
             />
           </div>
           <div>
-            <div className="flex justify-between mb-2 text-sm">
+            <div className="flex justify-between mb-2 text-sm text-slate-200">
               <span>Kitchen waste per family</span>
               <span className="font-medium" data-testid="adjuster-waste-value">{waste.toFixed(2)} kg / day</span>
             </div>
@@ -106,7 +106,7 @@ function BiogasAdjuster({ families, waste, onChange }) {
             />
           </div>
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className="mt-3 text-xs text-slate-400">
           CPCB norms: ~0.4–0.5 kg per person/day organic waste. We assume 4 people per family by default.
         </p>
       </CardContent>
@@ -191,33 +191,58 @@ export default function BuildingPotentialPage() {
           <Card><CardContent className="p-8 text-center text-muted-foreground">Could not load this building's potential.</CardContent></Card>
         ) : (
           <>
+            {/* Narrative hero — translates numbers into human meaning */}
+            {data.narrative?.headline && (
+              <Card className="mb-5 border-emerald-700/40 bg-gradient-to-br from-emerald-950/60 via-slate-900/80 to-slate-950 overflow-hidden" data-testid="narrative-hero">
+                <CardContent className="p-6 md:p-8">
+                  <p
+                    className="text-xl md:text-2xl leading-snug text-emerald-50 font-medium"
+                    data-testid="narrative-headline"
+                    dangerouslySetInnerHTML={{
+                      __html: (data.narrative.headline || '').replace(/\*\*(.*?)\*\*/g, '<span class="text-emerald-300 font-bold">$1</span>')
+                    }}
+                  />
+                  {(data.narrative.chips || []).length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2" data-testid="narrative-chips">
+                      {data.narrative.chips.map((c, i) => (
+                        <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-900/50 border border-emerald-700/50 px-3 py-1 text-xs text-emerald-100">
+                          <span className="opacity-70">{c.label}</span>
+                          <span className="font-semibold">{c.value}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Headline strip */}
             {summary && (
-              <Card className="mb-6 bg-gradient-to-br from-primary/5 to-emerald-50" data-testid="potential-summary-strip">
+              <Card className="mb-6 border-slate-700/60 bg-slate-900/80 backdrop-blur-sm" data-testid="potential-summary-strip">
                 <CardContent className="p-5 md:p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total annual savings</div>
-                    <div className="text-2xl font-bold text-primary">{formatCurrency(summary.total_annual_savings_inr || 0)}</div>
+                    <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Total annual savings</div>
+                    <div className="text-2xl font-bold text-emerald-400">{formatCurrency(summary.total_annual_savings_inr || 0)}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">CO₂ avoided / year</div>
-                    <div className="text-2xl font-bold flex items-baseline gap-1">
+                    <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">CO₂ avoided / year</div>
+                    <div className="text-2xl font-bold flex items-baseline gap-1 text-slate-50">
                       {Number(summary.total_co2_offset_tonnes_per_year || 0).toLocaleString('en-IN')}
-                      <span className="text-sm text-muted-foreground">tonnes</span>
+                      <span className="text-sm text-slate-400">tonnes</span>
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Solar generation</div>
-                    <div className="text-2xl font-bold flex items-baseline gap-1">
+                    <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Solar generation</div>
+                    <div className="text-2xl font-bold flex items-baseline gap-1 text-slate-50">
                       {Number(summary.solar_kwh_per_year || 0).toLocaleString('en-IN')}
-                      <span className="text-sm text-muted-foreground">kWh</span>
+                      <span className="text-sm text-slate-400">kWh</span>
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Rainwater captured</div>
-                    <div className="text-2xl font-bold flex items-baseline gap-1">
+                    <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Rainwater captured</div>
+                    <div className="text-2xl font-bold flex items-baseline gap-1 text-slate-50">
                       {Number(summary.rainwater_kl_per_year || 0).toLocaleString('en-IN')}
-                      <span className="text-sm text-muted-foreground">kL</span>
+                      <span className="text-sm text-slate-400">kL</span>
                     </div>
                   </div>
                 </CardContent>

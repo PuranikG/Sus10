@@ -167,13 +167,13 @@ export default function SubsidiesPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <section className="border-b bg-gradient-to-br from-primary/5 to-emerald-50">
+      <section className="border-b border-emerald-900/40 bg-gradient-to-br from-slate-950 via-emerald-950/40 to-slate-950">
         <div className="container-max section-padding py-14">
-          <Badge variant="outline" className="mb-3">Subsidies & financing navigator</Badge>
-          <h1 className="text-3xl md:text-4xl font-heading font-bold tracking-tight mb-2">
+          <Badge variant="outline" className="mb-3 border-emerald-700/60 text-emerald-200 bg-emerald-950/50">Subsidies & financing navigator</Badge>
+          <h1 className="text-3xl md:text-4xl font-heading font-bold tracking-tight mb-2 text-slate-50">
             Money you might be leaving on the table.
           </h1>
-          <p className="text-muted-foreground max-w-2xl">
+          <p className="text-slate-300 max-w-2xl">
             A curated catalogue of central + state subsidies, CFAs, loans, tax credits and net-metering
             schemes for rooftop solar, rainwater harvesting, biogas and green-building investments in India.
           </p>

@@ -1,0 +1,51 @@
+{
+  "summary": "Iteration 15 — Validated homeowner calculator-first flow (POST /api/calculate/quick-potential), narrative hero on /buildings/{id}/potential, subsidies match shape, two admin seed endpoints (CMS persona teasers + subsidies), plus front-end pages (/calculate, /admin, /admin/discover, /subsidies, Navbar). 9/9 backend pytest pass and full Playwright happy-path works end-to-end. Found + fixed 2 backend bugs that were preventing the seed endpoints from working (see backend_issues.fixed).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [],
+    "fixed_during_iteration": [
+      {"endpoint": "POST /api/admin/cms/seed-persona-teasers & /api/admin/subsidies/seed", "issue": "subprocess.run(['python', ...]) resolved to /usr/bin/python3.11 which lacks pymongo; both seed scripts crashed with ModuleNotFoundError. Fixed by switching to sys.executable so the same venv used by uvicorn is used.", "file": "/app/backend/server.py lines 3599 & 3630"},
+      {"endpoint": "Same two seed endpoints", "issue": "Both called record_audit(..., details={...}) but record_audit signature only accepts metadata=. Endpoints returned 500. Renamed kwarg to metadata.", "file": "/app/backend/server.py lines 3612 & 3641"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration15_calculator_seed.py",
+    "/app/test_reports/pytest/iteration_15.xml"
+  ],
+  "action_items": [
+    "(Optional) The /calculate City and Building Type fields are shadcn Select components (button[role=combobox]), not native selects. Playwright fill() does NOT work on them. Defaults (Mumbai / Independent home) submit fine. If you want testers to be able to fill City/BuildingType in scripts, expose an underlying <input> or add a data-testid on the option items. Functionally correct as-is.",
+    "(Optional) Calculator submit with state autodetected from city would be nice — currently state stays null on minimal payload (verified non-blocking)."
+  ],
+  "critical_code_review_comments": [
+    "BUG FIXED: server.py used bare 'python' in subprocess.run — broken in the kube container where /usr/bin/python3.11 has no pymongo. Always use sys.executable for subprocess of a sibling script.",
+    "BUG FIXED: seed endpoints called record_audit(details=...) but the helper expects metadata=. TypeError → 500. Two call sites. Suggest adding a unit test for record_audit kwargs to lock the contract.",
+    "Narrative builder (server.py:2696-2767) is clean and defensive — gracefully handles zero co2/savings and produces a sensible fallback headline ('Here's what X can do…'). Cars-equivalent (4.6 t/car) and households-water (135 L × 4 ppl × 365 d) are reasonable indian averages — keep them in a constants module for traceability.",
+    "QuickCalcRequest has a confusing default for `families`: `families = payload.families or max(1, int((payload.family_size or 4) and 1))` — the inner expression is always 1, so `family_size` is effectively ignored for `families_estimated`. Either remove the dead expression or actually map family_size to families when building_type is multi-family. Currently only `apartment/housing_society/residential_complex` paths honour `payload.families`.",
+    "server.py is now 3849 lines — strongly recommend extracting admin/seed/calculator routes into routers/ modules (file-size guideline >700 lines).",
+    "Subsidies hero on /subsidies renders dark band with text-slate-50; contrast confirmed visually. KPI band on Potential page now bg-slate-900/80 with text-emerald-50 — readable.",
+    "Sticky Discover & Import button confirmed: ancestor div has position:sticky bottom-3; remains visible after scroll (bounding box y=936 in 1080-tall viewport)."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (sys import + 2 subprocess fixes + 2 record_audit kwarg fixes)",
+    "/app/backend/tests/test_iteration15_calculator_seed.py (NEW — 9 tests, all green)",
+    "/app/memory/test_credentials.md (no change; minted new dev token iter15_test_session in db.user_sessions, valid 24h)"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (calc→potential, admin seed UI, sticky discover, subsidies hero all verified)"},
+  "test_credentials": "Admin: gp@sus10.ai via Bearer iter15_test_session (db.user_sessions doc with session_token field, NOT 'token' field). Previous iter10_fe_session was indeed expired.",
+  "seed_data_creation": "POST /api/admin/cms/seed-persona-teasers and /api/admin/subsidies/seed both ran successfully — 4 persona slugs present in cms_pages and 15 active subsidies in db.subsidies. Test buildings (TEST_ITER15* address prefix) and waitlist entries (test_iter15_* email prefix) cleaned up at end of run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "IMPORTANT for auth: db.user_sessions uses field name 'session_token' (not 'token'). When minting a dev session, the doc must have keys: session_token, user_id, expires_at (ISO string). Use cookie name 'session_token' on the preview domain. /calculate's City and Building Type fields are shadcn Selects — Playwright fill() won't work on them; either click to open the listbox and click an option, or rely on defaults (Mumbai / Independent home). Narrative hero testid is 'narrative-hero' and headline child has testid 'narrative-headline'.",
+  "rca_of_the_issue": {
+    "bug": "POST /api/admin/cms/seed-persona-teasers and /api/admin/subsidies/seed returned 500.",
+    "root_cause_1": "subprocess.run(['python', ...]) used bare 'python' which the container resolves to /usr/bin/python3.11 (system interpreter) — that interpreter does not have pymongo installed. Backend's uvicorn process runs from /root/.venv/bin/python which DOES have pymongo. Fix: use sys.executable to inherit the venv.",
+    "root_cause_2": "After the subprocess succeeded, the handler called record_audit(user=..., action=..., resource_type=..., resource_id=..., details={...}) — but record_audit's signature has kwarg `metadata`, not `details`. TypeError. Fix: rename to metadata=.",
+    "reproduction": "curl -X POST -H 'Authorization: Bearer iter15_test_session' $REACT_APP_BACKEND_URL/api/admin/cms/seed-persona-teasers",
+    "mitigation": "Both fixes applied in /app/backend/server.py. 9/9 pytest now green. Recommend adding a CI check that imports sys.executable and a record_audit signature test."
+  }
+}

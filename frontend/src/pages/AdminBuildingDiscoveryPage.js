@@ -369,9 +369,10 @@ export default function AdminBuildingDiscoveryPage() {
                 </div>
               </div>
 
-              {/* Discover Button */}
+              {/* Discover Button — sticky inside the filter card so it never falls below the fold */}
+              <div className="sticky bottom-3 z-10 -mx-2 px-2 pt-2 bg-gradient-to-t from-card via-card to-transparent">
               <Button
-                className="w-full"
+                className="w-full shadow-lg shadow-primary/20"
                 onClick={discoverBuildings}
                 disabled={loading || !selectedCity}
                 data-testid="discover-btn"
@@ -388,6 +389,7 @@ export default function AdminBuildingDiscoveryPage() {
                   </>
                 )}
               </Button>
+              </div>
             </CardContent>
           </Card>
 

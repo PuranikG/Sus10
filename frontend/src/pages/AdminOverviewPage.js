@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Mail, Inbox, Layers, Megaphone, Telescope, Users, FileText } from 'lucide-react';
+import { Building2, Mail, Inbox, Layers, Megaphone, Telescope, Users, FileText, Sparkles, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { apiRequest } from '../lib/utils';
 import AdminShell from '../components/layout/AdminShell';
+import { toast } from 'sonner';
 
 function StatCard({ label, value, icon: Icon, to, testid }) {
   return (
@@ -28,12 +29,38 @@ export default function AdminOverviewPage() {
   const [counts, setCounts] = useState({});
   const [waitlist, setWaitlist] = useState({ total: 0, by_persona: {} });
   const [surveysTotal, setSurveysTotal] = useState(0);
+  const [seedingPersonas, setSeedingPersonas] = useState(false);
+  const [seedingSubsidies, setSeedingSubsidies] = useState(false);
 
   useEffect(() => {
     apiRequest('/admin/buildings?limit=1').then(r => setCounts(r?.counts || {})).catch(() => {});
     apiRequest('/admin/beta-waitlist?limit=1').then(r => setWaitlist(r || { total: 0, by_persona: {} })).catch(() => {});
     apiRequest('/admin/zoho-survey-responses?limit=1').then(r => setSurveysTotal(r?.total || 0)).catch(() => {});
   }, []);
+
+  const handleSeedPersonas = async () => {
+    setSeedingPersonas(true);
+    try {
+      const res = await apiRequest('/admin/cms/seed-persona-teasers', { method: 'POST' });
+      toast.success(`Seeded ${res?.pages?.length || 4} persona teaser pages`);
+    } catch (e) {
+      toast.error(e?.message || 'Failed to seed persona teasers');
+    } finally {
+      setSeedingPersonas(false);
+    }
+  };
+
+  const handleSeedSubsidies = async () => {
+    setSeedingSubsidies(true);
+    try {
+      const res = await apiRequest('/admin/subsidies/seed', { method: 'POST' });
+      toast.success(`Seeded subsidies — ${res?.active_subsidies || 0} active`);
+    } catch (e) {
+      toast.error(e?.message || 'Failed to seed subsidies');
+    } finally {
+      setSeedingSubsidies(false);
+    }
+  };
 
   return (
     <AdminShell
@@ -63,6 +90,32 @@ export default function AdminOverviewPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Production seed — one-shot idempotent buttons */}
+      <Card className="mb-8 border-emerald-700/40 bg-emerald-950/20" data-testid="seed-card">
+        <CardContent className="p-5">
+          <div className="flex items-start gap-3 flex-wrap">
+            <Sparkles className="h-5 w-5 text-emerald-400 mt-0.5" />
+            <div className="flex-1 min-w-[260px]">
+              <div className="font-medium text-emerald-50">Seed pre-launch content</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Idempotent — re-running is safe. Use this on a fresh production database to populate
+                the 4 persona landing pages and the curated subsidies catalogue.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={handleSeedPersonas} disabled={seedingPersonas} data-testid="seed-personas-btn">
+                {seedingPersonas ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+                Seed persona teasers
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleSeedSubsidies} disabled={seedingSubsidies} data-testid="seed-subsidies-btn">
+                {seedingSubsidies ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Mail className="h-4 w-4 mr-2" />}
+                Seed subsidies
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid md:grid-cols-3 gap-4">
         <Card>

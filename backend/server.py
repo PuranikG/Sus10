@@ -12,6 +12,7 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 from enum import Enum
+import sys
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -2693,6 +2694,51 @@ async def get_building_potential(
         },
     ]
 
+    # Narrative hero — translates the numbers into human meaning.
+    summary = report.get("summary") or {}
+    annual_savings = int(summary.get("total_annual_savings_inr") or 0)
+    co2_tonnes = float(summary.get("total_co2_offset_tonnes_per_year") or 0)
+    solar_kwh = int(summary.get("solar_kwh_per_year") or 0)
+    rainwater_kl = float(summary.get("rainwater_kl_per_year") or 0)
+    # Avg Indian car ~4.6 tCO2/year (Petrol mid-size). Cars-equivalent for tangibility.
+    cars_offset = int(round(co2_tonnes / 4.6)) if co2_tonnes else 0
+    households_water = int(round((rainwater_kl * 1000) / (135 * 4 * 365))) if rainwater_kl else 0  # 135 L/person/day × 4
+
+    def _fmt_inr(amount: int) -> str:
+        if amount >= 10_000_000:
+            return f"₹{amount/10_000_000:.1f} Cr"
+        if amount >= 100_000:
+            return f"₹{amount/100_000:.1f} L"
+        if amount >= 1000:
+            return f"₹{amount/1000:.0f}k"
+        return f"₹{amount}"
+
+    bname = building.get("name") or building.get("address") or "This building"
+    bcity = building.get("city") or ""
+    narrative_parts: List[str] = []
+    if co2_tonnes and annual_savings:
+        narrative_parts.append(
+            f"If **{bname}** activated its full potential, it would offset **{co2_tonnes:,.0f} tonnes of CO₂** every year"
+        )
+        if cars_offset:
+            narrative_parts.append(f"— the same as taking **{cars_offset:,} cars off {bcity}'s roads**" if bcity else f"— the same as taking **{cars_offset:,} cars off the road**")
+        narrative_parts.append(f"— while saving **{_fmt_inr(annual_savings)}** for the building owner.")
+    elif annual_savings:
+        narrative_parts.append(f"**{bname}** could save **{_fmt_inr(annual_savings)}** every year through integrated sustenance.")
+    else:
+        narrative_parts.append(f"Here's what **{bname}** can do across the 4 pillars of sustenance.")
+    narrative_headline = " ".join(narrative_parts).strip()
+
+    narrative_chips: List[Dict[str, str]] = []
+    if solar_kwh:
+        narrative_chips.append({"label": "Solar", "value": f"{solar_kwh:,} kWh/yr"})
+    if rainwater_kl:
+        narrative_chips.append({"label": "Rainwater", "value": f"{rainwater_kl:,.0f} kL/yr"})
+        if households_water:
+            narrative_chips.append({"label": "Households water", "value": f"~{households_water} for a year"})
+    if co2_tonnes:
+        narrative_chips.append({"label": "CO₂ offset", "value": f"{co2_tonnes:,.0f} t/yr"})
+
     return {
         "building": {
             "building_id": building.get("building_id"),
@@ -2705,8 +2751,14 @@ async def get_building_potential(
             "image_url": building.get("primary_image_url"),
         },
         "widgets": widgets,
-        "summary": report.get("summary"),
+        "summary": summary,
         "pillars": pillars,
+        "narrative": {
+            "headline": narrative_headline,
+            "chips": narrative_chips,
+            "cars_offset_equivalent": cars_offset,
+            "households_water_equivalent": households_water,
+        },
         "inputs": {
             "families": families,
             "waste_kg_per_family_per_day": waste_kg_per_family_per_day,
@@ -3526,6 +3578,154 @@ async def seed_green_roof_cms(request: Request):
     await db.cms_pages.insert_one(doc)
     doc.pop("_id", None)
     return {"seeded": True, "page": doc}
+
+
+@api_router.post("/admin/cms/seed-persona-teasers")
+async def seed_persona_teasers(request: Request):
+    """Run the persona teaser seed script against the current DB.
+
+    Idempotent — existing slugs are not clobbered. Surfaces a list of slugs
+    inserted vs updated so the admin can verify.
+    """
+    user = await require_auth(request)
+    if user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    import subprocess
+    script_path = ROOT_DIR / "scripts" / "seed_persona_teasers.py"
+    if not script_path.exists():
+        raise HTTPException(status_code=500, detail=f"Seed script not found at {script_path}")
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script_path)],
+            capture_output=True, text=True, timeout=60,
+            cwd=str(ROOT_DIR),
+        )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Seed script timed out")
+    if proc.returncode != 0:
+        raise HTTPException(status_code=500, detail=f"Seed failed: {proc.stderr or proc.stdout}")
+    # Confirm the 4 slugs are present
+    slugs = ["for-homeowners", "for-homeowners-heat-action", "for-communities", "for-installers"]
+    found = await db.cms_pages.find({"slug": {"$in": slugs}}, {"_id": 0, "slug": 1, "published": 1}).to_list(20)
+    await record_audit(
+        user=user, action="seed.persona_teasers", resource_type="cms_pages",
+        resource_id="batch", metadata={"slugs": slugs},
+        ip=request.client.host if request.client else None,
+    )
+    return {"seeded": True, "stdout": proc.stdout, "pages": found}
+
+
+@api_router.post("/admin/subsidies/seed")
+async def seed_subsidies_endpoint(request: Request):
+    """Run the subsidies seed script against the current DB (idempotent upsert)."""
+    user = await require_auth(request)
+    if user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    import subprocess
+    script_path = ROOT_DIR / "scripts" / "seed_subsidies.py"
+    if not script_path.exists():
+        raise HTTPException(status_code=500, detail=f"Seed script not found at {script_path}")
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script_path)],
+            capture_output=True, text=True, timeout=60,
+            cwd=str(ROOT_DIR),
+        )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Seed script timed out")
+    if proc.returncode != 0:
+        raise HTTPException(status_code=500, detail=f"Seed failed: {proc.stderr or proc.stdout}")
+    count = await db.subsidies.count_documents({"is_active": True})
+    await record_audit(
+        user=user, action="seed.subsidies", resource_type="subsidies",
+        resource_id="batch", metadata={"active_count": count},
+        ip=request.client.host if request.client else None,
+    )
+    return {"seeded": True, "stdout": proc.stdout, "active_subsidies": count}
+
+
+# ==================== HOMEOWNER QUICK CALCULATOR (E6.1) ====================
+class QuickCalcRequest(BaseModel):
+    address: str
+    city: str
+    state: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    roof_area_sqm: float = Field(..., gt=0, le=500_000)
+    floors: int = Field(default=1, ge=1, le=60)
+    monthly_electricity_bill_inr: Optional[float] = Field(default=None, ge=0)
+    monthly_gas_bill_inr: Optional[float] = Field(default=None, ge=0)
+    family_size: Optional[int] = Field(default=None, ge=1, le=200)
+    families: Optional[int] = Field(default=None, ge=1, le=2000)
+    building_type: Optional[str] = "residential"
+    name: Optional[str] = None
+    email: Optional[str] = None
+
+
+@api_router.post("/calculate/quick-potential")
+async def calculate_quick_potential(payload: QuickCalcRequest, request: Request):
+    """E6.1 — Homeowner calculator-first flow.
+
+    Creates a lightweight, unverified building from a few inputs and returns
+    the building_id so the frontend can redirect straight to the at-a-glance
+    Sustenance Potential page. No auth required — homeowners self-serve.
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    building_id = f"bld_{uuid.uuid4().hex[:12]}"
+    # Estimate usable terrace as 80% of footprint (conservative)
+    usable = round(payload.roof_area_sqm * 0.8, 2)
+    families = payload.families or max(1, int((payload.family_size or 4) and 1))  # 1 family for individual home
+    if payload.building_type in ("apartment", "housing_society", "residential_complex") and payload.families:
+        families = payload.families
+    doc = {
+        "building_id": building_id,
+        "name": payload.name or payload.address.split(",")[0][:80],
+        "address": payload.address,
+        "city": payload.city,
+        "state": payload.state,
+        "latitude": payload.latitude,
+        "longitude": payload.longitude,
+        "building_type": payload.building_type or "residential",
+        "building_footprint_area": payload.roof_area_sqm,
+        "usable_terrace_area": usable,
+        "custom_terrace_area": usable,
+        "floors_estimated": payload.floors,
+        "monthly_electricity_bill_inr": payload.monthly_electricity_bill_inr,
+        "monthly_gas_bill_inr": payload.monthly_gas_bill_inr,
+        "family_size": payload.family_size,
+        "families_estimated": families,
+        "status": "self_submitted",
+        "is_approved": False,
+        "data_source": "homeowner_calculator",
+        "submitted_email": payload.email,
+        "created_at": now_iso,
+        "updated_at": now_iso,
+    }
+    await db.buildings.insert_one(doc)
+
+    # If email provided, auto-join the waitlist as a warm lead.
+    if payload.email:
+        try:
+            await db.beta_waitlist.update_one(
+                {"email": payload.email.lower().strip()},
+                {"$set": {
+                    "email": payload.email.lower().strip(),
+                    "name": payload.name,
+                    "city": payload.city,
+                    "persona": "calculator-homeowner",
+                    "source": "homeowner_calculator",
+                    "last_building_id": building_id,
+                    "updated_at": now_iso,
+                }, "$setOnInsert": {"created_at": now_iso}},
+                upsert=True,
+            )
+        except Exception as e:
+            logger.warning(f"calculator waitlist join failed: {e}")
+
+    return {
+        "building_id": building_id,
+        "redirect_to": f"/buildings/{building_id}/potential",
+    }
 
 
 @api_router.post("/admin/cms/upload")

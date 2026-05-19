@@ -204,3 +204,31 @@
 - **P3:** N8 Razorpay · N5 Garden Design import (hold) · AQI forecast · drawing parser · provider dashboard
 
 ---
+
+---
+## Session 2026-05-19 — Feedback accumulation + MVP build
+
+### Items captured (verbatim from user testing)
+1. **Polygon vertex clutter on Building Report map** — ~50 nodes overwhelm visual. Fix proposed: read-only default + Edit-shape toggle + Douglas-Peucker simplification. **Status: deferred to next session.**
+2. **Sustenance Potential readability + IA** — silver KPI band unreadable; should be DEFAULT landing for buildings; needs narrative hero. **Status: SHIPPED readability + narrative. IA route swap deferred.**
+3. **Subsidies page** — hero readability bug + 0-results empty state (prod DB unseeded) + proactive per-building eligibility engine + monthly policy watchlist. **Status: SHIPPED hero fix + seed endpoint. Eligibility engine & watchlist deferred.**
+4. **OpenSolar reference** — referral/iframe partner for solar design depth. Drop component-library/BOQ ambitions (solved problem, ERP territory). Borrow PDF layout. **Status: logged, design choice locked in.**
+5. **Production DB missing seeded content** — 4 persona teasers + 15 subsidies were only in preview DB. **Status: SHIPPED admin Seed buttons + endpoints.**
+6. **Homeowner workflow** — Calculator-first flow `/calculate` → intake (roof, floors, bills, family) → potential → PDF + email → consult vendor. Vendor handles proposal with own tools. Sus10 stays out of proposal generation. **Status: SHIPPED `/calculate` page + backend endpoint + Navbar link + Hero CTA.**
+7. **Admin Discover UX** — primary CTA hidden below fold; ambiguous empty state. **Status: SHIPPED sticky CTA.**
+
+### Shipped this session
+- Backend: `POST /api/calculate/quick-potential`, `POST /api/admin/cms/seed-persona-teasers`, `POST /api/admin/subsidies/seed`. Narrative builder in `/api/buildings/{id}/potential` (headline + chips + cars-equivalent + households-water-equivalent).
+- Frontend: `SustenanceCalculatorPage`, narrative hero card on BuildingPotentialPage, dark high-contrast KPI/biogas/subsidies-hero cards, Admin Overview Seed buttons, Admin Discover sticky CTA, Navbar "Calculate" highlighted link, LandingPage hero "Calculate your roof potential" CTA, persona-homeowner card now points to `/calculate`, **matched-subsidies strip on full Building Report (Option A)**.
+
+### Deferred for next session (in priority order)
+- P1: Polygon node clutter — read-only default + Edit-shape toggle on Building Report map.
+- P1: IA route swap — make `/buildings/:id` default to Sustenance Potential view (with "See full report" tab/link).
+- P1: Original Options B, C, D (intel badges, PDF funnel analytics, admin intel notes editor).
+- P1: Resend wiring for "Email me this PDF" (currently mocked).
+- P2: Proactive per-building subsidy eligibility engine (✅/⚠️/❌ per pillar).
+- P2: Policy watchlist (monthly cron, ~5 cities to start).
+- P2: OpenSolar iframe handoff on Solar pillar detail.
+- P2: Vendor one-pager "Integrated Sustenance Roof Offering" PDF template.
+- Backlog: `backend/server.py` modularization, code-review tech debt.
+

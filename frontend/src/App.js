@@ -27,6 +27,7 @@ import AdminSubsidiesPage from './pages/AdminSubsidiesPage';
 import AdminBuildingDiscoveryPage from './pages/AdminBuildingDiscoveryPage';
 import BuildingPotentialPage from './pages/BuildingPotentialPage';
 import SubsidiesPage from './pages/SubsidiesPage';
+import SustenanceCalculatorPage from './pages/SustenanceCalculatorPage';
 import LeadFormPage from './pages/LeadFormPage';
 import BlogPage from './pages/BlogPage';
 import BlogPostPage from './pages/BlogPostPage';
@@ -219,6 +220,7 @@ function AppRouter() {
         }
       />
       <Route path="/subsidies" element={<SubsidiesPage />} />
+      <Route path="/calculate" element={<SustenanceCalculatorPage />} />
       <Route
         path="/admin/subsidies"
         element={

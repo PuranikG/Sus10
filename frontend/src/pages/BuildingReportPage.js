@@ -135,6 +135,9 @@ export default function BuildingReportPage() {
   // Live AQI state
   const [liveAQI, setLiveAQI] = useState(null);
   const [aqiLoading, setAqiLoading] = useState(false);
+
+  // Matched subsidies for this building (Option A — quick win strip)
+  const [matchedSubsidies, setMatchedSubsidies] = useState([]);
   
   // Plantable area controls
   const [plantablePercent, setPlantablePercent] = useState(70);
@@ -223,6 +226,14 @@ export default function BuildingReportPage() {
     };
 
     fetchReport();
+  }, [buildingId]);
+
+  // Fetch matched subsidies (best-effort — never block the page)
+  useEffect(() => {
+    if (!buildingId) return;
+    apiRequest(`/subsidies/match/${buildingId}`)
+      .then((r) => setMatchedSubsidies((r?.subsidies || []).slice(0, 4)))
+      .catch(() => {});
   }, [buildingId]);
 
   // Initialize map when building data is loaded
@@ -704,6 +715,51 @@ export default function BuildingReportPage() {
                   value={`${building.data_quality_score || 0}%`}
                 />
               </div>
+
+              {/* Matched subsidies strip (Option A — surfaces financial value upfront) */}
+              {matchedSubsidies.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="mt-6"
+                  data-testid="matched-subsidies-strip"
+                >
+                  <Card className="border-emerald-700/40 bg-emerald-950/30">
+                    <CardContent className="p-4 md:p-5">
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        <Banknote className="h-4 w-4 text-emerald-400" />
+                        <span className="text-sm font-semibold text-emerald-100">Money on the table for this building</span>
+                        <Badge variant="outline" className="border-emerald-700/60 text-emerald-200 bg-emerald-900/30 text-[10px]">
+                          {matchedSubsidies.length} matched
+                        </Badge>
+                        <Link to={`/subsidies?state=${encodeURIComponent(building.state || '')}`} className="ml-auto text-xs text-emerald-300 hover:text-emerald-200 underline-offset-2 hover:underline" data-testid="view-all-subsidies-link">
+                          View all subsidies →
+                        </Link>
+                      </div>
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                        {matchedSubsidies.map((s) => (
+                          <Link
+                            key={s.subsidy_id}
+                            to={`/subsidies?focus=${s.subsidy_id}`}
+                            className="group rounded-lg border border-emerald-900/40 bg-slate-900/50 p-3 hover:border-emerald-500/60 transition-colors"
+                            data-testid={`matched-subsidy-${s.subsidy_id}`}
+                          >
+                            <div className="text-[10px] uppercase tracking-wider text-emerald-400 mb-1">
+                              {(s.type || 'subsidy').toUpperCase().replace('_', ' ')}
+                              {s.geo_scope === 'central' ? ' · Central' : s.state ? ` · ${s.state}` : ''}
+                            </div>
+                            <div className="text-sm font-medium text-slate-100 line-clamp-2 leading-snug mb-1">{s.name}</div>
+                            <div className="text-xs text-emerald-300 font-semibold">
+                              {s.max_amount_inr ? `Up to ${formatCurrency(s.max_amount_inr)}` : (s.rate_or_percent || 'See details')}
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
             </div>
 
             {/* Suitability Score */}

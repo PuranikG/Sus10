@@ -158,6 +158,20 @@ export default function LandingPage() {
                   Analyze
                 </Button>
               </motion.form>
+
+              {/* Calculator-first CTA — primary homeowner path */}
+              <motion.div variants={fadeInUp} className="flex flex-wrap items-center gap-3 max-w-lg">
+                <Link to="/calculate" data-testid="hero-calculate-cta">
+                  <Button size="lg" className="h-12 px-6 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold shadow-lg shadow-emerald-500/20">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Calculate your roof potential
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </Link>
+                <span className="text-sm text-muted-foreground">
+                  60 seconds · No login · Free integrated report
+                </span>
+              </motion.div>
               
               {/* Quick Stats */}
               {stats && (
@@ -283,10 +297,14 @@ export default function LandingPage() {
                 eyebrow: 'Vendors',
                 testid: 'persona-card-vendor',
               },
-            ].map((p) => (
+            ].map((p) => {
+              const isHomeownerAspirational = p.slug === 'for-homeowners';
+              const href = isHomeownerAspirational ? '/calculate' : `/${p.slug}`;
+              const ctaText = isHomeownerAspirational ? 'Calculate my potential' : 'Read & take the survey';
+              return (
               <Link
                 key={p.slug}
-                to={`/${p.slug}`}
+                to={href}
                 className="group rounded-2xl border bg-card p-6 hover:shadow-md transition-all relative overflow-hidden"
                 data-testid={p.testid}
               >
@@ -303,11 +321,12 @@ export default function LandingPage() {
                   className="inline-flex items-center text-sm font-medium group-hover:gap-2 gap-1 transition-all"
                   style={{ color: p.accent }}
                 >
-                  Read & take the survey
+                  {ctaText}
                   <ArrowRight className="h-4 w-4" />
                 </span>
               </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
