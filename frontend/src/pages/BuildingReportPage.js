@@ -37,6 +37,7 @@ import {
 } from 'recharts';
 import { apiRequest, formatCurrency, getAQILevel, getBuildingTypeLabel } from '../lib/utils';
 import { generateBuildingReportPDF } from '../lib/pdfGenerator';
+import ReportDownloadDialog from '../components/report/ReportDownloadDialog';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import { toast } from 'sonner';
@@ -128,6 +129,7 @@ export default function BuildingReportPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [selectedRecommendation, setSelectedRecommendation] = useState(null);
   
   // Live AQI state
@@ -671,20 +673,10 @@ export default function BuildingReportPage() {
                   <Button 
                     size="sm" 
                     data-testid="download-report-btn"
-                    onClick={handleDownloadPDF}
-                    disabled={generatingPDF}
+                    onClick={() => setReportDialogOpen(true)}
                   >
-                    {generatingPDF ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download PDF
-                      </>
-                    )}
+                    <Download className="h-4 w-4 mr-2" />
+                    Download report
                   </Button>
                 </div>
               </div>
@@ -1455,6 +1447,14 @@ export default function BuildingReportPage() {
         recommendation={selectedRecommendation}
         auditLog={audit_logs.find(a => a.recommendation_id === selectedRecommendation?.recommendation_id)}
         onClose={() => setSelectedRecommendation(null)}
+      />
+
+      {/* Report download dialog (server-side, persona-tuned) */}
+      <ReportDownloadDialog
+        open={reportDialogOpen}
+        onOpenChange={setReportDialogOpen}
+        buildingId={building.building_id}
+        mode="download"
       />
     </div>
   );

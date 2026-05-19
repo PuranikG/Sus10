@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ building.name or building.address }} — Sustenance Report</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm 22mm 16mm;
+      @bottom-left {
+        content: "Sus10 AI · Sustenance Feasibility Report";
+        font-family: 'Helvetica', sans-serif;
+        font-size: 8pt;
+        color: #6b7280;
+      }
+      @bottom-right {
+        content: "Page " counter(page) " of " counter(pages);
+        font-family: 'Helvetica', sans-serif;
+        font-size: 8pt;
+        color: #6b7280;
+      }
+    }
+    @page :first { margin: 0; }
+
+    * { box-sizing: border-box; }
+    body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1f2937; font-size: 10pt; line-height: 1.55; margin: 0; }
+
+    /* === COVER === */
+    .cover {
+      page-break-after: always;
+      height: 297mm;
+      padding: 40mm 24mm;
+      background: linear-gradient(135deg, {{ accent }} 0%, #0f3a3a 100%);
+      color: #fff;
+      position: relative;
+    }
+    .cover .logo { font-size: 14pt; font-weight: 700; letter-spacing: 0.5px; opacity: 0.9; }
+    .cover .persona-pill {
+      display: inline-block; margin-top: 14mm;
+      padding: 4pt 10pt; border-radius: 999px;
+      background: rgba(255,255,255,0.18); font-size: 8pt; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .cover h1 { font-size: 32pt; line-height: 1.1; margin-top: 8mm; font-weight: 700; }
+    .cover .subtitle { margin-top: 6mm; font-size: 13pt; opacity: 0.9; max-width: 130mm; line-height: 1.4; }
+    .cover .meta {
+      position: absolute; bottom: 28mm; left: 24mm; right: 24mm;
+      display: flex; justify-content: space-between; font-size: 9pt; opacity: 0.85;
+      border-top: 1px solid rgba(255,255,255,0.3); padding-top: 6mm;
+    }
+    .cover .meta .v { font-size: 11pt; font-weight: 600; }
+
+    /* === CONTENT === */
+    h2 { color: {{ accent }}; font-size: 16pt; margin: 12mm 0 4mm; padding-bottom: 2mm; border-bottom: 2px solid {{ accent }}; }
+    h3 { color: #111827; font-size: 12pt; margin: 6mm 0 2mm; }
+    p { margin: 0 0 3mm; }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; margin: 4mm 0 6mm; }
+    .kpi {
+      background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6pt; padding: 4mm;
+      border-top: 3pt solid {{ accent }};
+    }
+    .kpi .v { font-size: 16pt; font-weight: 700; color: {{ accent }}; line-height: 1; }
+    .kpi .u { font-size: 8pt; color: #6b7280; margin-top: 1mm; }
+    .kpi .l { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; margin-top: 2mm; }
+
+    .pillar { page-break-inside: avoid; margin: 4mm 0 6mm; padding: 5mm; border: 1px solid #e5e7eb; border-radius: 6pt; background: #fff; }
+    .pillar-head { display: flex; align-items: center; gap: 4mm; margin-bottom: 3mm; }
+    .pillar-head .icon { width: 12mm; height: 12mm; border-radius: 4pt; display: inline-flex; align-items: center; justify-content: center; font-size: 14pt; color: #fff; }
+    .pillar-head .title { font-size: 13pt; font-weight: 700; }
+    .pillar-head .pill { font-size: 8pt; padding: 2pt 6pt; border-radius: 999px; background: #f3f4f6; color: #374151; margin-left: auto; }
+
+    .pillar-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; margin-top: 2mm; }
+    .stat-mini { background: #f9fafb; padding: 3mm; border-radius: 4pt; }
+    .stat-mini .v { font-size: 11pt; font-weight: 700; }
+    .stat-mini .l { font-size: 7pt; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1mm; }
+
+    .meta-table { width: 100%; border-collapse: collapse; margin: 3mm 0 4mm; font-size: 9pt; }
+    .meta-table td { padding: 2mm 3mm; border-bottom: 1px solid #f3f4f6; }
+    .meta-table td.k { color: #6b7280; width: 35%; }
+    .meta-table td.v { color: #111827; font-weight: 600; }
+
+    .callout {
+      page-break-inside: avoid;
+      background: {{ accent }}14;
+      border-left: 3pt solid {{ accent }};
+      padding: 4mm 5mm; border-radius: 4pt; margin: 4mm 0 5mm; font-size: 9pt;
+    }
+    .callout strong { color: {{ accent }}; }
+
+    .subsidy-list { padding-left: 4mm; margin: 2mm 0 4mm; font-size: 9pt; }
+    .subsidy-list li { margin-bottom: 1.5mm; }
+
+    .footer-note { font-size: 7.5pt; color: #6b7280; margin-top: 10mm; text-align: center; line-height: 1.4; }
+
+    .persona-block { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6pt; padding: 4mm 5mm; margin: 4mm 0 6mm; }
+    .persona-block h3 { margin-top: 0; color: {{ accent }}; }
+    .persona-block ul { margin: 2mm 0; padding-left: 5mm; }
+
+    .intel-note { background: #fef3c7; border-left: 3pt solid #d97706; padding: 3mm; border-radius: 3pt; margin: 2mm 0; font-size: 9pt; }
+    .intel-note .tag { font-weight: 700; color: #92400e; }
+  </style>
+</head>
+<body>
+  <!-- ===================== COVER ===================== -->
+  <div class="cover">
+    <div class="logo">SUS10 AI</div>
+    <div class="persona-pill">{{ persona_label }} report</div>
+    <h1>{{ building.name or building.address }}</h1>
+    <div class="subtitle">{{ persona_subtitle }}</div>
+    <div class="meta">
+      <div>
+        <div>Address</div>
+        <div class="v">{{ building.address }}, {{ building.city }}</div>
+      </div>
+      <div>
+        <div>Generated</div>
+        <div class="v">{{ generated_at }}</div>
+      </div>
+      <div>
+        <div>Report ID</div>
+        <div class="v">{{ report_id }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== EXECUTIVE SUMMARY ===================== -->
+  {% if 'summary' in sections %}
+  <h2>Executive summary</h2>
+  <p>{{ persona_summary }}</p>
+
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="v">{{ summary.total_annual_savings_inr_fmt }}</div>
+      <div class="u">per year</div>
+      <div class="l">Total savings</div>
+    </div>
+    <div class="kpi">
+      <div class="v">{{ summary.total_co2_offset_tonnes_per_year_fmt }}</div>
+      <div class="u">tonnes / year</div>
+      <div class="l">CO₂ avoided</div>
+    </div>
+    <div class="kpi">
+      <div class="v">{{ summary.solar_kwh_per_year_fmt }}</div>
+      <div class="u">kWh / year</div>
+      <div class="l">Solar generation</div>
+    </div>
+    <div class="kpi">
+      <div class="v">{{ summary.rainwater_kl_per_year_fmt }}</div>
+      <div class="u">kL / year</div>
+      <div class="l">Rainwater captured</div>
+    </div>
+  </div>
+
+  <table class="meta-table">
+    <tr><td class="k">Building type</td><td class="v">{{ building.building_type|replace("_"," ")|title }}</td></tr>
+    <tr><td class="k">Footprint area</td><td class="v">{{ building.footprint_area_sqm_fmt }} sqm</td></tr>
+    <tr><td class="k">Usable terrace</td><td class="v">{{ building.usable_terrace_sqm_fmt }} sqm</td></tr>
+    {% if building.current_aqi %}<tr><td class="k">Current AQI</td><td class="v">{{ building.current_aqi }}</td></tr>{% endif %}
+  </table>
+  {% endif %}
+
+  <!-- ===================== INTEL NOTES ===================== -->
+  {% if intel_notes %}
+  <div class="callout">
+    <strong>⚠ Things to consider for this building</strong>
+    {% for n in intel_notes %}
+    <div class="intel-note">
+      <span class="tag">{{ n.tag|replace("_"," ")|title }}{% if n.severity %} · {{ n.severity|title }}{% endif %}:</span>
+      {{ n.note }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ===================== PILLARS ===================== -->
+  {% for p in pillars_to_show %}
+  <div class="pillar">
+    <div class="pillar-head">
+      <div class="icon" style="background: {{ p.color }};">{{ p.glyph }}</div>
+      <div class="title">{{ p.title }}</div>
+      <div class="pill">{{ p.headline }}</div>
+    </div>
+    <p>{{ p.description }}</p>
+    <div class="pillar-stats">
+      {% for s in p.stats %}
+      <div class="stat-mini">
+        <div class="v">{{ s.value }}</div>
+        <div class="l">{{ s.label }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% if p.methodology %}<p style="font-size:8pt;color:#6b7280;margin-top:3mm;"><em>{{ p.methodology }}</em></p>{% endif %}
+  </div>
+  {% endfor %}
+
+  <!-- ===================== SUBSIDIES ===================== -->
+  {% if 'subsidies' in sections and subsidies %}
+  <h2>Subsidies & financing that may apply</h2>
+  <p>Curated central + state schemes, financing, and tax credits that match this building's profile. Verify rates on the official portal before applying.</p>
+  <ul class="subsidy-list">
+    {% for s in subsidies %}
+    <li>
+      <strong>{{ s.name }}</strong> ({{ s.authority }})
+      {% if s.rate_or_percent %} — {{ s.rate_or_percent }}{% endif %}
+      {% if s.max_amount_inr %} — up to ₹{{ '{:,.0f}'.format(s.max_amount_inr) }}{% endif %}
+      <br/><span style="color:#6b7280;font-size:8.5pt;">{{ s.benefit_summary }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <!-- ===================== PERSONA-SPECIFIC BLOCK ===================== -->
+  {% if persona_block_html %}
+  <div class="persona-block">
+    {{ persona_block_html|safe }}
+  </div>
+  {% endif %}
+
+  <!-- ===================== METHODOLOGY ===================== -->
+  {% if 'methodology' in sections %}
+  <h2>Methodology & data sources</h2>
+  <ul style="font-size: 9pt; line-height: 1.6;">
+    <li><strong>Building footprint:</strong> OpenStreetMap geometries enriched via Google Places API.</li>
+    <li><strong>Solar:</strong> MNRE assumptions — 1 kWp / 10 sqm, 4.5 PSH, 18% panel efficiency, 80% performance ratio.</li>
+    <li><strong>Plantation:</strong> CO₂ sequestration & temperature reduction from EPA Green Roof studies + IIT Delhi UHI research.</li>
+    <li><strong>Biogas:</strong> IS 16190:2014 + CPCB Solid Waste Management Rules 2016. Yield 0.08 m³/kg organic waste.</li>
+    <li><strong>Rainwater:</strong> IMD city rainfall datasets + 80% runoff coefficient.</li>
+    <li><strong>AQI:</strong> Live data from Open-Meteo Air Quality API.</li>
+    <li><strong>Subsidies:</strong> Manually curated from MNRE / state DISCOMs / bank portals.</li>
+  </ul>
+  {% endif %}
+
+  <div class="footer-note">
+    Estimates only — not engineering advice. Please commission a qualified site survey before procurement decisions.
+    Generated by Sus10 AI · hello@sus10.ai · sus10.ai
+  </div>
+</body>
+</html>

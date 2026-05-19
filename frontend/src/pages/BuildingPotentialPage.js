@@ -3,13 +3,14 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Sun, Sprout, Droplets, Recycle, ArrowLeft, ArrowRight,
-  Building2, TrendingUp, Leaf, Loader2,
+  Building2, TrendingUp, Leaf, Loader2, Mail,
 } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Slider } from '../components/ui/slider';
 import { Badge } from '../components/ui/badge';
 import Navbar from '../components/layout/Navbar';
+import ReportDownloadDialog from '../components/report/ReportDownloadDialog';
 import { apiRequest, formatCurrency } from '../lib/utils';
 
 const ICONS = { solar: Sun, biogas: Recycle, rainwater: Droplets, greening: Sprout };
@@ -123,6 +124,7 @@ export default function BuildingPotentialPage() {
   const [loading, setLoading] = useState(true);
   const [families, setFamilies] = useState(initialFamilies > 0 ? initialFamilies : null);
   const [waste, setWaste] = useState(initialWaste > 0 ? initialWaste : 0.5);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
   const fetchPotential = useCallback(async (overrides = {}) => {
     setLoading(true);
@@ -239,12 +241,16 @@ export default function BuildingPotentialPage() {
                   <TrendingUp className="h-4 w-4 inline mr-1 text-primary" />
                   Estimates use MNRE / CPCB / IS standards. Verify with site survey before commissioning.
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => setEmailDialogOpen(true)} data-testid="email-me-pdf-btn">
+                    <Mail className="h-4 w-4 mr-2" />
+                    Email me this report
+                  </Button>
                   <Link to={`/buildings/${buildingId}`}>
                     <Button variant="outline" size="sm" data-testid="see-full-report-btn">See full report</Button>
                   </Link>
                   <Link to={`/leads/new?building_id=${buildingId}`}>
-                    <Button size="sm" data-testid="connect-vendor-btn">Connect with a vendor</Button>
+                    <Button variant="outline" size="sm" data-testid="connect-vendor-btn">Connect with a vendor</Button>
                   </Link>
                 </div>
               </CardContent>
@@ -252,6 +258,16 @@ export default function BuildingPotentialPage() {
           </>
         )}
       </div>
+
+      {/* Email me PDF dialog */}
+      <ReportDownloadDialog
+        open={emailDialogOpen}
+        onOpenChange={setEmailDialogOpen}
+        buildingId={buildingId}
+        families={families}
+        waste={waste}
+        mode="email"
+      />
     </div>
   );
 }

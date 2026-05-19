@@ -1,0 +1,49 @@
+{
+  "summary": "E1.1 + B1.2 server-side PDF + N12 'Email me this PDF' verified end-to-end. 14/14 pytest backend tests pass. Frontend dialog (download mode + email mode) verified in browser against /buildings/bld_001 and /buildings/bld_001/potential. Deep validation done via pdfminer text-extraction confirms persona-specific section gating works correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "ReportDownloadDialog", "issues": ["Missing Description / aria-describedby on DialogContent (a11y warning, not blocking)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pdf_reports.py",
+    "/app/test_reports/pytest/iteration_14.xml"
+  ],
+  "action_items": [
+    "(Optional) Add DialogDescription / aria-describedby on ReportDownloadDialog to silence Radix a11y warning."
+  ],
+  "critical_code_review_comments": [
+    "build_report_context correctly gates `subsidies` array on the section flag; verified provider PDF has no 'Subsidies & financing' heading and no PMSGMBY entries (only 'MNRE' appears once inside methodology — acceptable).",
+    "Section filter shrinks PDF: full citizen_owner = 55KB, sections=summary,solar,rainwater = ~31KB; biogas/plantation/methodology absent in filtered text — exactly as spec.",
+    "Biogas override `families=120 & waste=0.8` produced '96' in PDF text (96 kg/day waste figure) — override path wired correctly via _build_pdf_for_building.",
+    "Email-me flow inserts into pdf_uploads + pdf_email_requests, returns download_url, auto-joins beta_waitlist (persona='pdf-request') with idempotency guard.",
+    "PDF email handler stores binary inline in MongoDB doc — fine for <1MB but track growth; GridFS recommended if volume scales >5K requests/day."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pdf_reports.py (NEW)"
+  ],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "100% (download dialog + email flow verified)"},
+  "test_credentials": "Admin: gp@sus10.ai via Bearer iter10_fe_session (valid through May 19, 2026)",
+  "seed_data_creation": "Created two pdf_email_requests + beta_waitlist entries (TEST_pdf_iter14@example.com, TEST_wl_<uuid>@example.com, TEST_iter14_uife@example.com).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 4 personas + section filtering + biogas override + email-me-pdf flow are stable. PDF text is extractable with pdfminer.six (installed). Building bld_001 is the canonical happy-path test target. Sizes observed: citizen_owner=55KB, rwa=60KB, provider=57KB, corporate_esg=60KB, rwa+families120=60KB, filtered=~31KB.",
+  "deep_validation_results": {
+    "persona_section_text_check": {
+      "citizen_owner": "Subsidies & financing heading present, PMSGMBY present",
+      "rwa": "Subsidies present (PMSGMBY/SBI/MNRE)",
+      "provider": "Subsidies heading ABSENT, PMSGMBY ABSENT (only MNRE in methodology line) — matches spec",
+      "corporate_esg": "Subsidies present"
+    },
+    "section_filter": "sections=summary,solar,rainwater → biogas=False, plantation=False, methodology=False; rainwater=True, solar=True — correct",
+    "biogas_override": "families=120 & waste=0.8 → '96' present in PDF text (96 kg/day) — correct",
+    "frontend_email_flow": "Returned href https://.../api/pdf-reports/pdf_xxxx, GET returns application/pdf, 55312 bytes."
+  },
+  "mocked_apis_acknowledged": "Resend / actual email delivery is intentionally deferred — endpoint stores PDF and returns download_url; UI states 'we'll also email it to <addr> shortly'. Documented in problem statement."
+}

@@ -2716,6 +2716,203 @@ async def get_building_potential(
     }
 
 
+# ==================== SERVER-SIDE PDF REPORT (E1.1) ====================
+from fastapi.responses import Response as FastAPIResponse
+from services.pdf_report import (
+    PERSONAS as PDF_PERSONAS, build_report_context, render_report_pdf, parse_sections,
+)
+
+
+async def _build_pdf_for_building(
+    *,
+    building_id: str,
+    persona: str,
+    sections_raw: Optional[str],
+    families: Optional[int],
+    waste_kg_per_family_per_day: Optional[float],
+    plantation_type: str = "mixed",
+    floors: int = 1,
+) -> tuple[bytes, str, Dict[str, Any]]:
+    """Shared engine: fetches the building + matched data and renders the PDF."""
+    building = await db.buildings.find_one({"building_id": building_id}, {"_id": 0})
+    if not building:
+        raise HTTPException(status_code=404, detail="Building not found")
+
+    persona_key = persona if persona in PDF_PERSONAS else "citizen_owner"
+    p_meta = PDF_PERSONAS[persona_key]
+    sections = parse_sections(sections_raw, p_meta["default_sections"])
+
+    sustenance = calculate_full_sustenance_potential(
+        building=building, plantation_type=plantation_type,
+        floors=floors,
+        families=families if families else None,
+        waste_kg_per_family_per_day=waste_kg_per_family_per_day if waste_kg_per_family_per_day else None,
+    )
+
+    # Subsidy match (best effort — never block the PDF)
+    subsidies: List[Dict[str, Any]] = []
+    if "subsidies" in sections:
+        try:
+            state = (building.get("state") or "").strip()
+            or_clauses: List[Dict[str, Any]] = [{"geo_scope": "central"}]
+            if state:
+                or_clauses.append({"state": state})
+            q = {"is_active": True, "$or": or_clauses}
+            subsidies = await db.subsidies.find(q, {"_id": 0}).limit(8).to_list(8)
+        except Exception as e:
+            logger.warning(f"subsidy match failed for PDF: {e}")
+            subsidies = []
+
+    intel_notes = building.get("intel_notes") or []
+
+    ctx = build_report_context(
+        building=building, sustenance=sustenance, persona=persona_key,
+        sections=sections, subsidies=subsidies, intel_notes=intel_notes,
+    )
+    pdf_bytes = render_report_pdf(ctx)
+    filename = f"sus10-report-{building.get('building_id')}-{persona_key}.pdf"
+    return pdf_bytes, filename, ctx
+
+
+@api_router.get("/buildings/{building_id}/report.pdf")
+async def get_building_report_pdf(
+    building_id: str,
+    persona: str = Query(default="citizen_owner"),
+    sections: Optional[str] = Query(default=None, description="Comma-separated: summary,solar,plantation,biogas,rainwater,subsidies,methodology"),
+    families: Optional[int] = None,
+    waste_kg_per_family_per_day: Optional[float] = None,
+    plantation_type: str = "mixed",
+    floors: int = 1,
+):
+    """Server-side persona-tuned PDF feasibility report (E1.1, B1.2)."""
+    pdf_bytes, filename, _ctx = await _build_pdf_for_building(
+        building_id=building_id, persona=persona, sections_raw=sections,
+        families=families, waste_kg_per_family_per_day=waste_kg_per_family_per_day,
+        plantation_type=plantation_type, floors=floors,
+    )
+    return FastAPIResponse(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=\"{filename}\""},
+    )
+
+
+class ReportEmailRequest(BaseModel):
+    email: EmailStr
+    name: Optional[str] = None
+    persona: str = "citizen_owner"
+    sections: Optional[str] = None
+    families: Optional[int] = None
+    waste_kg_per_family_per_day: Optional[float] = None
+
+
+@api_router.post("/buildings/{building_id}/report-email")
+async def request_report_email(
+    building_id: str, payload: ReportEmailRequest, request: Request,
+):
+    """N12 — "Email me this potential PDF" capture.
+
+    Generates the persona-tuned PDF, stores it in GridFS, records the request
+    in `pdf_email_requests`, and joins the email into beta_waitlist with
+    persona='pdf-request' so we have a warm-lead segment to follow up.
+    Email delivery is deferred to a separate worker / Resend integration; we
+    return a download URL the user can grab immediately.
+    """
+    pdf_bytes, filename, _ctx = await _build_pdf_for_building(
+        building_id=building_id, persona=payload.persona, sections_raw=payload.sections,
+        families=payload.families, waste_kg_per_family_per_day=payload.waste_kg_per_family_per_day,
+    )
+
+    # Store the PDF inline in a Mongo collection (small file < 1 MB; matches
+    # the existing cms_uploads pattern, no GridFS plumbing needed).
+    upload_id = f"pdf_{uuid.uuid4().hex[:16]}"
+    await db.pdf_uploads.insert_one({
+        "upload_id": upload_id,
+        "content_type": "application/pdf",
+        "filename": filename,
+        "size": len(pdf_bytes),
+        "data": pdf_bytes,
+        "building_id": building_id,
+        "persona": payload.persona,
+        "uploaded_at": datetime.now(timezone.utc),
+    })
+    download_url = f"/api/pdf-reports/{upload_id}"
+
+    now = datetime.now(timezone.utc).isoformat()
+    email = payload.email.strip().lower()
+    record = {
+        "request_id": f"pdfreq_{uuid.uuid4().hex[:12]}",
+        "email": email,
+        "name": payload.name,
+        "building_id": building_id,
+        "persona": payload.persona,
+        "sections": payload.sections,
+        "upload_id": upload_id,
+        "filename": filename,
+        "download_url": download_url,
+        "delivered": False,
+        "created_at": now,
+        "ip": request.client.host if request.client else None,
+    }
+    await db.pdf_email_requests.insert_one(record)
+
+    # Best-effort: add to beta_waitlist as a warm lead segment.
+    try:
+        existing = await db.beta_waitlist.find_one({"email": email}, {"_id": 0})
+        if not existing:
+            await db.beta_waitlist.insert_one({
+                "waitlist_id": f"wl_{uuid.uuid4().hex[:12]}",
+                "email": email,
+                "name": payload.name,
+                "persona": "pdf-request",
+                "source": f"pdf:{payload.persona}",
+                "created_at": now,
+                "updated_at": now,
+                "history": [{"persona": "pdf-request", "source": f"pdf:{payload.persona}", "at": now}],
+            })
+    except Exception as e:
+        logger.warning(f"PDF-request waitlist join failed: {e}")
+
+    record.pop("_id", None)
+    return {
+        "saved": True,
+        "request_id": record["request_id"],
+        "download_url": download_url,
+        "filename": filename,
+    }
+
+
+@api_router.get("/pdf-reports/{upload_id}")
+async def get_pdf_report(upload_id: str):
+    """Serve a generated PDF report (public). Links produced by /report-email."""
+    doc = await db.pdf_uploads.find_one({"upload_id": upload_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return FastAPIResponse(
+        content=doc["data"],
+        media_type=doc.get("content_type", "application/pdf"),
+        headers={
+            "Content-Disposition": f"inline; filename=\"{doc.get('filename','report.pdf')}\"",
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
+
+
+@api_router.get("/admin/pdf-email-requests")
+async def admin_list_pdf_email_requests(
+    request: Request,
+    limit: int = Query(default=200, le=1000),
+):
+    """Admin: list all PDF-email requests (warm-lead funnel)."""
+    await require_admin(request)
+    items = await (
+        db.pdf_email_requests.find({}, {"_id": 0})
+        .sort("created_at", -1).limit(limit).to_list(limit)
+    )
+    total = await db.pdf_email_requests.count_documents({})
+    return {"requests": items, "total": total, "limit": limit}
+
+
 @api_router.get("/sustenance/group/{group_id}")
 async def get_group_sustenance(
     group_id: str,
