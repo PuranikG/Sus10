@@ -186,5 +186,21 @@
 - [x] N11 — Admin Audit Log →  **✅ DONE** (`/admin/audit` + audit calls in approve/reject/bulk/intel)
 
 > Phase 0 + P0 IA reorg test reports: iteration_8.json, iteration_9.json, iteration_10.json (all PASS).
+> Phase 1–4 reports: iteration_11–14.json (audit log + sustenance potential + subsidies + persona PDF — all PASS).
+
+---
+
+## 🚀 Phase 5 — Production deploy + test (USER, Feb 19, 2026)
+*User is taking the build to production and testing manually before next dev turn.*
+
+### Backlog — enhancements queued for next dev turn (approved by user)
+- [ ] **E2 — PDF funnel analytics rollup** — `GET /api/admin/pdf-funnel-stats` aggregating `pdf_email_requests` by persona × city × building_type × sections. Chart strip on `/admin` Overview. Surfaces highest-intent persona/geo combos for marketing focus.
+- [ ] **N12b — Wire Resend (or SendGrid) for real email delivery** — Replace the MOCKED "we'll email it shortly" with actual delivery. ~30–60 lines + API key. Mark `delivered:true` + `delivered_at` in `pdf_email_requests`, retry on failure.
+- [ ] **E3 — Verify matched-subsidies block in PDF** — Already in the template; confirm during deploy testing that production users see the right list per state/building type.
+
+### Backlog — Priorities (refreshed)
+- **P1 (next dev turn):** E2 · N12b · B1.6 admin UI for per-building intel notes
+- **P2:** N9 project credits · N3 "Design it for me" AI · N4 BOQ checklist · public-beta guardrails (rate limits + cost ceilings + Cloudflare Turnstile)
+- **P3:** N8 Razorpay · N5 Garden Design import (hold) · AQI forecast · drawing parser · provider dashboard
 
 ---
