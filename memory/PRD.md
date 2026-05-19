@@ -4,26 +4,42 @@
 Sus10 AI is a hyperlocal climate action platform that analyzes buildings for green potential, connects to solution providers, and builds community initiatives.
 
 ## Target Users
-1. **Commercial Building Managers** - IT parks, hospitals, colleges
-2. **Solution Providers** - Landscapers, FMS companies, ESG consultants
-3. **NGOs & Climate Advocates** - Community champions
-4. **Corporate CSR/ESG Teams** - Sustainability officers
+1. **Homeowners (Citizens)** — individuals exploring their rooftop's full integrated potential.
+2. **RWAs / Housing Societies** — coordinating multi-unit greening.
+3. **Solution Providers (Installers)** — verified vendors taking warm leads.
+4. **Corporate / CSR / ESG teams** — BRSR Principle-6 disclosure rollups.
 
-## Core Requirements (Static)
-### 6 Active Modules
-1. ✅ Building Search & Analysis
-2. ✅ Green Potential Report (5-page template)
-3. ✅ Provider Marketplace
-4. ✅ Lead Generation
-5. ✅ Community Initiatives
-6. ✅ Admin Dashboard
+## What's Been Implemented (Feb 19–May 19, 2026)
 
-### 3 Feature-Flagged Modules
-7. 🚧 Blog/Resources Hub (flag: blog)
-8. 🚧 Forum Discussions (flag: forum)
-9. 🚧 Gamification/Leaderboards (flag: gamification)
+### Session May 19, 2026 — Homeowner Calculator-first MVP ✅
+- **Homeowner journey reordered around `/calculate`** — landing → calculator → integrated potential → PDF + vendor consult.
+- **New page `SustenanceCalculatorPage`** with intake form (address, city auto-detects state, building type, roof area, floors, family size, optional bills + name/email).
+- **New backend `POST /api/calculate/quick-potential`** creates a lightweight self-submitted building (`status=self_submitted`, `data_source=homeowner_calculator`, `usable_terrace_area=roof_area×0.8`) and auto-joins email to beta_waitlist as `persona=calculator-homeowner` lead. Returns `{building_id, redirect_to}`.
+- **Narrative hero on `/buildings/:id/potential`** — backend now emits a `narrative` object with markdown headline ("If X activated its full potential, it would offset 17t CO₂… same as taking 4 cars off Bengaluru's roads… while saving ₹1.5L"), chips, cars-equivalent (4.6 t/car), households-water-equivalent (135 L × 4 × 365).
+- **Readability fixes** — silver/white KPI strip + biogas card on Potential page, and Subsidies hero, replaced with dark glass-morphism + high-contrast text.
+- **Matched-subsidies strip on full Building Report** (Option A from quick-wins list) — calls `/api/subsidies/match/{id}`, surfaces 1-4 best matches with Up-to-₹X amounts, links to filtered `/subsidies`.
+- **Admin production-seed buttons** in `/admin` — `POST /api/admin/cms/seed-persona-teasers` (4 landing pages) and `POST /api/admin/subsidies/seed` (~15 entries), idempotent subprocess calls with audit log + 403 for non-admin.
+- **Sticky Discover & Import CTA** on `/admin/discover` (was hidden below the fold).
+- **Navbar** — new highlighted "✨ Calculate" link as primary entry point.
+- **LandingPage hero** — green "Calculate your roof potential" CTA next to address search.
+- **Homeowner persona card** on home now points directly to `/calculate` instead of the survey.
+- **Bugfix:** `subprocess.run(['python', …])` was crashing in container because `/usr/bin/python3.11` lacks pymongo. Switched to `sys.executable`. Also fixed `record_audit(details=…)` → `metadata=…` typo.
+- **Testing:** iteration_15.json — 9/9 backend pytest pass, all frontend flows verified.
 
-## What's Been Implemented (Feb 19, 2026)
+### Accumulated user feedback (FEEDBACK_LOG.md) deferred to next session
+- P1: Polygon vertex clutter on Building Report map — read-only default + Edit-shape toggle + Douglas-Peucker simplification.
+- P1: IA route swap — make `/buildings/:id` redirect to `/buildings/:id/potential` (currently both routes exist side by side).
+- P1: Original Options B (intel badges), C (PDF funnel analytics), D (admin intel notes editor).
+- P1: Resend wiring for actual PDF email delivery (currently MOCKED).
+- P2: Proactive per-building subsidy eligibility engine (✅/⚠️/❌ per pillar) per Item #3c.
+- P2: Monthly policy watchlist cron (~5 starter cities).
+- P2: OpenSolar iframe handoff on Solar pillar detail (referral partner only — drop BOQ ambitions).
+- P2: Vendor one-pager "Integrated Sustenance Roof Offering" PDF template.
+- P3: `backend/server.py` modularization (now 3849 lines).
+
+---
+## Pre-existing implementation (Feb 19–20, 2026)
+
 
 ### Phase 4 — Persona-tuned PDF report + "Email me this PDF" (Feb 19, 2026) ✅
 - **Server-side PDF rendering** via Jinja2 + WeasyPrint (cleaner typography, exact CSS, no client-side jsPDF "abrupt text" issues).

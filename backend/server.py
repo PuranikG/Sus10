@@ -3674,7 +3674,10 @@ async def calculate_quick_potential(payload: QuickCalcRequest, request: Request)
     building_id = f"bld_{uuid.uuid4().hex[:12]}"
     # Estimate usable terrace as 80% of footprint (conservative)
     usable = round(payload.roof_area_sqm * 0.8, 2)
-    families = payload.families or max(1, int((payload.family_size or 4) and 1))  # 1 family for individual home
+    # Determine families count for biogas estimation:
+    # - explicit `families` (e.g. society admin) wins
+    # - otherwise default to 1 (single home). Multi-family buildings should pass `families`.
+    families = payload.families or 1
     if payload.building_type in ("apartment", "housing_society", "residential_complex") and payload.families:
         families = payload.families
     doc = {
