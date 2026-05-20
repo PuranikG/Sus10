@@ -456,7 +456,7 @@ function GeminiAnalysisDialog({ open, onOpenChange, result, buildingName }) {
                 <div className="text-xs font-medium text-violet-900 dark:text-violet-200 mb-1.5">Summary</div>
                 <ul className="text-sm text-violet-900 dark:text-violet-100 space-y-1">
                   {slides[slideIdx].summary_lines.map((line, i) => (
-                    <li key={i} className="leading-snug">• {line}</li>
+                    <li key={`${slideIdx}-${i}-${(line || '').slice(0, 40)}`} className="leading-snug">• {line}</li>
                   ))}
                 </ul>
               </div>

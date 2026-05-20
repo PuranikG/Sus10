@@ -114,7 +114,7 @@ function SubsidyDialog({ open, item, onClose }) {
             <div>
               <div className="font-semibold mb-2">Documents required</div>
               <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-                {item.documents_required.map((d, i) => <li key={i}>{d}</li>)}
+                {item.documents_required.map((d) => <li key={d}>{d}</li>)}
               </ul>
             </div>
           )}

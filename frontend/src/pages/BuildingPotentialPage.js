@@ -198,14 +198,20 @@ export default function BuildingPotentialPage() {
                   <p
                     className="text-xl md:text-2xl leading-snug text-emerald-50 font-medium"
                     data-testid="narrative-headline"
-                    dangerouslySetInnerHTML={{
-                      __html: (data.narrative.headline || '').replace(/\*\*(.*?)\*\*/g, '<span class="text-emerald-300 font-bold">$1</span>')
-                    }}
-                  />
+                  >
+                    {/* Safe markdown-style bold rendering — no innerHTML.
+                        Split on `**…**` and render bold parts via React. */}
+                    {(data.narrative.headline || '').split(/(\*\*[^*]+\*\*)/g).map((part, i) => {
+                      if (part.startsWith('**') && part.endsWith('**')) {
+                        return <span key={i} className="text-emerald-300 font-bold">{part.slice(2, -2)}</span>;
+                      }
+                      return <span key={i}>{part}</span>;
+                    })}
+                  </p>
                   {(data.narrative.chips || []).length > 0 && (
                     <div className="mt-4 flex flex-wrap gap-2" data-testid="narrative-chips">
-                      {data.narrative.chips.map((c, i) => (
-                        <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-900/50 border border-emerald-700/50 px-3 py-1 text-xs text-emerald-100">
+                      {data.narrative.chips.map((c) => (
+                        <span key={`${c.label}-${c.value}`} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-900/50 border border-emerald-700/50 px-3 py-1 text-xs text-emerald-100">
                           <span className="opacity-70">{c.label}</span>
                           <span className="font-semibold">{c.value}</span>
                         </span>

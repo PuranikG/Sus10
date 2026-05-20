@@ -8,7 +8,7 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
-ADMIN_TOKEN = "iter10_fe_session"
+ADMIN_TOKEN = os.getenv("ADMIN_TEST_TOKEN", "iter10_fe_session")
 TEST_BUILDING_ID = "bld_001"
 
 

@@ -22,14 +22,20 @@ function IconByName({ name, className }) {
 
 function injectGAScript(trackingId) {
   if (!trackingId || typeof window === 'undefined') return;
+  // Whitelist: GA4 IDs are `G-XXXXXXXXXX`, UA IDs are `UA-…`, AW are `AW-…`.
+  // Reject anything that isn't strictly alphanumeric/dash to prevent script
+  // injection via attacker-controlled CMS settings.
+  if (!/^[A-Z]{1,3}-[A-Z0-9-]{6,32}$/i.test(trackingId)) return;
   if (document.getElementById(`ga-script-${trackingId}`)) return;
   const s1 = document.createElement('script');
   s1.id = `ga-script-${trackingId}`;
   s1.async = true;
-  s1.src = `https://www.googletagmanager.com/gtag/js?id=${trackingId}`;
+  s1.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(trackingId)}`;
   document.head.appendChild(s1);
   const s2 = document.createElement('script');
-  s2.innerHTML = `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config','${trackingId}');`;
+  // Use textContent (safe) + JSON.stringify (escapes quotes/backslashes) to
+  // bind the trackingId without enabling HTML/JS injection.
+  s2.textContent = `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', ${JSON.stringify(trackingId)});`;
   document.head.appendChild(s2);
 }
 
@@ -137,7 +143,7 @@ export default function CmsPage({ expectedType = null }) {
             <div className="flex flex-wrap gap-2 mb-6">
               {page.badges.map((b, i) => (
                 <span
-                  key={i}
+                  key={`${b.label || ''}-${b.icon || ''}-${i}`}
                   className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-white/15 backdrop-blur border border-white/20"
                 >
                   <IconByName name={b.icon} className="h-3.5 w-3.5" />
@@ -174,7 +180,7 @@ export default function CmsPage({ expectedType = null }) {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {page.benefits.map((b, i) => (
               <motion.div
-                key={i}
+                key={`${b.label || ''}-${i}`}
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -290,7 +296,7 @@ function PageCarousel({ items, accentColor }) {
         <div ref={emblaRef} className="overflow-hidden rounded-xl">
           <div className="flex">
             {items.map((it, i) => (
-              <div key={i} className="flex-[0_0_100%] min-w-0 relative">
+              <div key={`${it.image_url || ''}-${i}`} className="flex-[0_0_100%] min-w-0 relative">
                 <img
                   src={resolveAssetUrl(it.image_url)}
                   alt={it.caption || `Slide ${i + 1}`}
@@ -327,9 +333,9 @@ function PageCarousel({ items, accentColor }) {
               <ChevronRight className="h-5 w-5" />
             </button>
             <div className="flex justify-center gap-2 mt-4">
-              {items.map((_, i) => (
+              {items.map((it, i) => (
                 <button
-                  key={i}
+                  key={`dot-${it.image_url || ''}-${i}`}
                   onClick={() => emblaApi?.scrollTo(i)}
                   className="w-2 h-2 rounded-full transition"
                   style={{

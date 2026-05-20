@@ -12,7 +12,7 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://sus10-preview.preview.emergentagent.com").rstrip("/")
-ADMIN_TOKEN = "iter16_test_session"
+ADMIN_TOKEN = os.getenv("ADMIN_TEST_TOKEN", "iter16_test_session")
 TEST_BUILDING_WITH_INTEL = "bld_27a56274e04a"  # INCUBEX KRM1 (seeded 3 intel notes)
 
 

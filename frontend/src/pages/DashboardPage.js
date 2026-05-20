@@ -130,7 +130,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {loading ? (
                 [...Array(4)].map((_, i) => (
-                  <Card key={i}>
+                  <Card key={`stat-skel-${i}`}>
                     <CardContent className="p-4">
                       <Skeleton className="h-4 w-20 mb-2" />
                       <Skeleton className="h-8 w-16" />
@@ -181,7 +181,7 @@ export default function DashboardPage() {
                 {loading ? (
                   <div className="space-y-4">
                     {[...Array(3)].map((_, i) => (
-                      <div key={i} className="flex items-center gap-4">
+                      <div key={`bldg-skel-${i}`} className="flex items-center gap-4">
                         <Skeleton className="h-12 w-12 rounded-xl" />
                         <div className="flex-1 space-y-2">
                           <Skeleton className="h-4 w-3/4" />
@@ -232,7 +232,7 @@ export default function DashboardPage() {
                 {loading ? (
                   <div className="space-y-4">
                     {[...Array(2)].map((_, i) => (
-                      <Skeleton key={i} className="h-16" />
+                      <Skeleton key={`lead-skel-${i}`} className="h-16" />
                     ))}
                   </div>
                 ) : userLeads.length === 0 ? (
