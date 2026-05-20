@@ -9,7 +9,24 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 3. **Solution Providers (Installers)** — verified vendors taking warm leads.
 4. **Corporate / CSR / ESG teams** — BRSR Principle-6 disclosure rollups.
 
-## What's Been Implemented (Feb 19–May 19, 2026)
+## What's Been Implemented (Feb 19–May 20, 2026)
+
+### Session May 20, 2026 — Options B, C, D + Vendor one-pager PDF ✅
+- **Option B — Intel-notes warning badges on public Building Report**
+  - New public endpoint `GET /api/intel/tags` (10-tag vocabulary, no auth) for badge labels.
+  - Relaxed `GET /api/buildings/{id}/intel` to return notes for any building (was filtered to is_approved=true).
+  - `BuildingReportPage` renders an amber-themed `intel-notes-strip` block with one badge per note. Severity color-codes: high=red, medium=amber, low=slate. Tooltip + truncated body text.
+- **Option C — PDF funnel analytics on Admin Overview**
+  - New admin endpoint `GET /api/admin/pdf-funnel-stats?days=30` returns total_requests, unique_emails, window_total, 30-day timeseries (zero-filled for missing days), by_persona breakdown, top_buildings (hydrated with name).
+  - `AdminOverviewPage` renders `pdf-funnel-card` with recharts Area chart + persona/building leaderboards. Pre-existing recharts dependency reused.
+- **Option D — Per-building Intel Notes editor (admin)**
+  - New `<IntelNotesEditor>` Dialog component at `frontend/src/components/admin/IntelNotesEditor.js` (clean separation from `AdminBuildingsPage`).
+  - Wired into `AdminBuildingsPage` table — each row now has an "Intel" button showing existing-note count, opens dialog with list + add form (tag dropdown from vocab + severity select + textarea). On close, parent table refetches so badge counts stay current.
+  - Backend CRUD endpoints `POST/DELETE /api/admin/buildings/{id}/intel` already existed (no backend changes for D).
+- **P2 — Vendor "Integrated Sustenance Roof Offering" one-pager PDF**
+  - New service `backend/services/vendor_offering_pdf.py` + template `backend/templates/vendor_offering.html` (single-page A4 brochure, accent-customisable, 4-pillar headline, "How it works", "About vendor" card).
+  - New endpoint `POST /api/vendor-offering/pdf` — no auth, vendors self-serve. Accepts brand details + optional `building_id` to size the brochure to a specific building's potential numbers. WeasyPrint renders ~37-41 KB PDF.
+- **Testing:** iteration_16.json — 11/11 backend pytest, 100% frontend Playwright. New test file `backend/tests/test_iteration16_intel_pdf_vendor.py`.
 
 ### Session May 19, 2026 (evening) — Map UI hidden behind feature flag ✅
 - **Strategic intent (verbatim from user):** "The map feature could become a killer feature when the user doesn't have to do anything on it. We will continue to build that on the backend and find ways to scale it. We can build a lot of hyperlocal content for which map-based calculations will help. Example: what if all the residential buildings in XYZ ward were to adopt a green roof? What would the impact be across the area? Map and calculations help. At the moment, we are going to retain the functionality but push it to the backend for data curation. Nothing to be deleted. We just need to hide it from the general user interface till we find a good workflow."
