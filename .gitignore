@@ -112,3 +112,4 @@ credentials.json
 # Local-only dev artifacts that must never be deployed
 memory/test_credentials.md
 frontend/node_modules/.cache/default-development/16.pack
+frontend/node_modules/.cache/default-development/19.pack

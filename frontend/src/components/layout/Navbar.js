@@ -24,6 +24,7 @@ export default function Navbar() {
 
   const navLinks = [
     { href: '/calculate', label: 'Calculate', highlight: true },
+    { href: '/insights', label: 'Insights' },
     { href: '/search', label: 'Buildings' },
     { href: '/providers', label: 'Providers' },
     { href: '/subsidies', label: 'Subsidies' },

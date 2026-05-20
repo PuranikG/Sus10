@@ -10,6 +10,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional, Dict, Any
 import uuid
+import re
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 import sys
@@ -3059,6 +3060,142 @@ async def admin_pdf_funnel_stats(request: Request, days: int = Query(default=30,
         "by_persona": persona_breakdown,
         "top_buildings": top_buildings_raw,
     }
+
+
+# ==================== CITY/STATE AGGREGATE WHAT-IF (P2 May 20, 2026) ====================
+@api_router.get("/insights/city/{city}")
+async def aggregate_city_what_if(city: str, include_self_submitted: bool = False):
+    """Aggregate 'what if every building in this city went green' rollup.
+
+    Sums 4-pillar potential across all approved buildings (optionally including
+    self-submitted from the homeowner calculator) in the named city. Returns
+    totals, building-type breakdown, and a narrative tagline ready for the
+    public Insights page.
+
+    Performance note: works fine for ~500 buildings/city. For bigger cities,
+    cache the result (TTL 1h) in a future iteration.
+    """
+    query: Dict[str, Any] = {"city": {"$regex": f"^{re.escape(city)}$", "$options": "i"}}
+    if not include_self_submitted:
+        query["$or"] = [{"is_approved": True}, {"status": "approved"}]
+
+    buildings_cursor = db.buildings.find(query, {"_id": 0})
+    buildings = await buildings_cursor.to_list(2000)
+
+    if not buildings:
+        return {
+            "city": city,
+            "buildings_count": 0,
+            "narrative": f"No curated buildings for {city} yet — be the first to add yours.",
+            "totals": {},
+            "by_type": [],
+            "top_buildings": [],
+        }
+
+    totals = {
+        "annual_savings_inr": 0,
+        "co2_tonnes_per_year": 0.0,
+        "solar_kwh_per_year": 0,
+        "biogas_m3_per_year": 0,
+        "rainwater_kl_per_year": 0.0,
+        "plants_count": 0,
+        "food_yield_kg_per_year": 0,
+        "total_footprint_sqm": 0,
+        "total_usable_terrace_sqm": 0,
+    }
+    by_type_acc: Dict[str, Dict[str, Any]] = {}
+    per_building_savings: List[Dict[str, Any]] = []
+
+    for b in buildings:
+        try:
+            report = calculate_full_sustenance_potential(building=b)
+        except Exception as e:
+            logger.warning(f"agg calc skipped for {b.get('building_id')}: {e}")
+            continue
+        summary = (report or {}).get("summary") or {}
+        pillars = (report or {}).get("pillars") or {}
+        savings = int(summary.get("total_annual_savings_inr") or 0)
+        co2 = float(summary.get("total_co2_offset_tonnes_per_year") or 0)
+        solar_kwh = int(summary.get("solar_kwh_per_year") or 0)
+        biogas_m3 = int(summary.get("biogas_m3_per_year") or 0)
+        rainwater_kl = float(summary.get("rainwater_kl_per_year") or 0)
+        plants = int((pillars.get("plantation") or {}).get("total_plants_count") or 0)
+        food_kg = int((pillars.get("plantation") or {}).get("annual_food_yield_kg") or 0)
+
+        totals["annual_savings_inr"] += savings
+        totals["co2_tonnes_per_year"] += co2
+        totals["solar_kwh_per_year"] += solar_kwh
+        totals["biogas_m3_per_year"] += biogas_m3
+        totals["rainwater_kl_per_year"] += rainwater_kl
+        totals["plants_count"] += plants
+        totals["food_yield_kg_per_year"] += food_kg
+        totals["total_footprint_sqm"] += int(b.get("building_footprint_area") or 0)
+        totals["total_usable_terrace_sqm"] += int(b.get("usable_terrace_area") or 0)
+
+        btype = b.get("building_type") or "unknown"
+        bucket = by_type_acc.setdefault(btype, {"building_type": btype, "count": 0, "annual_savings_inr": 0, "co2_tonnes_per_year": 0.0})
+        bucket["count"] += 1
+        bucket["annual_savings_inr"] += savings
+        bucket["co2_tonnes_per_year"] += co2
+
+        per_building_savings.append({
+            "building_id": b.get("building_id"),
+            "name": b.get("name") or b.get("address") or b.get("building_id"),
+            "annual_savings_inr": savings,
+            "co2_tonnes_per_year": round(co2, 1),
+        })
+
+    by_type = sorted(by_type_acc.values(), key=lambda x: x["annual_savings_inr"], reverse=True)
+    top_buildings = sorted(per_building_savings, key=lambda x: x["annual_savings_inr"], reverse=True)[:5]
+    cars_offset = int(round(totals["co2_tonnes_per_year"] / 4.6))
+    households_water = int(round((totals["rainwater_kl_per_year"] * 1000) / (135 * 4 * 365)))
+
+    n_buildings = len(buildings)
+    savings_disp = totals["annual_savings_inr"]
+    if savings_disp >= 10_000_000:
+        savings_str = f"₹{savings_disp/10_000_000:.1f} Cr"
+    elif savings_disp >= 100_000:
+        savings_str = f"₹{savings_disp/100_000:.1f} L"
+    else:
+        savings_str = f"₹{savings_disp:,}"
+
+    narrative = (
+        f"If every building we've mapped in **{city}** ({n_buildings} so far) activated its full potential, "
+        f"the city would offset **{int(totals['co2_tonnes_per_year']):,} tonnes of CO₂** every year "
+        f"— the same as taking **{cars_offset:,} cars off the road** — "
+        f"while saving **{savings_str}** for building owners."
+    )
+
+    return {
+        "city": city,
+        "buildings_count": n_buildings,
+        "narrative": narrative,
+        "narrative_chips": [
+            {"label": "Cars offset equivalent", "value": f"~{cars_offset:,}"},
+            {"label": "Households water/yr", "value": f"~{households_water:,}"},
+            {"label": "Plants on rooftops", "value": f"~{totals['plants_count']:,}"},
+        ],
+        "totals": {
+            **totals,
+            "co2_tonnes_per_year": round(totals["co2_tonnes_per_year"], 1),
+            "rainwater_kl_per_year": round(totals["rainwater_kl_per_year"], 1),
+        },
+        "by_type": by_type,
+        "top_buildings": top_buildings,
+    }
+
+
+@api_router.get("/insights/cities")
+async def list_aggregate_cities():
+    """List cities that have at least one approved building (for the Insights nav)."""
+    pipeline = [
+        {"$match": {"$or": [{"is_approved": True}, {"status": "approved"}], "city": {"$exists": True, "$ne": None}}},
+        {"$group": {"_id": "$city", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 50},
+    ]
+    cities = [{"city": doc["_id"], "buildings_count": doc["count"]} async for doc in db.buildings.aggregate(pipeline)]
+    return {"cities": cities}
 
 
 # ==================== VENDOR ONE-PAGER PDF (P2 May 19, 2026) ====================

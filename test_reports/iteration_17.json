@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 17 — Full e2e validation of City What-if Insights (/insights, /insights/:city, GET /api/insights/cities, GET /api/insights/city/{city}) + Vendor Self-Serve Brochure (/for-installers/brochure → POST /api/vendor-offering/pdf). 8/8 backend pytest green. Frontend: /insights auto-redirects to first city, Bengaluru (3 approved buildings) renders narrative with React-rendered bold spans (no innerHTML), 4 PillarCards, totals card (₹50.1L savings, 560 t/yr CO₂, 3,083 sqm terrace), by-type and top-buildings (Incubex Manyata, KRM1, HSROHQ). Brochure form generates a 35KB %PDF download in ~1s; sidebar 'What you'll get' card readable in BOTH light (bg-emerald-50) and dark (bg-emerald-950/20) mode. Navbar 'Insights' link present (data-testid=nav-insights). No regression on /buildings/:id (matched-subsidies-strip OK), /buildings/:id/potential (narrative-hero, no raw ** markers leaked), or /calculate. Zero non-auth console errors. Demo-ready.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration17_insights_brochure.py",
+    "/app/test_reports/pytest/iteration_17.xml"
+  ],
+  "action_items": [
+    "(Optional, demo polish) /calculate page <title> is the generic 'Emergent | Fullstack App' — per-route document.title would improve SEO/sharing. Same for /insights/:city and /for-installers/brochure.",
+    "(Optional, security) /api/vendor-offering/pdf is still unauthenticated and CPU-bound via WeasyPrint (~150-300ms per render). Same advisory carried over from iter16 — add rate-limit (slowapi) before any public launch / paid promo since a bot could easily hammer this endpoint.",
+    "(Optional, scale) GET /api/insights/city/{city} re-runs calculate_full_sustenance_potential for every building on every hit (no cache). Fine at current N=3, but add TTL cache (1h) before going viral. The docstring already calls this out.",
+    "(Optional) server.py is now ~4160 lines — continue extracting routes into routers/ modules; same advisory from iter15/16."
+  ],
+  "critical_code_review_comments": [
+    "GET /api/insights/city/{city} (server.py:3066) — clean: case-insensitive regex match with re.escape, graceful empty-buildings path, optional include_self_submitted flag, handles calculator errors with try/except logger.warning skip. Narrative uses ₹ Cr/L formatting nicely. _id correctly excluded via projection {'_id': 0}.",
+    "GET /api/insights/cities (server.py:3188) — uses Mongo aggregate pipeline with $match on is_approved OR status=='approved' (matches the city endpoint's default filter), limit 50, sorted by count desc. Clean and indexable.",
+    "CityInsightsPage.js renderBold() (line 12) is a safe React-only renderer using string.split with regex; no dangerouslySetInnerHTML — matches the iter17 XSS-hardening requirement. Verified via DOM inspection: 'Bengaluru' rendered as <span class='text-emerald-300 font-bold'>Bengaluru</span>, no raw ** markers in HTML.",
+    "VendorBrochurePage right sidebar uses bg-emerald-50 dark:bg-emerald-950/20 + text-emerald-600 dark:text-emerald-400 — verified readable in BOTH theme modes via screenshots. The recent fix is solid.",
+    "VendorBrochurePage.handleSubmit (line 32) does proper blob → object URL → click → revokeObjectURL flow, with form validation (brand_name required) and toast feedback for success/error. No memory leak.",
+    "Navbar link (Navbar.js:27) auto-derives data-testid as `nav-${label.toLowerCase()}` — i.e. nav-insights. Verified in DOM."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration17_insights_brochure.py (NEW — 8 tests, all green)"
+  ],
+  "success_rate": {
+    "backend": "100% (8/8 — cities list, city aggregate shape, case-insensitive lowercase/uppercase, unknown-city no-500, include_self_submitted, vendor PDF minimal + full payload)",
+    "frontend": "100% (insights auto-redirect, city-switcher, all 7 city-page testids, 4 pillar cards, React bold rendering, brochure form 12 testids, PDF download intercept 200/%PDF/35KB, dark+light mode sidebar visual, nav-insights, /buildings/:id matched-subsidies-strip, narrative-hero React-only, /calculate form)"
+  },
+  "test_credentials": "iter16_test_session bound to gp@sus10.ai still valid until 2026-05-21. All new endpoints in this iteration are PUBLIC (no auth) — tested unauthenticated.",
+  "seed_data_creation": "None new — relied on pre-seeded 3 Bengaluru buildings (Incubex Manyata Tech Park, INCUBEX KRM1, Incubex HSROHQ). Generated test PDFs prefixed 'TEST_GreenScape' are not persisted in any DB (vendor-offering/pdf is stateless).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter17 added 2 new public surfaces: (1) GET /api/insights/cities + GET /api/insights/city/{city}?include_self_submitted=bool — fully public, returns 200 even for unknown city with buildings_count=0. Frontend at /insights and /insights/:city, city-switcher uses shadcn Select. (2) POST /api/vendor-offering/pdf already existed (iter16) — new frontend at /for-installers/brochure consumes it. Brochure side cards use bg-emerald-50 dark:bg-emerald-950/20 — don't regress this dual-theme styling. CityInsightsPage uses a custom renderBold() React-only renderer for **bold** markers — DO NOT swap to dangerouslySetInnerHTML even if it looks easier. Backend session token iter16_test_session valid in db.user_sessions till 2026-05-21.",
+  "rca_of_the_issue": null
+}

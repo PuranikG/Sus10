@@ -28,6 +28,8 @@ import AdminBuildingDiscoveryPage from './pages/AdminBuildingDiscoveryPage';
 import BuildingPotentialPage from './pages/BuildingPotentialPage';
 import SubsidiesPage from './pages/SubsidiesPage';
 import SustenanceCalculatorPage from './pages/SustenanceCalculatorPage';
+import CityInsightsPage from './pages/CityInsightsPage';
+import VendorBrochurePage from './pages/VendorBrochurePage';
 import LeadFormPage from './pages/LeadFormPage';
 import BlogPage from './pages/BlogPage';
 import BlogPostPage from './pages/BlogPostPage';
@@ -221,6 +223,9 @@ function AppRouter() {
       />
       <Route path="/subsidies" element={<SubsidiesPage />} />
       <Route path="/calculate" element={<SustenanceCalculatorPage />} />
+      <Route path="/insights" element={<CityInsightsPage />} />
+      <Route path="/insights/:city" element={<CityInsightsPage />} />
+      <Route path="/for-installers/brochure" element={<VendorBrochurePage />} />
       <Route
         path="/admin/subsidies"
         element={
