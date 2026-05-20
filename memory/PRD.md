@@ -9,6 +9,10 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 3. **Solution Providers (Installers)** — verified vendors taking warm leads.
 4. **Corporate / CSR / ESG teams** — BRSR Principle-6 disclosure rollups.
 
+## Active Deployment Context (May 20, 2026)
+
+User is seeding 3-4 projects across **Delhi NCR · Bangalore · Pune · Mumbai · Ahmedabad** and going live for demo conversations. Seeding strategy + city-level demo gotchas documented in `/app/memory/ROADMAP.md`.
+
 ## What's Been Implemented (Feb 19–May 20, 2026)
 
 ### Session May 20, 2026 (deploy-ready) — Home page UI/UX update per brief ✅
