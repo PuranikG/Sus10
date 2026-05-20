@@ -46,7 +46,11 @@ export default function ProvidersPage() {
     fetchProviders();
   }, [cityFilter, typeFilter]);
 
-  const cities = ['Delhi', 'Mumbai', 'Pune', 'Gurugram', 'Noida', 'Bangalore'];
+  const cities = [
+    'Ahmedabad', 'Bengaluru', 'Chennai', 'Coimbatore', 'Delhi', 'Faridabad',
+    'Ghaziabad', 'Gurugram', 'Hyderabad', 'Jaipur', 'Kolkata', 'Mumbai',
+    'Navi Mumbai', 'Noida', 'Pune', 'Surat', 'Thane',
+  ];
   const providerTypes = [
     { value: 'landscaper', label: 'Landscaper' },
     { value: 'fms', label: 'Facility Management' },

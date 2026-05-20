@@ -173,7 +173,15 @@ export default function BuildingSearchPage() {
     }
   };
 
-  const cities = ['Delhi', 'Mumbai', 'Pune', 'Gurugram', 'Noida', 'Faridabad', 'Ghaziabad', 'Navi Mumbai', 'Amravati'];
+  // Keep in sync with backend CITY_BOUNDS in /app/backend/building_discovery.py
+  const cities = [
+    'Ahmedabad', 'Amravati', 'Bengaluru', 'Bhopal', 'Chandigarh', 'Chennai',
+    'Coimbatore', 'Dehradun', 'Delhi', 'Faridabad', 'Ghaziabad', 'Goa',
+    'Gurugram', 'Hyderabad', 'Indore', 'Jaipur', 'Kanpur', 'Kochi',
+    'Kolkata', 'Lucknow', 'Mangaluru', 'Mumbai', 'Mysuru', 'Nagpur',
+    'Navi Mumbai', 'Noida', 'Patna', 'Pune', 'Surat', 'Thane',
+    'Thiruvananthapuram', 'Vadodara', 'Visakhapatnam',
+  ];
   const buildingTypes = [
     { value: 'it_park', label: 'IT Park' },
     { value: 'hospital', label: 'Hospital' },
