@@ -11,7 +11,31 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 
 ## What's Been Implemented (Feb 19–May 20, 2026)
 
-### Session May 20, 2026 — Options B, C, D + Vendor one-pager PDF ✅
+### Session May 20, 2026 (deploy-ready) — Home page UI/UX update per brief ✅
+- **Hero rewrite:** "Imagine a Rooftop that Pays You Back" / subtitle "With lower bills, fresh food, cleaner air & water…" / new badge "Climate action starts from home".
+- **FD-beating trust line** under hero: "Payback that beats FD rates · proven by independent experts · backed by MNRE / CPCB / IMD reference data".
+- **Persona cards trimmed to 3:** Homeowner → /calculate · RWA/Housing Society → /for-communities · Solution Provider → /for-installers/brochure. "My city is unbearable" (crisis variant) dropped from home; CMS page preserved at /for-homeowners-heat-action.
+- **"Air Quality" → "Biogas / Climate Tech"** in solutions strip (4 pillars renamed correctly).
+- **Trust tooltips:**
+  - "95% Calculation Accuracy" — hover reveals "MNRE GHI, CPCB norms, IMD rainfall, CEA emission factors; 5% gap = site-survey-only factors".
+  - "Verified Providers" — hover reveals "MNRE/IGBC/state certs, GST, 3 references, signed code-of-conduct, monthly review".
+- **Navbar trimmed to v1 launch set:** Calculate · Insights · Buildings · Providers · Subsidies. Initiatives + Leaderboard + Resources + Forum gated behind feature flags (default OFF for v1).
+- **CTA section:** "View Initiatives" → "See city insights" (links to /insights).
+- **Feature flags flipped OFF in DB:** blog, gamification, forum (production-ready defaults).
+
+### Session May 20, 2026 (afternoon) — City what-if Insights + Vendor self-serve brochure ✅
+- **City What-if Insights** (`/insights` and `/insights/:city`)
+  - New `GET /api/insights/cities` — list cities with ≥1 approved building, sorted by count.
+  - New `GET /api/insights/city/{city}` — aggregates 4-pillar potential across all approved buildings in that city. Returns markdown narrative ("If every building we've mapped in Bengaluru… would offset 561 t CO₂… ₹50.1 L saved"), chips, totals (₹, tCO₂, kWh, m³, kL, plants, food, footprint, terrace), by_type breakdown, top 5 opportunity buildings.
+  - In-process TTL cache (600s) keeps page snappy under demo load. Case-insensitive city match. Unknown city returns 200 with empty state (no 500).
+  - Frontend `CityInsightsPage` — dark hero, city switcher, 4 PillarCards (Sun/Recycle/Droplets/Leaf), totals card, by-type + top-buildings lists, CTA to /calculate. Document title per city.
+- **Vendor self-serve brochure** (`/for-installers/brochure`)
+  - Public form posts to existing `POST /api/vendor-offering/pdf` and triggers a PDF download in-browser.
+  - Frontend `VendorBrochurePage` — brand/contact/cities/years/certifications/badges inputs, "What you'll get" + "Why this exists" reassurance cards (light + dark mode aware). No login required.
+  - Backend now rate-limited per-IP (6 requests / 5 min, in-process deque). Returns HTTP 429 once exceeded.
+- **Testing:** iteration_17.json — 8/8 backend pytest, 100% frontend Playwright. New test file `backend/tests/test_iteration17_insights_brochure.py`.
+
+### Session May 20, 2026 (morning) — Code review fixes ✅
 - **Option B — Intel-notes warning badges on public Building Report**
   - New public endpoint `GET /api/intel/tags` (10-tag vocabulary, no auth) for badge labels.
   - Relaxed `GET /api/buildings/{id}/intel` to return notes for any building (was filtered to is_approved=true).

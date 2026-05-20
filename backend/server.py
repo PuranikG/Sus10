@@ -3063,6 +3063,13 @@ async def admin_pdf_funnel_stats(request: Request, days: int = Query(default=30,
 
 
 # ==================== CITY/STATE AGGREGATE WHAT-IF (P2 May 20, 2026) ====================
+# In-process TTL cache for city aggregates. Each call hits N MongoDB reads +
+# N sustenance calculations — fine for live edits, expensive under demo load.
+# Cache key: (city_lower, include_self_submitted). TTL 600s.
+_CITY_AGG_CACHE: Dict[tuple, Dict[str, Any]] = {}
+_CITY_AGG_TTL_SEC = 600
+
+
 @api_router.get("/insights/city/{city}")
 async def aggregate_city_what_if(city: str, include_self_submitted: bool = False):
     """Aggregate 'what if every building in this city went green' rollup.
@@ -3071,10 +3078,14 @@ async def aggregate_city_what_if(city: str, include_self_submitted: bool = False
     self-submitted from the homeowner calculator) in the named city. Returns
     totals, building-type breakdown, and a narrative tagline ready for the
     public Insights page.
-
-    Performance note: works fine for ~500 buildings/city. For bigger cities,
-    cache the result (TTL 1h) in a future iteration.
     """
+    cache_key = (city.lower(), bool(include_self_submitted))
+    now_ts = datetime.now(timezone.utc).timestamp()
+    cached = _CITY_AGG_CACHE.get(cache_key)
+    if cached and now_ts - cached["_cached_at"] < _CITY_AGG_TTL_SEC:
+        payload = {k: v for k, v in cached.items() if k != "_cached_at"}
+        return payload
+
     query: Dict[str, Any] = {"city": {"$regex": f"^{re.escape(city)}$", "$options": "i"}}
     if not include_self_submitted:
         query["$or"] = [{"is_approved": True}, {"status": "approved"}]
@@ -3166,7 +3177,7 @@ async def aggregate_city_what_if(city: str, include_self_submitted: bool = False
         f"while saving **{savings_str}** for building owners."
     )
 
-    return {
+    result = {
         "city": city,
         "buildings_count": n_buildings,
         "narrative": narrative,
@@ -3183,6 +3194,8 @@ async def aggregate_city_what_if(city: str, include_self_submitted: bool = False
         "by_type": by_type,
         "top_buildings": top_buildings,
     }
+    _CITY_AGG_CACHE[cache_key] = {**result, "_cached_at": now_ts}
+    return result
 
 
 @api_router.get("/insights/cities")
@@ -3219,14 +3232,34 @@ class VendorOfferingRequest(BaseModel):
     building_id: Optional[str] = None  # if set, sizes the brochure to a specific building
 
 
+# Simple in-process rate-limit cache for unauthenticated PDF generation.
+# IP -> deque[timestamp]. 6 requests / 5 minutes. Resets on process restart
+# (acceptable; for a tighter SLA move to Redis later).
+from collections import deque
+_VENDOR_PDF_RATE: Dict[str, deque] = {}
+_VENDOR_PDF_WINDOW_SEC = 300
+_VENDOR_PDF_MAX = 6
+
+
 @api_router.post("/vendor-offering/pdf")
-async def generate_vendor_offering_pdf(payload: VendorOfferingRequest):
+async def generate_vendor_offering_pdf(payload: VendorOfferingRequest, request: Request):
     """Generate a 1-page co-brandable 'Integrated Sustenance Roof Offering' PDF.
 
     No auth — installers can mint their own brochure with their brand details.
-    If a `building_id` is provided, the brochure is sized to that building's
-    4-pillar potential. Otherwise a generic version is rendered.
+    Rate-limited per IP (6/5min) since rendering is CPU-bound (~150-300ms).
     """
+    ip = request.client.host if request.client else "unknown"
+    now_ts = datetime.now(timezone.utc).timestamp()
+    bucket = _VENDOR_PDF_RATE.setdefault(ip, deque())
+    while bucket and now_ts - bucket[0] > _VENDOR_PDF_WINDOW_SEC:
+        bucket.popleft()
+    if len(bucket) >= _VENDOR_PDF_MAX:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many brochure requests. Limit {_VENDOR_PDF_MAX}/{_VENDOR_PDF_WINDOW_SEC//60}min. Try again shortly.",
+        )
+    bucket.append(now_ts)
+
     vendor = payload.model_dump()
     building = None
     sustenance = None

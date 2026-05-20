@@ -4,12 +4,13 @@ import { motion } from 'framer-motion';
 import { 
   Leaf, Sun, Droplets, Search, ArrowRight, Building2, 
   Users, TrendingUp, MapPin, ChevronRight, Sparkles,
-  TreePine, Wind, BarChart3, Shield
+  TreePine, Recycle, BarChart3, Shield, Info, TrendingDown,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest, formatNumber } from '../lib/utils';
 import Navbar from '../components/layout/Navbar';
@@ -71,8 +72,8 @@ export default function LandingPage() {
     },
     {
       icon: TreePine,
-      title: 'Community Initiatives',
-      description: 'Rally support for local green projects. Become a champion for change.'
+      title: 'Subsidies & Financing',
+      description: 'Discover central + state subsidies, CFAs, loans and net-metering for your building.'
     }
   ];
 
@@ -80,7 +81,7 @@ export default function LandingPage() {
     { icon: Leaf, name: 'Terrace Greening', color: 'text-green-500', bg: 'bg-green-500/10' },
     { icon: Sun, name: 'Rooftop Solar', color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
     { icon: Droplets, name: 'Rainwater Harvesting', color: 'text-blue-500', bg: 'bg-blue-500/10' },
-    { icon: Wind, name: 'Air Quality', color: 'text-cyan-500', bg: 'bg-cyan-500/10' }
+    { icon: Recycle, name: 'Biogas / Climate Tech', color: 'text-emerald-500', bg: 'bg-emerald-500/10' }
   ];
 
   return (
@@ -109,7 +110,7 @@ export default function LandingPage() {
               <motion.div variants={fadeInUp}>
                 <Badge variant="secondary" className="mb-4 px-4 py-2 text-sm">
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Hyperlocal Climate Action Platform
+                  Climate action starts from home
                 </Badge>
               </motion.div>
               
@@ -117,19 +118,27 @@ export default function LandingPage() {
                 variants={fadeInUp}
                 className="text-5xl md:text-7xl font-heading font-bold tracking-tight leading-none"
               >
-                Transform Your{' '}
-                <span className="text-gradient">Rooftop</span>{' '}
-                Into Climate Action
+                Imagine a Rooftop that{' '}
+                <span className="text-gradient">Pays You Back</span>
               </motion.h1>
               
               <motion.p 
                 variants={fadeInUp}
                 className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-xl"
               >
-                Discover your building's green potential. Get AI-powered recommendations 
-                for terrace gardens, solar panels, and water harvesting. Connect with 
-                verified providers and join community initiatives.
+                With lower bills, fresh food, cleaner air & water, and a thriving lifestyle.
+                Discover your building's integrated 4-pillar potential — solar, biogas,
+                rainwater, and green roofing — in 60 seconds.
               </motion.p>
+
+              {/* FD-beating payback trust line */}
+              <motion.div variants={fadeInUp} className="flex items-center gap-2 max-w-lg text-sm">
+                <TrendingDown className="h-4 w-4 text-emerald-500 shrink-0" />
+                <span className="text-foreground/80">
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">Payback that beats FD rates</span>
+                  <span className="text-muted-foreground"> · proven by independent experts · backed by MNRE / CPCB / IMD reference data</span>
+                </span>
+              </motion.div>
               
               {/* Search Form */}
               <motion.form 
@@ -263,27 +272,19 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
             {[
               {
                 slug: 'for-homeowners',
-                title: "I'm a homeowner",
+                title: "I'm a Homeowner",
                 blurb: "Turn your rooftop into power, food, water and a cooler home.",
                 accent: '#1a3d2b',
                 eyebrow: 'Citizens',
                 testid: 'persona-card-homeowner',
               },
               {
-                slug: 'for-homeowners-heat-action',
-                title: 'My city is unbearable',
-                blurb: 'Heat, floods, AQI — how your rooftop can fight back today.',
-                accent: '#7c2d12',
-                eyebrow: 'Climate-affected',
-                testid: 'persona-card-crisis',
-              },
-              {
                 slug: 'for-communities',
-                title: "I'm on an RWA",
+                title: "I'm RWA / Housing Society",
                 blurb: 'Coordinate solar, water, gardens and biogas across your colony.',
                 accent: '#0f3a3a',
                 eyebrow: 'RWAs & Societies',
@@ -291,16 +292,25 @@ export default function LandingPage() {
               },
               {
                 slug: 'for-installers',
-                title: "I'm an installer",
-                blurb: 'Leads, verified profile, proposal tools, subsidy navigation.',
+                title: "I'm a Solution Provider",
+                blurb: 'Leads, verified profile, integrated-roof brochure, subsidy navigation.',
                 accent: '#1e3a8a',
-                eyebrow: 'Vendors',
+                eyebrow: 'Vendors & Installers',
                 testid: 'persona-card-vendor',
               },
             ].map((p) => {
               const isHomeownerAspirational = p.slug === 'for-homeowners';
-              const href = isHomeownerAspirational ? '/calculate' : `/${p.slug}`;
-              const ctaText = isHomeownerAspirational ? 'Calculate my potential' : 'Read & take the survey';
+              const isInstaller = p.slug === 'for-installers';
+              const href = isHomeownerAspirational
+                ? '/calculate'
+                : isInstaller
+                ? '/for-installers/brochure'
+                : `/${p.slug}`;
+              const ctaText = isHomeownerAspirational
+                ? 'Calculate my potential'
+                : isInstaller
+                ? 'Get my free brochure'
+                : 'Read & take the survey';
               return (
               <Link
                 key={p.slug}
@@ -441,17 +451,51 @@ export default function LandingPage() {
                       className="w-full h-48 object-cover"
                     />
                   </Card>
-                  <Card className="p-6 bg-primary text-primary-foreground">
-                    <div className="text-4xl font-heading font-bold mb-2">95%</div>
-                    <div className="text-sm opacity-90">Calculation Accuracy</div>
-                  </Card>
+                  <TooltipProvider delayDuration={120}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Card className="p-6 bg-primary text-primary-foreground cursor-help" data-testid="trust-accuracy-card">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="text-4xl font-heading font-bold mb-2">95%</div>
+                              <div className="text-sm opacity-90 flex items-center gap-1">
+                                Calculation Accuracy
+                                <Info className="h-3.5 w-3.5 opacity-70" />
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-xs leading-relaxed">
+                        <strong>How we get to 95%:</strong> Estimates use MNRE GHI atlas (solar irradiance),
+                        CPCB organic-waste norms (biogas), IMD rainfall data (RWH), and CEA grid emission
+                        factors. Each pillar's formula is published and explainable on the building report.
+                        The remaining ~5% comes from site-specific factors only a survey can capture
+                        (shading, slab strength, plumbing geometry).
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
                 <div className="space-y-4 pt-8">
-                  <Card className="p-6 bg-card border-primary/20">
-                    <Shield className="h-8 w-8 text-primary mb-3" />
-                    <div className="font-heading font-medium mb-1">Verified Providers</div>
-                    <div className="text-sm text-muted-foreground">All partners are certified and reviewed</div>
-                  </Card>
+                  <TooltipProvider delayDuration={120}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Card className="p-6 bg-card border-primary/20 cursor-help" data-testid="trust-verified-card">
+                          <Shield className="h-8 w-8 text-primary mb-3" />
+                          <div className="font-heading font-medium mb-1 flex items-center gap-1">
+                            Verified Providers <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                          </div>
+                          <div className="text-sm text-muted-foreground">All partners are certified and reviewed</div>
+                        </Card>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-xs leading-relaxed">
+                        <strong>Our verification:</strong> Each provider in our directory submits proof of
+                        MNRE / IGBC / state certifications, GST registration, 3 reference projects, and a
+                        signed code-of-conduct. Sus10 reviews submissions monthly and audits leads quarterly.
+                        Provider profiles show their verification badges + last-reviewed date.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <Card className="glass-card overflow-hidden">
                     <img
                       src="https://images.unsplash.com/photo-1768224123432-729e0a6fed58?crop=entropy&cs=srgb&fm=jpg&q=85&w=400"
@@ -505,9 +549,9 @@ export default function LandingPage() {
                   <ChevronRight className="ml-2 h-5 w-5" />
                 </Button>
               )}
-              <Link to="/initiatives">
-                <Button size="lg" variant="outline" className="rounded-full text-lg px-8 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10" data-testid="view-initiatives-btn">
-                  View Initiatives
+              <Link to="/insights">
+                <Button size="lg" variant="outline" className="rounded-full text-lg px-8 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10" data-testid="view-insights-btn">
+                  See city insights
                 </Button>
               </Link>
             </div>

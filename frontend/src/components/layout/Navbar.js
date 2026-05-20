@@ -28,12 +28,16 @@ export default function Navbar() {
     { href: '/search', label: 'Buildings' },
     { href: '/providers', label: 'Providers' },
     { href: '/subsidies', label: 'Subsidies' },
-    { href: '/initiatives', label: 'Initiatives' },
   ];
 
   // Add conditional links based on feature flags
   if (isEnabled('blog')) {
     navLinks.push({ href: '/resources', label: 'Resources' });
+  }
+  // Initiatives & Leaderboard hidden from public navbar for v1 launch (per UI/UX brief May 20, 2026).
+  // Pages still exist at /initiatives and /leaderboard — gate via feature flag if needed.
+  if (isEnabled('initiatives_nav')) {
+    navLinks.push({ href: '/initiatives', label: 'Initiatives' });
   }
   if (isEnabled('gamification')) {
     navLinks.push({ href: '/leaderboard', label: 'Leaderboard' });

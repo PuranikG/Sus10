@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calculator, Home, Zap, Flame, Users, Building2, ArrowRight, Loader2, Sparkles } from 'lucide-react';
@@ -35,6 +35,7 @@ const BUILDING_TYPES = [
 
 export default function SustenanceCalculatorPage() {
   const navigate = useNavigate();
+  useEffect(() => { document.title = 'Calculate your roof potential · Sus10 AI'; }, []);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     name: '',

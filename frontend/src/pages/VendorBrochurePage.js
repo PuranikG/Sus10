@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FileText, Download, Loader2, Sparkles, Wrench, Building2 } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 export default function VendorBrochurePage() {
+  useEffect(() => { document.title = 'Free integrated-roof brochure for installers · Sus10 AI'; }, []);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     brand_name: '',

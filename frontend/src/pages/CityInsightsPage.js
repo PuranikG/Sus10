@@ -26,6 +26,10 @@ export default function CityInsightsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    document.title = city ? `What if every building in ${city} went green? · Sus10 AI` : 'City insights · Sus10 AI';
+  }, [city]);
+
+  useEffect(() => {
     apiRequest('/insights/cities').then((r) => setCities(r?.cities || [])).catch(() => {});
   }, []);
 
