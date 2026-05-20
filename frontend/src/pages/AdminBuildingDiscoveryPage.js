@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Building2, MapPin, Filter, Check,
-  Loader2, ArrowLeft, X, ChevronsUpDown,
+  Loader2, ArrowLeft, X, ChevronsUpDown, Sparkles,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
@@ -235,6 +235,59 @@ export default function AdminBuildingDiscoveryPage() {
     );
   };
 
+  // One-click "Seed this city" — fires a background job (Overpass can take
+  // 2-5 min, well past the 60s gateway). Poll job status, update UI live.
+  const [seedingCity, setSeedingCity] = useState(false);
+  const [lastSeed, setLastSeed] = useState(null);
+  const seedCity = useCallback(async () => {
+    if (!selectedCity) {
+      toast.error('Pick a city first');
+      return;
+    }
+    setSeedingCity(true);
+    setLastSeed(null);
+    try {
+      const res = await apiRequest('/admin/buildings/seed-city', {
+        method: 'POST',
+        body: JSON.stringify({
+          city: selectedCity,
+          building_types: selectedTypes.length > 0 ? selectedTypes : null,
+          min_area: minArea,
+          limit_per_type: 20,
+          strict_type: strictType,
+          auto_approve: true,
+        }),
+      });
+      if (!res?.job_id) {
+        throw new Error('Seed job did not start');
+      }
+      toast.info(`Seeding ${selectedCity} in background. Tracking progress…`);
+      // Poll up to 10 min, every 5s.
+      const jobId = res.job_id;
+      const start = Date.now();
+      while (Date.now() - start < 600_000) {
+        await new Promise(r => setTimeout(r, 5000));
+        try {
+          const job = await apiRequest(`/admin/seed-jobs/${jobId}`);
+          setLastSeed(job);
+          if (job.status === 'complete') {
+            toast.success(
+              `${selectedCity} done: ${job.totals?.imported || 0} imported · ${job.auto_approved} approved. /insights/${selectedCity} ready.`,
+              { duration: 8000 },
+            );
+            break;
+          }
+        } catch (pollErr) {
+          // Keep polling — transient errors shouldn't abort.
+        }
+      }
+    } catch (e) {
+      toast.error(e.message || 'Seed failed. Try Discover & Import below instead.');
+    } finally {
+      setSeedingCity(false);
+    }
+  }, [selectedCity, selectedTypes, minArea, strictType]);
+
   if (user?.user_type !== 'admin') {
     return (
       <AdminShell title="Discover Buildings"><div /></AdminShell>
@@ -246,6 +299,53 @@ export default function AdminBuildingDiscoveryPage() {
       title="Discover Buildings"
       subtitle="Pull buildings from OpenStreetMap + Google Places, then approve them."
     >
+
+        {/* ONE-CLICK CITY SEED — demo-prep shortcut */}
+        <Card className="mb-6 border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-950/30">
+          <CardContent className="p-5">
+            <div className="flex flex-wrap items-start gap-4 justify-between">
+              <div className="flex-1 min-w-[280px]">
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-sm font-semibold">One-click seed for {selectedCity || 'a city'}</span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">
+                  Picks the city below, discovers buildings across <strong>commercial · hospital · college · residential</strong>
+                  (or the types you've ticked), <strong>auto-approves</strong> them, and clears the Insights cache.
+                  Goes straight to <code className="text-[10px] bg-muted px-1 rounded">/insights/{selectedCity || '{city}'}</code> ready.
+                  Use this for demo seeding — no second screen needed.
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <Button
+                  onClick={seedCity}
+                  disabled={seedingCity || !selectedCity}
+                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold"
+                  data-testid="seed-city-btn"
+                >
+                  {seedingCity ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Seeding {selectedCity}…</>
+                  ) : (
+                    <><Sparkles className="h-4 w-4 mr-2" /> Seed {selectedCity || 'this city'}</>
+                  )}
+                </Button>
+                {lastSeed && (
+                  <Link to={lastSeed.insights_url} className="text-xs text-emerald-700 dark:text-emerald-300 underline" data-testid="seed-insights-link">
+                    Open /insights/{lastSeed.city} →
+                  </Link>
+                )}
+              </div>
+            </div>
+            {lastSeed && (
+              <div className="mt-3 text-xs grid grid-cols-2 sm:grid-cols-4 gap-2" data-testid="seed-result">
+                <Stat label="Discovered" value={lastSeed.totals?.discovered ?? 0} />
+                <Stat label="Imported" value={lastSeed.totals?.imported ?? 0} />
+                <Stat label="Auto-approved" value={lastSeed.auto_approved ?? 0} highlight />
+                <Stat label="Type skipped" value={lastSeed.totals?.skipped_type_mismatch ?? 0} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Filters Panel */}
@@ -479,5 +579,14 @@ export default function AdminBuildingDiscoveryPage() {
           </Card>
         </div>
     </AdminShell>
+  );
+}
+
+function Stat({ label, value, highlight }) {
+  return (
+    <div className={`rounded-md border px-2.5 py-1.5 ${highlight ? 'border-emerald-500/40 bg-emerald-100/60 dark:bg-emerald-900/30' : 'bg-card'}`}>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className={`text-base font-semibold ${highlight ? 'text-emerald-700 dark:text-emerald-300' : ''}`}>{value}</div>
+    </div>
   );
 }

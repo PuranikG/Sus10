@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional, Dict, Any
 import uuid
 import re
+import asyncio
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 import sys
@@ -3062,12 +3063,142 @@ async def admin_pdf_funnel_stats(request: Request, days: int = Query(default=30,
     }
 
 
-# ==================== CITY/STATE AGGREGATE WHAT-IF (P2 May 20, 2026) ====================
-# In-process TTL cache for city aggregates. Each call hits N MongoDB reads +
-# N sustenance calculations — fine for live edits, expensive under demo load.
-# Cache key: (city_lower, include_self_submitted). TTL 600s.
+# ==================== ONE-CLICK CITY SEED (May 20, 2026) ====================
+# Demo-grade convenience endpoint: discover + auto-approve in a single call.
+# In-process insights cache invalidated as part of seeding.
 _CITY_AGG_CACHE: Dict[tuple, Dict[str, Any]] = {}
 _CITY_AGG_TTL_SEC = 600
+
+
+class CitySeedRequest(BaseModel):
+    city: str
+    building_types: Optional[List[str]] = None  # if None, run a small "default mix"
+    min_area: int = 1000
+    limit_per_type: int = 20
+    strict_type: bool = False
+    auto_approve: bool = True
+
+
+DEFAULT_SEED_MIX = ["commercial", "hospital", "college", "residential"]
+
+
+@api_router.post("/admin/buildings/seed-city")
+async def admin_seed_city(payload: CitySeedRequest, request: Request):
+    """One-click background seed: discovers buildings across multiple types
+    in a city, auto-approves them, invalidates insights cache.
+
+    Returns immediately with `job_id`. The actual seeding runs in the
+    background since Overpass + Google Places enrichment can take 2-5 min
+    (far past the 60s gateway timeout). Poll `GET /api/admin/seed-jobs/{job_id}`
+    for progress, or just open /insights/{city} after 1-2 min.
+    """
+    user = await require_admin(request)
+    from building_discovery import discover_and_import_buildings, CITY_BOUNDS
+    if payload.city not in CITY_BOUNDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"City {payload.city} not supported. Supported: {sorted(CITY_BOUNDS.keys())}",
+        )
+    google_api_key = os.environ.get("GOOGLE_PLACES_API_KEY", "")
+    types_to_run = payload.building_types or DEFAULT_SEED_MIX
+    now_iso = datetime.now(timezone.utc).isoformat()
+    job_id = f"seed_{uuid.uuid4().hex[:12]}"
+    job_doc = {
+        "job_id": job_id,
+        "type": "city_seed",
+        "city": payload.city,
+        "types_to_run": types_to_run,
+        "status": "running",
+        "started_by": user.email,
+        "started_at": now_iso,
+        "totals": {"discovered": 0, "imported": 0, "skipped": 0, "skipped_type_mismatch": 0},
+        "per_type": [],
+        "auto_approved": 0,
+        "auto_approve": payload.auto_approve,
+        "insights_url": f"/insights/{payload.city}",
+    }
+    await db.seed_jobs.insert_one(job_doc)
+
+    async def _run_seed():
+        new_building_ids: List[str] = []
+        per_type: List[Dict[str, Any]] = []
+        totals = {"discovered": 0, "imported": 0, "skipped": 0, "skipped_type_mismatch": 0}
+        for t in types_to_run:
+            try:
+                r = await discover_and_import_buildings(
+                    city=payload.city,
+                    building_type=t,
+                    min_area=payload.min_area,
+                    limit=payload.limit_per_type,
+                    google_api_key=google_api_key,
+                    db=db,
+                    admin_user_id=user.user_id,
+                    strict_type=payload.strict_type,
+                )
+                for k in totals:
+                    totals[k] += r.get(k, 0) or 0
+                for b in r.get("buildings", []) or []:
+                    if b.get("building_id"):
+                        new_building_ids.append(b["building_id"])
+                per_type.append({"type": t, "imported": r.get("imported", 0), "discovered": r.get("discovered", 0)})
+            except Exception as e:
+                logger.error(f"seed-city {payload.city}/{t} failed: {e}")
+                per_type.append({"type": t, "error": str(e)})
+            # Live progress update so the UI can show partials.
+            await db.seed_jobs.update_one(
+                {"job_id": job_id},
+                {"$set": {"totals": totals, "per_type": per_type, "updated_at": datetime.now(timezone.utc).isoformat()}},
+            )
+
+        approved = 0
+        if payload.auto_approve and new_building_ids:
+            iso = datetime.now(timezone.utc).isoformat()
+            res = await db.buildings.update_many(
+                {"building_id": {"$in": new_building_ids}},
+                {"$set": {
+                    "is_approved": True, "is_rejected": False,
+                    "curated_by_admin_id": user.user_id, "updated_at": iso,
+                }},
+            )
+            approved = res.modified_count
+
+        # Clear insights cache for this city
+        _CITY_AGG_CACHE.pop((payload.city.lower(), False), None)
+        _CITY_AGG_CACHE.pop((payload.city.lower(), True), None)
+        await db.seed_jobs.update_one(
+            {"job_id": job_id},
+            {"$set": {
+                "status": "complete",
+                "totals": totals,
+                "per_type": per_type,
+                "auto_approved": approved,
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+
+    asyncio.create_task(_run_seed())
+    return {
+        "job_id": job_id,
+        "status": "running",
+        "city": payload.city,
+        "types_to_run": types_to_run,
+        "poll_url": f"/api/admin/seed-jobs/{job_id}",
+        "insights_url": f"/insights/{payload.city}",
+        "message": f"Seeding {payload.city} in the background. Open the insights page in ~2 minutes, or poll the job to track progress.",
+    }
+
+
+@api_router.get("/admin/seed-jobs/{job_id}")
+async def admin_get_seed_job(job_id: str, request: Request):
+    await require_admin(request)
+    doc = await db.seed_jobs.find_one({"job_id": job_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return doc
+
+
+# ==================== CITY/STATE AGGREGATE WHAT-IF (P2 May 20, 2026) ====================
+# In-process TTL cache for city aggregates (defined above with seed-city).
 
 
 @api_router.get("/insights/city/{city}")

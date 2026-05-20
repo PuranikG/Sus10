@@ -11,7 +11,17 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 
 ## Active Deployment Context (May 20, 2026)
 
-User is seeding 3-4 projects across **Delhi NCR · Bangalore · Pune · Mumbai · Ahmedabad** and going live for demo conversations. Seeding strategy + city-level demo gotchas documented in `/app/memory/ROADMAP.md`.
+User is seeding 3-4 projects across **Delhi NCR · Bangalore · Pune · Mumbai · Ahmedabad · Jaipur** and going live for demo conversations. Seeding strategy + city-level demo gotchas documented in `/app/memory/ROADMAP.md`.
+
+**Ahmedabad already live:** 14 buildings approved, ₹7.3 Cr / 7,991 tCO₂ / 1,737 cars-equivalent narrative.
+
+### Session May 20, 2026 (evening) — Admin seeding UX rewrite ✅
+Fixed three blockers users hit during the "find and approve buildings" flow:
+- **Backend allowlist:** `CITY_BOUNDS` in `building_discovery.py` only covered 9 cities (NCR + Maharashtra). Expanded to all 33 cities listed in the admin dropdown (added Bengaluru, Hyderabad, Chennai, Kolkata, Ahmedabad, Surat, Jaipur, Indore, Bhopal, Lucknow, Kanpur, Kochi, etc. with realistic bounding boxes).
+- **Gateway timeouts (60s):** Discovery now runs as **async background job**. New `POST /api/admin/buildings/seed-city` kicks off a job with `_run_seed` task, returns `{job_id}` in <1s. Progress + completion tracked in `db.seed_jobs` collection. Poll via `GET /api/admin/seed-jobs/{job_id}`.
+- **2-step friction (discover → bulk approve):** New endpoint also auto-approves discovered buildings + invalidates the city insights cache. Zero second-page approval click needed.
+- **Frontend "One-click seed" card** at top of `/admin/discover` — pick city + (optional) types → click "Seed {City}" → frontend polls job every 5s, updates a live Stat grid (Discovered / Imported / Auto-approved / Type-skipped) + shows clickable `Open /insights/{City} →` link on completion.
+- Existing "Discover & Import" + bulk-approve flow preserved for cherry-picking.
 
 ## What's Been Implemented (Feb 19–May 20, 2026)
 

@@ -15,16 +15,53 @@ import logging
 logger = logging.getLogger(__name__)
 
 # City bounding boxes (south, west, north, east)
+# Covers all 33 cities listed in the admin discover dropdown.
 CITY_BOUNDS = {
+    # NCR
     "Gurugram": (28.38, 76.95, 28.55, 77.15),
     "Delhi": (28.40, 76.84, 28.88, 77.35),
     "Noida": (28.45, 77.28, 28.65, 77.55),
     "Faridabad": (28.35, 77.28, 28.52, 77.38),
     "Ghaziabad": (28.60, 77.35, 28.75, 77.55),
+    # Maharashtra
     "Mumbai": (18.87, 72.77, 19.27, 72.98),
     "Navi Mumbai": (18.92, 72.98, 19.15, 73.15),
+    "Thane": (19.13, 72.92, 19.30, 73.05),
     "Pune": (18.40, 73.72, 18.65, 74.00),
+    "Nagpur": (21.05, 78.95, 21.22, 79.20),
     "Amravati": (20.88, 77.72, 21.00, 77.82),
+    # Karnataka
+    "Bengaluru": (12.84, 77.45, 13.14, 77.78),
+    "Mysuru": (12.25, 76.58, 12.38, 76.72),
+    "Mangaluru": (12.83, 74.79, 12.95, 74.90),
+    # Telangana / AP
+    "Hyderabad": (17.30, 78.30, 17.55, 78.62),
+    "Visakhapatnam": (17.65, 83.20, 17.78, 83.35),
+    # Tamil Nadu
+    "Chennai": (12.95, 80.13, 13.18, 80.32),
+    "Coimbatore": (10.95, 76.90, 11.08, 77.05),
+    # West Bengal
+    "Kolkata": (22.45, 88.25, 22.65, 88.45),
+    # Gujarat
+    "Ahmedabad": (22.95, 72.45, 23.15, 72.70),
+    "Surat": (21.10, 72.75, 21.25, 72.92),
+    "Vadodara": (22.25, 73.13, 22.38, 73.25),
+    # Rajasthan
+    "Jaipur": (26.80, 75.70, 27.00, 75.92),
+    # MP
+    "Indore": (22.65, 75.78, 22.80, 75.95),
+    "Bhopal": (23.20, 77.32, 23.32, 77.50),
+    # UP
+    "Lucknow": (26.78, 80.85, 26.95, 81.05),
+    "Kanpur": (26.40, 80.25, 26.55, 80.42),
+    # Kerala
+    "Kochi": (9.92, 76.22, 10.05, 76.35),
+    "Thiruvananthapuram": (8.45, 76.88, 8.58, 77.00),
+    # Punjab / Bihar / UK / Goa
+    "Chandigarh": (30.68, 76.70, 30.78, 76.85),
+    "Patna": (25.55, 85.05, 25.68, 85.22),
+    "Dehradun": (30.27, 77.95, 30.40, 78.10),
+    "Goa": (15.28, 73.78, 15.55, 74.05),
 }
 
 # OSM building types to our types
