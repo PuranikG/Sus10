@@ -795,6 +795,13 @@ class IntelNoteCreate(BaseModel):
     severity: Optional[str] = "medium"  # low | medium | high
 
 
+@api_router.get("/intel/tags")
+async def list_intel_tags_public():
+    """Public read of the intel-tag vocabulary so the Building Report can
+    render human-readable badge labels (no auth — labels are not sensitive)."""
+    return {"tags": INTEL_TAG_VOCABULARY}
+
+
 @api_router.get("/admin/intelligence/tags")
 async def list_intel_tags(request: Request):
     await require_admin(request)
@@ -852,9 +859,11 @@ async def delete_building_intel(building_id: str, note_id: str, request: Request
 
 @api_router.get("/buildings/{building_id}/intel")
 async def get_public_building_intel(building_id: str):
-    """Public read of intel notes so the Building Report can show warning badges."""
+    """Public read of intel notes so the Building Report can show warning badges.
+    Returns notes for any existing building (approved or self-submitted).
+    Admins can hide a note from public view by marking severity='private' (future)."""
     bld = await db.buildings.find_one(
-        {"building_id": building_id, "is_approved": True},
+        {"building_id": building_id},
         {"_id": 0, "intel_notes": 1},
     )
     if not bld:
@@ -2964,6 +2973,146 @@ async def admin_list_pdf_email_requests(
     )
     total = await db.pdf_email_requests.count_documents({})
     return {"requests": items, "total": total, "limit": limit}
+
+
+@api_router.get("/admin/pdf-funnel-stats")
+async def admin_pdf_funnel_stats(request: Request, days: int = Query(default=30, ge=1, le=365)):
+    """Admin Overview rollup: PDF generation funnel.
+
+    Returns:
+      - total_requests, total_unique_emails (lifetime)
+      - last N days timeseries (daily buckets) for email-requested PDFs
+      - top personas, top buildings by request count
+    """
+    await require_admin(request)
+    now = datetime.now(timezone.utc)
+    cutoff = (now - timedelta(days=days)).isoformat()
+
+    total_requests = await db.pdf_email_requests.count_documents({})
+    pipeline_unique = [
+        {"$group": {"_id": "$email"}},
+        {"$count": "n"},
+    ]
+    unique_cur = db.pdf_email_requests.aggregate(pipeline_unique)
+    unique_doc = await unique_cur.to_list(1)
+    total_unique_emails = unique_doc[0]["n"] if unique_doc else 0
+
+    # Daily timeseries — bucket by ISO date prefix (10 chars). Robust to mixed string/datetime.
+    timeseries: List[Dict[str, Any]] = []
+    daily_buckets: Dict[str, int] = {}
+    cursor = db.pdf_email_requests.find(
+        {"created_at": {"$gte": cutoff}},
+        {"_id": 0, "created_at": 1},
+    )
+    async for doc in cursor:
+        ts = doc.get("created_at")
+        if isinstance(ts, datetime):
+            day = ts.date().isoformat()
+        else:
+            day = str(ts)[:10]
+        if len(day) == 10:
+            daily_buckets[day] = daily_buckets.get(day, 0) + 1
+    # Fill missing days with zero so the chart line is continuous.
+    for i in range(days - 1, -1, -1):
+        d = (now - timedelta(days=i)).date().isoformat()
+        timeseries.append({"date": d, "count": daily_buckets.get(d, 0)})
+
+    persona_pipe = [
+        {"$group": {"_id": "$persona", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10},
+    ]
+    persona_breakdown = [
+        {"persona": doc.get("_id") or "unknown", "count": doc["count"]}
+        async for doc in db.pdf_email_requests.aggregate(persona_pipe)
+    ]
+
+    building_pipe = [
+        {"$group": {"_id": "$building_id", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 5},
+    ]
+    top_buildings_raw = [
+        {"building_id": doc.get("_id"), "count": doc["count"]}
+        async for doc in db.pdf_email_requests.aggregate(building_pipe)
+    ]
+    # Hydrate building names
+    if top_buildings_raw:
+        bids = [b["building_id"] for b in top_buildings_raw if b.get("building_id")]
+        name_map = {
+            b["building_id"]: (b.get("name") or b.get("address") or b["building_id"])
+            async for b in db.buildings.find(
+                {"building_id": {"$in": bids}},
+                {"_id": 0, "building_id": 1, "name": 1, "address": 1},
+            )
+        }
+        for b in top_buildings_raw:
+            b["name"] = name_map.get(b.get("building_id"), b.get("building_id") or "—")
+
+    last_window_count = sum(t["count"] for t in timeseries)
+    return {
+        "total_requests": total_requests,
+        "total_unique_emails": total_unique_emails,
+        "window_days": days,
+        "window_total": last_window_count,
+        "timeseries": timeseries,
+        "by_persona": persona_breakdown,
+        "top_buildings": top_buildings_raw,
+    }
+
+
+# ==================== VENDOR ONE-PAGER PDF (P2 May 19, 2026) ====================
+from services.vendor_offering_pdf import (
+    build_vendor_offering_context, render_vendor_offering_pdf,
+)
+
+
+class VendorOfferingRequest(BaseModel):
+    brand_name: str
+    tagline: Optional[str] = None
+    contact_name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    website: Optional[str] = None
+    cities: Optional[str] = None  # comma-separated, free text
+    years_experience: Optional[int] = None
+    certifications: Optional[str] = None
+    badges: Optional[List[str]] = None  # ["MNRE empanelled", "ISO 9001", …]
+    accent_color: Optional[str] = "#0f3a3a"
+    building_id: Optional[str] = None  # if set, sizes the brochure to a specific building
+
+
+@api_router.post("/vendor-offering/pdf")
+async def generate_vendor_offering_pdf(payload: VendorOfferingRequest):
+    """Generate a 1-page co-brandable 'Integrated Sustenance Roof Offering' PDF.
+
+    No auth — installers can mint their own brochure with their brand details.
+    If a `building_id` is provided, the brochure is sized to that building's
+    4-pillar potential. Otherwise a generic version is rendered.
+    """
+    vendor = payload.model_dump()
+    building = None
+    sustenance = None
+    if payload.building_id:
+        building = await db.buildings.find_one({"building_id": payload.building_id}, {"_id": 0})
+        if building:
+            try:
+                sustenance = calculate_full_sustenance_potential(building=building)
+            except Exception as e:
+                logger.warning(f"sustenance calc for vendor offering failed: {e}")
+                sustenance = None
+
+    context = build_vendor_offering_context(
+        vendor=vendor, building=building, sustenance=sustenance,
+    )
+    pdf_bytes = render_vendor_offering_pdf(context)
+    safe_brand = "".join(c for c in (payload.brand_name or "vendor") if c.isalnum() or c in ("-", "_"))[:32] or "vendor"
+    filename = f"Sus10_{safe_brand}_Integrated_Roof_Offering.pdf"
+    return FastAPIResponse(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @api_router.get("/sustenance/group/{group_id}")

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Integrated Sustenance Roof Offering — {{ vendor.brand_name }}</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Helvetica', 'Arial', sans-serif; color: #0f172a; font-size: 11pt; line-height: 1.5; margin: 0; }
+  h1 { font-size: 22pt; margin: 0 0 4pt 0; color: {{ accent }}; line-height: 1.1; letter-spacing: -0.5pt; }
+  h2 { font-size: 13pt; margin: 16pt 0 6pt 0; color: {{ accent }}; border-bottom: 1.5pt solid {{ accent }}; padding-bottom: 3pt; }
+  h3 { font-size: 11pt; margin: 8pt 0 4pt 0; color: #1e293b; }
+  .eyebrow { font-size: 9pt; letter-spacing: 1.5pt; text-transform: uppercase; color: #475569; margin-bottom: 4pt; }
+  .lead { font-size: 11.5pt; color: #334155; margin: 0 0 8pt 0; }
+  .hero { background: linear-gradient(135deg, {{ accent }} 0%, #064e3b 100%); color: #ecfdf5; padding: 20pt 18pt; border-radius: 10pt; margin-bottom: 14pt; }
+  .hero h1 { color: #ffffff; }
+  .hero .lead { color: #d1fae5; }
+  .pillars { display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; margin-bottom: 12pt; }
+  .pillar { border: 1pt solid #e2e8f0; border-radius: 8pt; padding: 10pt 12pt; background: #f8fafc; }
+  .pillar .name { font-size: 10pt; font-weight: bold; color: {{ accent }}; }
+  .pillar .value { font-size: 14pt; font-weight: bold; color: #0f172a; margin: 2pt 0; }
+  .pillar .desc { font-size: 9.5pt; color: #475569; line-height: 1.35; }
+  .pillar .icon { float: right; opacity: 0.5; font-size: 14pt; }
+  .kpi-row { display: flex; gap: 12pt; margin: 8pt 0 4pt 0; flex-wrap: wrap; }
+  .kpi { flex: 1; min-width: 130pt; background: #ffffff; border: 1pt solid #d1fae5; border-radius: 6pt; padding: 8pt 10pt; }
+  .kpi .label { font-size: 8pt; color: #475569; letter-spacing: 1pt; text-transform: uppercase; }
+  .kpi .num { font-size: 16pt; font-weight: bold; color: {{ accent }}; }
+  ul.checks { margin: 6pt 0; padding: 0; list-style: none; }
+  ul.checks li { padding: 3pt 0 3pt 18pt; position: relative; font-size: 10pt; }
+  ul.checks li:before { content: "✓"; position: absolute; left: 0; color: {{ accent }}; font-weight: bold; }
+  .row { display: flex; gap: 12pt; }
+  .col { flex: 1; }
+  .badge { display: inline-block; padding: 1.5pt 7pt; border-radius: 100pt; font-size: 8.5pt; background: #ecfdf5; color: {{ accent }}; border: 1pt solid #a7f3d0; margin-right: 4pt; }
+  .vendor-card { background: #f8fafc; border: 1pt solid #e2e8f0; border-radius: 8pt; padding: 14pt; margin-top: 12pt; }
+  .vendor-card .name { font-size: 13pt; font-weight: bold; color: #0f172a; }
+  .vendor-card .meta { font-size: 9.5pt; color: #475569; margin-top: 2pt; }
+  .footer { margin-top: 14pt; padding-top: 10pt; border-top: 1pt solid #e2e8f0; font-size: 8.5pt; color: #94a3b8; }
+  .powered { float: right; font-style: italic; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="eyebrow" style="color: #a7f3d0;">Integrated Sustenance Roof Offering</div>
+  <h1>Your rooftop. Four wins. One vendor.</h1>
+  <p class="lead">{{ vendor.brand_name }} can deliver solar, biogas, rainwater harvesting, and a productive green roof — together, end-to-end, with one point of accountability.</p>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi"><div class="label">Annual savings</div><div class="num">{{ summary.annual_savings_fmt }}</div></div>
+  <div class="kpi"><div class="label">CO₂ avoided / yr</div><div class="num">{{ summary.co2_tonnes_fmt }} t</div></div>
+  <div class="kpi"><div class="label">Roof area sized for</div><div class="num">{{ summary.roof_area_fmt }} sqm</div></div>
+</div>
+
+<h2>What we deliver, together</h2>
+<div class="pillars">
+  <div class="pillar">
+    <span class="icon">☀</span>
+    <div class="name">Rooftop Solar PV</div>
+    <div class="value">{{ pillars.solar.headline }}</div>
+    <div class="desc">{{ pillars.solar.desc }}</div>
+  </div>
+  <div class="pillar">
+    <span class="icon">♻</span>
+    <div class="name">Biogas & Composting</div>
+    <div class="value">{{ pillars.biogas.headline }}</div>
+    <div class="desc">{{ pillars.biogas.desc }}</div>
+  </div>
+  <div class="pillar">
+    <span class="icon">💧</span>
+    <div class="name">Rainwater Harvesting</div>
+    <div class="value">{{ pillars.rainwater.headline }}</div>
+    <div class="desc">{{ pillars.rainwater.desc }}</div>
+  </div>
+  <div class="pillar">
+    <span class="icon">🌱</span>
+    <div class="name">Green Roof & Plantation</div>
+    <div class="value">{{ pillars.plantation.headline }}</div>
+    <div class="desc">{{ pillars.plantation.desc }}</div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col">
+    <h2>How it works</h2>
+    <ul class="checks">
+      <li>Site survey + structural assessment by our engineers</li>
+      <li>Single integrated design — no four-vendor coordination headache</li>
+      <li>Subsidy + net-metering paperwork handled by us</li>
+      <li>One project plan, one contract, one warranty bundle</li>
+      <li>Maintenance retainer optional · 24/7 monitoring on solar</li>
+    </ul>
+  </div>
+  <div class="col">
+    <h2>Why integrated wins</h2>
+    <ul class="checks">
+      <li>Solar + green roof together can lift PV efficiency by up to 15%</li>
+      <li>Rainwater feeds biogas slurry dilution — closes the loop</li>
+      <li>Heat-island cooling from plantation reduces AC load year-round</li>
+      <li>One BRSR / sustainability report at the end — no patchwork data</li>
+      <li>Lower total cost than 4 separate vendor contracts</li>
+    </ul>
+  </div>
+</div>
+
+<h2>About {{ vendor.brand_name }}</h2>
+<div class="vendor-card">
+  <div class="name">{{ vendor.brand_name }}</div>
+  <div class="meta">
+    {% if vendor.tagline %}{{ vendor.tagline }} · {% endif %}
+    {% if vendor.years_experience %}{{ vendor.years_experience }}+ yrs experience · {% endif %}
+    {% if vendor.cities %}Serving {{ vendor.cities }} · {% endif %}
+    {% if vendor.certifications %}{{ vendor.certifications }}{% endif %}
+  </div>
+  <div style="margin-top: 8pt;">
+    {% for badge in vendor.badges or [] %}<span class="badge">{{ badge }}</span>{% endfor %}
+  </div>
+  <div style="margin-top: 10pt; font-size: 10pt;">
+    <strong>Contact</strong> · {{ vendor.contact_name or vendor.brand_name }}
+    {% if vendor.phone %} · {{ vendor.phone }}{% endif %}
+    {% if vendor.email %} · {{ vendor.email }}{% endif %}
+    {% if vendor.website %} · {{ vendor.website }}{% endif %}
+  </div>
+</div>
+
+{% if building.address %}
+<h2>Sized for your building</h2>
+<p style="font-size: 10pt; color: #475569;">
+  Estimates above are calculated for <strong>{{ building.address }}{% if building.city %}, {{ building.city }}{% endif %}</strong>
+  using a {{ summary.roof_area_fmt }} sqm rooftop and {{ summary.floors }} floor(s).
+  Final numbers will be confirmed after our on-site survey.
+</p>
+{% endif %}
+
+<div class="footer">
+  <span class="powered">Powered by Sus10 AI · sus10.ai</span>
+  Estimates use MNRE / CPCB / IS / IMD / CEA reference data. Verify post-survey. Subsidies & tariffs change.<br />
+  Generated {{ generated_at }} · {{ report_id }}
+</div>
+
+</body>
+</html>

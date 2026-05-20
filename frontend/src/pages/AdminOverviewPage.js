@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Mail, Inbox, Layers, Megaphone, Telescope, Users, FileText, Sparkles, Loader2 } from 'lucide-react';
+import { Building2, Mail, Inbox, Layers, Megaphone, Telescope, Users, FileText, Sparkles, Loader2, TrendingUp } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { apiRequest } from '../lib/utils';
 import AdminShell from '../components/layout/AdminShell';
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from 'recharts';
 import { toast } from 'sonner';
 
 function StatCard({ label, value, icon: Icon, to, testid }) {
@@ -31,11 +34,13 @@ export default function AdminOverviewPage() {
   const [surveysTotal, setSurveysTotal] = useState(0);
   const [seedingPersonas, setSeedingPersonas] = useState(false);
   const [seedingSubsidies, setSeedingSubsidies] = useState(false);
+  const [pdfStats, setPdfStats] = useState(null);
 
   useEffect(() => {
     apiRequest('/admin/buildings?limit=1').then(r => setCounts(r?.counts || {})).catch(() => {});
     apiRequest('/admin/beta-waitlist?limit=1').then(r => setWaitlist(r || { total: 0, by_persona: {} })).catch(() => {});
     apiRequest('/admin/zoho-survey-responses?limit=1').then(r => setSurveysTotal(r?.total || 0)).catch(() => {});
+    apiRequest('/admin/pdf-funnel-stats?days=30').then(r => setPdfStats(r)).catch(() => {});
   }, []);
 
   const handleSeedPersonas = async () => {
@@ -86,6 +91,100 @@ export default function AdminOverviewPage() {
                   <div className="text-xs text-muted-foreground capitalize">{persona.replace(/-/g, ' ')}</div>
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* PDF report funnel — last 30 days (Option C) */}
+      {pdfStats && (
+        <Card className="mb-8" data-testid="pdf-funnel-card">
+          <CardContent className="p-5">
+            <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
+              <div>
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  PDF report funnel · last {pdfStats.window_days} days
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Warm-lead funnel — every email-requested PDF auto-joins the beta waitlist.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-4 text-right">
+                <div>
+                  <div className="text-2xl font-bold" data-testid="pdf-window-total">{pdfStats.window_total}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Requests · {pdfStats.window_days}d</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold">{pdfStats.total_requests}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">All-time requests</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-emerald-500">{pdfStats.total_unique_emails}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Unique emails</div>
+                </div>
+              </div>
+            </div>
+
+            {pdfStats.timeseries?.length > 0 && (
+              <div className="h-44 w-full" data-testid="pdf-funnel-chart">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={pdfStats.timeseries} margin={{ top: 4, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="pdfGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.45} />
+                        <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                    <XAxis
+                      dataKey="date"
+                      fontSize={10}
+                      tickFormatter={(d) => (d || '').slice(5)}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis allowDecimals={false} fontSize={10} />
+                    <Tooltip
+                      contentStyle={{ fontSize: 12 }}
+                      formatter={(v) => [v, 'Requests']}
+                    />
+                    <Area type="monotone" dataKey="count" stroke="#10b981" strokeWidth={2} fill="url(#pdfGradient)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            <div className="grid sm:grid-cols-2 gap-4 mt-4">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Top personas</div>
+                {pdfStats.by_persona?.length > 0 ? (
+                  <ul className="space-y-1 text-sm" data-testid="pdf-funnel-personas">
+                    {pdfStats.by_persona.slice(0, 5).map((p) => (
+                      <li key={p.persona} className="flex justify-between items-center border-b py-1">
+                        <span className="capitalize">{(p.persona || 'unknown').replace(/_/g, ' ')}</span>
+                        <span className="font-medium">{p.count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-xs text-muted-foreground italic">No persona data yet.</div>
+                )}
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Top buildings</div>
+                {pdfStats.top_buildings?.length > 0 ? (
+                  <ul className="space-y-1 text-sm" data-testid="pdf-funnel-buildings">
+                    {pdfStats.top_buildings.map((b) => (
+                      <li key={b.building_id} className="flex justify-between items-center border-b py-1 gap-2">
+                        <Link to={`/buildings/${b.building_id}`} className="truncate hover:underline" title={b.name}>{b.name}</Link>
+                        <span className="font-medium">{b.count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-xs text-muted-foreground italic">No buildings yet.</div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 16 — Full e2e validation of Options B/C/D + P2 Vendor PDF. 11/11 backend pytest green. Public Building Report renders the new intel-notes-strip with 3 warning badges for seeded building. Admin Overview shows the pdf-funnel-card with 4-day timeseries spike (4 entries) + hydrated top_buildings. Admin Buildings row → Intel button opens intel-editor-dialog; tag selection + note submission posts to /api/admin/buildings/{id}/intel and surfaces 'Note added' toast. Vendor one-pager PDF (generic, building-sized, and minimum payload) all return %PDF- bytes >5KB. Regression: matched-subsidies-strip, narrative-hero, /calculate page all intact.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration16_intel_pdf_vendor.py",
+    "/app/test_reports/pytest/iteration_16.xml"
+  ],
+  "action_items": [
+    "(Optional) IntelNotesEditor's just-added note doesn't immediately appear in [data-testid^=intel-list-item-] selectors during the same paint tick — the dialog likely refetches asynchronously. Current behaviour is correct (toast confirms add and parent table updates badge counter), but if you want deterministic Playwright tests, append the new note to local state synchronously before/along with the GET refetch.",
+    "(Optional) server.py is now ~4023 lines — keep extracting routes into routers/ modules; same advisory from iter15."
+  ],
+  "critical_code_review_comments": [
+    "GET /api/buildings/{building_id}/intel (server.py:860) returns a 200 with empty list for unknown buildings rather than 404. This is intentional per the docstring (prevents enumerating which buildings exist publicly) and matches the new 'show notes for any building' rule. OK as-is.",
+    "POST /api/admin/buildings/{id}/intel (server.py:826) defensively coerces invalid severity → 'medium' and persists a server-generated note_id — good. Consider validating tag against INTEL_TAG_VOCABULARY to prevent typos polluting the badge UI.",
+    "GET /api/admin/pdf-funnel-stats (server.py:2978) correctly handles mixed datetime/string created_at via isinstance check and always returns exactly N daily buckets. Hydrated top_buildings.name with fallback to building_id is robust. No issues.",
+    "Vendor PDF endpoint is unauthenticated (server.py:3085) — be aware this is an open WeasyPrint surface that could be hit at high volume. Recommend rate-limiting (e.g. slowapi) on /api/vendor-offering/pdf before public launch since WeasyPrint render is CPU-bound (~150-300ms each).",
+    "IntelNotesEditor add-form has good client-side validation ('Pick a tag and write a short note.' error appears when submit is clicked without both). Toast 'Note added' confirms success and parent AdminBuildingsPage badge counter updates (Test 99 row showed badge '1' after add). Good UX."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration16_intel_pdf_vendor.py (NEW — 11 tests, all green)",
+    "/app/memory/test_credentials.md (no change — minted iter16_test_session in db.user_sessions, expires May 21 2026)"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% (intel-notes-strip + 3 badges public, pdf-funnel-card + all 4 child testids, intel-editor-dialog open/add/close, narrative-hero, matched-subsidies-strip, /calculate)"},
+  "test_credentials": "Admin: gp@sus10.ai via Bearer iter16_test_session (cookie name session_token on sus10-preview.preview.emergentagent.com domain). Sessions stored in db.user_sessions with field session_token + user_id + expires_at(ISO). Valid until 2026-05-21T06:22Z.",
+  "seed_data_creation": "Used existing seeded data: bld_27a56274e04a (INCUBEX KRM1) had 3 intel notes, 4 pdf_email_requests seeded. Test-created notes prefixed 'TEST_ITER16' were cleaned up at end of run via pymongo update_one $pull.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Dev session token: iter16_test_session (db.user_sessions, expires 2026-05-21). Use cookie name 'session_token'. Seeded intel building bld_27a56274e04a (3 notes). Funnel stats seeded against bld_001 with 4 pdf_email_requests. AdminBuildingsPage row Intel button is a shadcn icon button keyed by [data-testid=intel-{building_id}]. IntelNotesEditor Tag field is a shadcn Select (button[role=combobox]) — Playwright fill() doesn't work; click the combobox, then click [role=option]. Vendor PDF endpoint is public (no auth) and returns application/pdf with Content-Disposition inline filename. Map UI hidden on public Building Report — that's intentional, don't regress to expecting it (P1 from iter14/15).",
+  "rca_of_the_issue": null
+}

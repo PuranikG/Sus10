@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Loader2, Check, X, ChevronRight, Filter, Search, RefreshCw, ChevronLeft,
+  Loader2, Check, X, ChevronRight, Filter, Search, RefreshCw, ChevronLeft, AlertTriangle,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -16,6 +16,7 @@ import {
 } from '../components/ui/select';
 import { apiRequest, formatNumber } from '../lib/utils';
 import AdminShell from '../components/layout/AdminShell';
+import IntelNotesEditor from '../components/admin/IntelNotesEditor';
 import { toast } from 'sonner';
 
 const BUILDING_TYPES = [
@@ -55,6 +56,7 @@ export default function AdminBuildingsPage() {
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [intelTarget, setIntelTarget] = useState(null); // {building_id, address, city, name} when editor open
 
   const queryString = useMemo(() => {
     const sp = new URLSearchParams();
@@ -359,6 +361,17 @@ export default function AdminBuildingsPage() {
                               <X className="h-4 w-4" />
                             </Button>
                           )}
+                          <Button
+                            size="sm" variant="outline"
+                            onClick={() => setIntelTarget(b)}
+                            data-testid={`intel-${b.building_id}`}
+                            title={`Intel notes (${(b.intel_notes || []).length})`}
+                          >
+                            <AlertTriangle className="h-4 w-4" />
+                            {(b.intel_notes || []).length > 0 && (
+                              <span className="ml-1 text-[10px] font-semibold">{b.intel_notes.length}</span>
+                            )}
+                          </Button>
                           <Link to={`/buildings/${b.building_id}`}>
                             <Button size="sm" variant="ghost"><ChevronRight className="h-4 w-4" /></Button>
                           </Link>
@@ -372,6 +385,11 @@ export default function AdminBuildingsPage() {
           )}
         </CardContent>
       </Card>
+      <IntelNotesEditor
+        open={!!intelTarget}
+        onOpenChange={(o) => { if (!o) { setIntelTarget(null); fetchData(); } }}
+        building={intelTarget}
+      />
     </AdminShell>
   );
 }

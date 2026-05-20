@@ -147,6 +147,9 @@ export default function BuildingReportPage() {
 
   // Matched subsidies for this building (Option A — quick win strip)
   const [matchedSubsidies, setMatchedSubsidies] = useState([]);
+
+  // Intel notes (Option B — warning badges on public report)
+  const [intelNotes, setIntelNotes] = useState([]);
   
   // Plantable area controls
   const [plantablePercent, setPlantablePercent] = useState(70);
@@ -242,6 +245,14 @@ export default function BuildingReportPage() {
     if (!buildingId) return;
     apiRequest(`/subsidies/match/${buildingId}`)
       .then((r) => setMatchedSubsidies((r?.subsidies || []).slice(0, 4)))
+      .catch(() => {});
+  }, [buildingId]);
+
+  // Fetch intel notes (Option B — warning badges)
+  useEffect(() => {
+    if (!buildingId) return;
+    apiRequest(`/buildings/${buildingId}/intel`)
+      .then((r) => setIntelNotes(r?.intel_notes || []))
       .catch(() => {});
   }, [buildingId]);
 
@@ -725,6 +736,52 @@ export default function BuildingReportPage() {
                   value={`${building.data_quality_score || 0}%`}
                 />
               </div>
+
+              {/* Intel notes — warning badges (Option B). Surfaces curated caveats
+                  (heritage protected, weak slab, high wind exposure…) upfront so
+                  users + vendors don't waste time scoping unviable buildings. */}
+              {intelNotes.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="mt-6"
+                  data-testid="intel-notes-strip"
+                >
+                  <Card className="border-amber-500/40 bg-amber-50/60 dark:bg-amber-950/30">
+                    <CardContent className="p-4 md:p-5">
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                        <span className="text-sm font-semibold text-amber-900 dark:text-amber-100">Things to know about this building</span>
+                        <Badge variant="outline" className="border-amber-500/60 text-amber-800 dark:text-amber-200 bg-amber-100/60 dark:bg-amber-900/30 text-[10px]">
+                          {intelNotes.length} note{intelNotes.length === 1 ? '' : 's'}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {intelNotes.map((n) => {
+                          const sev = n.severity || 'medium';
+                          const sevCls =
+                            sev === 'high' ? 'bg-red-100 border-red-300 text-red-800 dark:bg-red-950/60 dark:border-red-700/50 dark:text-red-200'
+                            : sev === 'low' ? 'bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-900/60 dark:border-slate-700 dark:text-slate-200'
+                            : 'bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-900/40 dark:border-amber-700/50 dark:text-amber-100';
+                          const label = (n.tag || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+                          return (
+                            <div
+                              key={n.note_id || n.tag}
+                              className={`inline-flex flex-col items-start rounded-lg border px-3 py-2 max-w-md ${sevCls}`}
+                              title={n.note}
+                              data-testid={`intel-badge-${n.note_id || n.tag}`}
+                            >
+                              <span className="text-xs font-semibold leading-tight">{label}</span>
+                              {n.note && <span className="text-[11px] opacity-80 mt-0.5 leading-snug line-clamp-2">{n.note}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
 
               {/* Matched subsidies strip (Option A — surfaces financial value upfront) */}
               {matchedSubsidies.length > 0 && (
