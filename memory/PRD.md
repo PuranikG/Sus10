@@ -11,6 +11,16 @@ Sus10 AI is a hyperlocal climate action platform that analyzes buildings for gre
 
 ## What's Been Implemented (Feb 19–May 19, 2026)
 
+### Session May 19, 2026 (evening) — Map UI hidden behind feature flag ✅
+- **Strategic intent (verbatim from user):** "The map feature could become a killer feature when the user doesn't have to do anything on it. We will continue to build that on the backend and find ways to scale it. We can build a lot of hyperlocal content for which map-based calculations will help. Example: what if all the residential buildings in XYZ ward were to adopt a green roof? What would the impact be across the area? Map and calculations help. At the moment, we are going to retain the functionality but push it to the backend for data curation. Nothing to be deleted. We just need to hide it from the general user interface till we find a good workflow."
+- **Implementation:**
+  - New feature flag `show_user_map` (default OFF). Idempotent startup hook + included in seed-data feature_flags list.
+  - `BuildingReportPage.js` — map card block + Google Maps init effect wrapped in `showMap = isEnabled('show_user_map') || user?.user_type === 'admin'`.
+  - **Zero deletions** — Google Maps SDK loader, polygon editor, Esri overlay, layer toggle, terrace save, AQI fetch all preserved. AQI metric card stays (independent of map block).
+  - Admins always see the map for data curation. Public users see a fast, lean page.
+  - Toggle from `/admin/feature-flags` whenever a passive map UX is ready.
+- **Future unlock:** Ward / city-level "what-if" aggregate rollups powered by the curated polygon+lat/lng dataset (e.g. "if every residential building in HSR Layout adopted green roofs, total impact = X tCO₂ + Y kWh + Z kL water"). Logged as P2.
+
 ### Session May 19, 2026 — Homeowner Calculator-first MVP ✅
 - **Homeowner journey reordered around `/calculate`** — landing → calculator → integrated potential → PDF + vendor consult.
 - **New page `SustenanceCalculatorPage`** with intake form (address, city auto-detects state, building type, roof area, floors, family size, optional bills + name/email).

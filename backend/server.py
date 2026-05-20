@@ -2060,6 +2060,7 @@ async def seed_initial_data(request: Request):
         {"flag_id": "flag_4", "name": "solar", "is_enabled": False, "description": "Solar solution type", "updated_at": now},
         {"flag_id": "flag_5", "name": "water", "is_enabled": False, "description": "Water harvesting solution", "updated_at": now},
         {"flag_id": "flag_6", "name": "waste", "is_enabled": False, "description": "Waste management solution", "updated_at": now},
+        {"flag_id": "flag_7", "name": "show_user_map", "is_enabled": False, "description": "Show interactive map block on Building Report to public users. Admins always see it. Disabled by default — backend curation only.", "updated_at": now},
     ]
     await db.feature_flags.insert_many(feature_flags)
     
@@ -3845,6 +3846,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def ensure_critical_flags():
+    """Idempotent: ensure `show_user_map` flag exists for existing installations.
+
+    The map UI is hidden from public users by default (P1 May 19, 2026).
+    Backend curation, OSM discovery and polygon edit endpoints remain live for admins.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    await db.feature_flags.update_one(
+        {"name": "show_user_map"},
+        {"$setOnInsert": {
+            "flag_id": f"flag_{uuid.uuid4().hex[:8]}",
+            "name": "show_user_map",
+            "is_enabled": False,
+            "description": "Show interactive map block on Building Report to public users. Admins always see it.",
+            "updated_at": now,
+        }},
+        upsert=True,
+    )
+
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

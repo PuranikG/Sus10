@@ -41,6 +41,8 @@ import ReportDownloadDialog from '../components/report/ReportDownloadDialog';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import { toast } from 'sonner';
+import { useFeatureFlags } from '../context/FeatureFlagContext';
+import { useAuth } from '../context/AuthContext';
 
 // Terrace-suitable plant database (max height 6-8 feet) with city-wise native species
 const TERRACE_PLANT_DATABASE = {
@@ -125,6 +127,13 @@ const TERRACE_PLANT_DATABASE = {
 export default function BuildingReportPage() {
   const { buildingId } = useParams();
   const navigate = useNavigate();
+  const { isEnabled } = useFeatureFlags();
+  const { user } = useAuth();
+  // P1 (May 19, 2026) — Map UI is hidden from public users for now.
+  // We retain ALL map-related backend logic, AQI, polygon edit, Esri overlays
+  // for admin data-curation workflows + future ward-level rollups.
+  // Flip the `show_user_map` flag from /admin/feature-flags to unhide.
+  const showMap = isEnabled('show_user_map') || user?.user_type === 'admin';
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -238,6 +247,7 @@ export default function BuildingReportPage() {
 
   // Initialize map when building data is loaded
   useEffect(() => {
+    if (!showMap) return; // P1: map UI hidden from public users (admin/flag only)
     if (!reportData?.building?.latitude || !mapRef.current) return;
     
     const initMap = async () => {
@@ -799,7 +809,10 @@ export default function BuildingReportPage() {
             </Card>
           </div>
 
-          {/* Building Map */}
+          {/* Building Map — hidden from public users (P1 May 19, 2026).
+              Backend curation, OSM/Google discovery, polygon edit logic + Esri imagery
+              all preserved. Flip `show_user_map` flag or sign in as admin to show. */}
+          {showMap && (
           <div className="mt-6">
             <Card>
               <CardHeader className="pb-2">
@@ -876,6 +889,7 @@ export default function BuildingReportPage() {
               </CardContent>
             </Card>
           </div>
+          )}
         </div>
       </section>
 
