@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  Leaf, Sun, Droplets, Search, ArrowRight, Building2, 
+import {
+  Leaf, Sun, Droplets, Search, ArrowRight, Building2,
   Users, TrendingUp, MapPin, ChevronRight, Sparkles,
   TreePine, Recycle, BarChart3, Shield, Info, TrendingDown,
+  Home, Zap,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -200,6 +201,7 @@ export default function LandingPage() {
                 accent: '#1a3d2b',
                 eyebrow: 'Citizens',
                 testid: 'persona-card-homeowner',
+                icon: Home,
               },
               {
                 slug: 'for-communities',
@@ -208,6 +210,7 @@ export default function LandingPage() {
                 accent: '#0f3a3a',
                 eyebrow: 'RWAs & Societies',
                 testid: 'persona-card-rwa',
+                icon: Building2,
               },
               {
                 slug: 'for-installers',
@@ -216,6 +219,7 @@ export default function LandingPage() {
                 accent: '#1e3a8a',
                 eyebrow: 'Vendors & Installers',
                 testid: 'persona-card-vendor',
+                icon: Zap,
               },
             ].map((p) => {
               const isHomeownerAspirational = p.slug === 'for-homeowners';
@@ -230,17 +234,19 @@ export default function LandingPage() {
                 : isInstaller
                 ? 'Get my free brochure'
                 : 'Read & take the survey';
+              const Icon = p.icon;
               return (
               <Link
                 key={p.slug}
                 to={href}
-                className="group rounded-2xl border bg-card p-6 hover:shadow-md transition-all relative overflow-hidden"
+                className="group rounded-2xl border border-border bg-card shadow-sm p-6 hover:shadow-md transition-all relative overflow-hidden"
                 data-testid={p.testid}
               >
                 <div
                   className="absolute top-0 left-0 h-1 w-full"
                   style={{ backgroundColor: p.accent }}
                 />
+                <Icon className="h-6 w-6 mb-3" style={{ color: p.accent }} />
                 <div className="text-xs uppercase tracking-wider mb-2" style={{ color: p.accent }}>
                   {p.eyebrow}
                 </div>
