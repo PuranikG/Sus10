@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Slider } from '../components/ui/slider';
 import { Badge } from '../components/ui/badge';
 import Navbar from '../components/layout/Navbar';
 import ReportDownloadDialog from '../components/report/ReportDownloadDialog';
@@ -77,33 +76,42 @@ function BiogasAdjuster({ families, waste, onChange }) {
           <Recycle className="h-5 w-5 text-emerald-400" />
           <div>
             <div className="font-medium text-slate-50">Tune biogas inputs</div>
-            <p className="text-xs text-slate-400">Drag the sliders to match your building. Numbers above update live.</p>
+            <p className="text-xs text-slate-400">Enter values to match your building. Numbers above update live.</p>
           </div>
         </div>
         <div className="grid sm:grid-cols-2 gap-6">
           <div>
-            <div className="flex justify-between mb-2 text-sm text-slate-200">
+            <div className="flex justify-between items-center mb-2 text-sm text-slate-200">
               <span>Families / apartments</span>
-              <span className="font-medium" data-testid="adjuster-families-value">{families}</span>
+              <input
+                type="number"
+                value={families}
+                onChange={(e) => onChange({ families: Number(e.target.value), waste })}
+                min={1}
+                max={500}
+                step={1}
+                className="w-20 rounded-md border border-slate-600 bg-slate-800 px-2 py-1 text-sm font-medium text-slate-100 text-right focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                data-testid="adjuster-families-input"
+              />
             </div>
-            <Slider
-              value={[families]}
-              onValueChange={([v]) => onChange({ families: v, waste })}
-              min={1} max={500} step={1}
-              data-testid="adjuster-families-slider"
-            />
           </div>
           <div>
-            <div className="flex justify-between mb-2 text-sm text-slate-200">
+            <div className="flex justify-between items-center mb-2 text-sm text-slate-200">
               <span>Kitchen waste per family</span>
-              <span className="font-medium" data-testid="adjuster-waste-value">{waste.toFixed(2)} kg / day</span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  value={waste.toFixed(2)}
+                  onChange={(e) => onChange({ families, waste: Number(e.target.value) })}
+                  min={0.10}
+                  max={3.00}
+                  step={0.10}
+                  className="w-20 rounded-md border border-slate-600 bg-slate-800 px-2 py-1 text-sm font-medium text-slate-100 text-right focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  data-testid="adjuster-waste-input"
+                />
+                <span className="text-slate-400" data-testid="adjuster-waste-value">kg / day</span>
+              </div>
             </div>
-            <Slider
-              value={[Math.round(waste * 100)]}
-              onValueChange={([v]) => onChange({ families, waste: v / 100 })}
-              min={10} max={300} step={10}
-              data-testid="adjuster-waste-slider"
-            />
           </div>
         </div>
         <p className="mt-3 text-xs text-slate-400">

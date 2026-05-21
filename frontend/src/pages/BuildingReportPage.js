@@ -14,7 +14,6 @@ import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Skeleton } from '../components/ui/skeleton';
-import { Slider } from '../components/ui/slider';
 import { Label } from '../components/ui/label';
 import {
   Dialog,
@@ -1244,7 +1243,7 @@ export default function BuildingReportPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Terrace Area Slider */}
+                  {/* Terrace Area Input */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <Label className="text-base font-medium">Plantable Area</Label>
@@ -1252,18 +1251,17 @@ export default function BuildingReportPage() {
                         {Math.floor((customTerraceArea || building.usable_terrace_area || 0) * plantablePercent / 100).toLocaleString()} sqm
                       </span>
                     </div>
-                    <Slider
-                      value={[plantablePercent]}
-                      onValueChange={([val]) => setPlantablePercent(val)}
-                      min={30}
-                      max={90}
-                      step={5}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>30% (Minimal)</span>
-                      <span className="font-medium">{plantablePercent}% of {(customTerraceArea || building.usable_terrace_area || 0).toLocaleString()} sqm terrace</span>
-                      <span>90% (Maximum)</span>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        value={plantablePercent}
+                        onChange={(e) => setPlantablePercent(Number(e.target.value))}
+                        min={30}
+                        max={90}
+                        step={5}
+                        className="w-24 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <span className="text-sm text-muted-foreground">% of {(customTerraceArea || building.usable_terrace_area || 0).toLocaleString()} sqm terrace (30–90%)</span>
                     </div>
                   </div>
 
