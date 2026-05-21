@@ -274,14 +274,19 @@ export default function BuildingPotentialPage() {
             )}
 
             {/* Disclaimer + Next steps */}
-            <Card className="mt-6">
-              <CardContent className="p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <Card className="mt-6 border-t-2 border-emerald-700/40 bg-slate-900/60">
+              <CardContent className="p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="text-sm text-muted-foreground">
                   <TrendingUp className="h-4 w-4 inline mr-1 text-primary" />
                   Estimates use MNRE / CPCB / IS standards. Verify with site survey before commissioning.
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => setEmailDialogOpen(true)} data-testid="email-me-pdf-btn">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    size="lg"
+                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold shadow-lg shadow-emerald-500/20"
+                    onClick={() => setEmailDialogOpen(true)}
+                    data-testid="email-me-pdf-btn"
+                  >
                     <Mail className="h-4 w-4 mr-2" />
                     Email me this report
                   </Button>
