@@ -140,34 +140,6 @@ export default function LandingPage() {
                 </span>
               </motion.div>
               
-              {/* Search Form */}
-              <motion.form 
-                variants={fadeInUp}
-                onSubmit={handleSearch}
-                className="flex gap-3 max-w-lg"
-              >
-                <div className="relative flex-1">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Enter your building address..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-12 h-14 text-lg bg-card border-border"
-                    data-testid="hero-search-input"
-                  />
-                </div>
-                <Button 
-                  type="submit" 
-                  size="lg" 
-                  className="h-14 px-8 rounded-full btn-primary"
-                  data-testid="hero-search-btn"
-                >
-                  <Search className="h-5 w-5 mr-2" />
-                  Analyze
-                </Button>
-              </motion.form>
-
               {/* Calculator-first CTA — primary homeowner path */}
               <motion.div variants={fadeInUp} className="flex flex-wrap items-center gap-3 max-w-lg">
                 <Link to="/calculate" data-testid="hero-calculate-cta">
@@ -182,32 +154,6 @@ export default function LandingPage() {
                 </span>
               </motion.div>
               
-              {/* Quick Stats */}
-              {stats && (
-                <motion.div 
-                  variants={fadeInUp}
-                  className="flex flex-wrap gap-8 pt-4"
-                >
-                  <div>
-                    <div className="text-3xl font-heading font-bold text-primary">
-                      {formatNumber(stats.buildings_analyzed)}+
-                    </div>
-                    <div className="text-sm text-muted-foreground">Buildings Analyzed</div>
-                  </div>
-                  <div>
-                    <div className="text-3xl font-heading font-bold text-primary">
-                      {stats.cities_covered}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Cities</div>
-                  </div>
-                  <div>
-                    <div className="text-3xl font-heading font-bold text-primary">
-                      {stats.active_providers}+
-                    </div>
-                    <div className="text-sm text-muted-foreground">Providers</div>
-                  </div>
-                </motion.div>
-              )}
             </motion.div>
             
             {/* Right Column - Hero Image */}
@@ -225,33 +171,6 @@ export default function LandingPage() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
                 
-                {/* Floating Cards */}
-                <motion.div 
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 }}
-                  className="absolute bottom-8 left-8 right-8"
-                >
-                  <Card className="glass-card">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-full bg-primary/20">
-                            <Leaf className="h-5 w-5 text-primary" />
-                          </div>
-                          <div>
-                            <div className="font-medium">Sample Analysis</div>
-                            <div className="text-sm text-muted-foreground">DLF Cyber City, Gurugram</div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-heading font-bold text-primary">87%</div>
-                          <div className="text-xs text-muted-foreground">Green Potential</div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
               </div>
             </motion.div>
           </div>
