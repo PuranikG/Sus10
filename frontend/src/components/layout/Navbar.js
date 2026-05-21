@@ -59,21 +59,23 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                className={link.highlight
-                  ? "text-sm font-semibold text-emerald-500 hover:text-emerald-400 transition-colors flex items-center gap-1"
-                  : "text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"}
-                data-testid={`nav-${link.label.toLowerCase()}`}
-              >
-                {link.highlight && <span className="text-xs">✨</span>}
-                {link.label}
-              </Link>
-            ))}
-          </div>
+          {isAuthenticated && (
+            <div className="hidden md:flex items-center gap-8">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  to={link.href}
+                  className={link.highlight
+                    ? "text-sm font-semibold text-emerald-500 hover:text-emerald-400 transition-colors flex items-center gap-1"
+                    : "text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"}
+                  data-testid={`nav-${link.label.toLowerCase()}`}
+                >
+                  {link.highlight && <span className="text-xs">✨</span>}
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          )}
 
           {/* Right Side */}
           <div className="flex items-center gap-3">
@@ -137,20 +139,22 @@ export default function Navbar() {
             )}
 
             {/* Mobile Menu Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden rounded-full"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              data-testid="mobile-menu-toggle"
-            >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
+            {isAuthenticated && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden rounded-full"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                data-testid="mobile-menu-toggle"
+              >
+                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
+            )}
           </div>
         </div>
 
         {/* Mobile Menu */}
-        {mobileMenuOpen && (
+        {isAuthenticated && mobileMenuOpen && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
