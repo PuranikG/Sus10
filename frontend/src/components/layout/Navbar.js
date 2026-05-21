@@ -14,11 +14,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useFeatureFlags } from '../../context/FeatureFlagContext';
+import { usePreviewRole } from '../../context/PreviewRoleContext';
 
 export default function Navbar() {
   const { user, isAuthenticated, login, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { isEnabled } = useFeatureFlags();
+  const { previewRole } = usePreviewRole();
+  // When a non-admin preview role is active, show the anonymous (logged-out) nav
+  const showNav = isAuthenticated && !previewRole;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -59,7 +63,7 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Navigation */}
-          {isAuthenticated && (
+          {showNav && (
             <div className="hidden md:flex items-center gap-8">
               {navLinks.map((link) => (
                 <Link
@@ -139,7 +143,7 @@ export default function Navbar() {
             )}
 
             {/* Mobile Menu Button */}
-            {isAuthenticated && (
+            {showNav && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -154,7 +158,7 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Menu */}
-        {isAuthenticated && mobileMenuOpen && (
+        {showNav && mobileMenuOpen && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}

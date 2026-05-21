@@ -4,6 +4,7 @@ import { Toaster } from './components/ui/sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { FeatureFlagProvider } from './context/FeatureFlagContext';
+import { PreviewRoleProvider } from './context/PreviewRoleContext';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -338,14 +339,16 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <FeatureFlagProvider>
-          <BrowserRouter>
-            <div className="App min-h-screen bg-background">
-              <AppRouter />
-              <Toaster position="bottom-right" richColors />
-            </div>
-          </BrowserRouter>
-        </FeatureFlagProvider>
+        <PreviewRoleProvider>
+          <FeatureFlagProvider>
+            <BrowserRouter>
+              <div className="App min-h-screen bg-background">
+                <AppRouter />
+                <Toaster position="bottom-right" richColors />
+              </div>
+            </BrowserRouter>
+          </FeatureFlagProvider>
+        </PreviewRoleProvider>
       </AuthProvider>
     </ThemeProvider>
   );

@@ -1,12 +1,14 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { usePreviewRole, ROLE_LABELS } from '../../context/PreviewRoleContext';
 import Navbar from './Navbar';
 import {
   LayoutDashboard, Telescope, Building2, ClipboardList,
   Layers, Megaphone, Inbox, Users, FileText, BookOpen,
-  ListChecks, Mail, Flag, Shield, ChevronRight, ShieldCheck, Banknote,
+  ListChecks, Mail, Flag, Shield, ChevronRight, ShieldCheck, Banknote, Eye,
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 const SECTIONS = [
   {
@@ -83,6 +85,7 @@ function NavItem({ item, active }) {
 
 export default function AdminShell({ title, subtitle, actions, children }) {
   const { user } = useAuth();
+  const { previewRole, setPreviewRole } = usePreviewRole();
   const { pathname, search } = useLocation();
   const fullPath = pathname + search;
 
@@ -105,6 +108,19 @@ export default function AdminShell({ title, subtitle, actions, children }) {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+
+      {/* Preview mode banner */}
+      {previewRole && (
+        <div
+          className="w-full bg-amber-400 text-amber-950 text-sm font-medium text-center py-2 px-4 cursor-pointer hover:bg-amber-300 transition-colors flex items-center justify-center gap-2"
+          onClick={() => setPreviewRole(null)}
+          data-testid="preview-banner"
+        >
+          <Eye className="h-4 w-4 shrink-0" />
+          Previewing as {ROLE_LABELS[previewRole]} — Click to exit preview
+        </div>
+      )}
+
       <div className="container-max section-padding py-6">
         <div className="grid lg:grid-cols-[240px_1fr] gap-6">
           {/* Sidebar */}
@@ -114,6 +130,27 @@ export default function AdminShell({ title, subtitle, actions, children }) {
                 <Shield className="h-4 w-4 text-primary" />
                 <span className="text-sm font-semibold">Internal Console</span>
                 <Badge className="ml-auto bg-primary text-xs">Admin</Badge>
+              </div>
+
+              {/* Preview as switcher */}
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5 px-1">
+                  Preview as
+                </div>
+                <Select
+                  value={previewRole || 'admin'}
+                  onValueChange={(val) => setPreviewRole(val === 'admin' ? null : val)}
+                >
+                  <SelectTrigger className="h-8 text-xs" data-testid="preview-role-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="homeowner">Homeowner</SelectItem>
+                    <SelectItem value="rwa">RWA</SelectItem>
+                    <SelectItem value="vendor">Vendor</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               {SECTIONS.map((section) => (
                 <div key={section.label}>
