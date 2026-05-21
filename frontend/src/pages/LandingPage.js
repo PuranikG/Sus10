@@ -179,7 +179,7 @@ export default function LandingPage() {
       </section>
 
       {/* Persona Switcher — pre-launch teasers */}
-      <section className="py-20 border-y border-border bg-background" data-testid="persona-switcher">
+      <section id="persona-switcher" className="py-20 border-y border-border bg-background" data-testid="persona-switcher">
         <div className="container-max section-padding">
           <div className="text-center mb-10">
             <Badge variant="outline" className="mb-3" data-testid="persona-eyebrow">For everyone with a rooftop</Badge>
@@ -347,17 +347,15 @@ export default function LandingPage() {
               </div>
               
               <div className="mt-8 flex gap-4">
-                <Link to="/search">
-                  <Button size="lg" className="rounded-full btn-primary" data-testid="explore-buildings-btn">
-                    Explore Buildings
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
-                <Link to="/providers">
-                  <Button size="lg" variant="outline" className="rounded-full" data-testid="find-providers-btn">
-                    Find Providers
-                  </Button>
-                </Link>
+                <Button
+                  size="lg"
+                  className="rounded-full btn-primary"
+                  onClick={() => document.getElementById('persona-switcher')?.scrollIntoView({ behavior: 'smooth' })}
+                  data-testid="get-started-btn"
+                >
+                  Get Started
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
               </div>
             </motion.div>
             
@@ -376,30 +374,11 @@ export default function LandingPage() {
                       className="w-full h-48 object-cover"
                     />
                   </Card>
-                  <TooltipProvider delayDuration={120}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Card className="p-6 bg-primary text-primary-foreground cursor-help" data-testid="trust-accuracy-card">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <div className="text-4xl font-heading font-bold mb-2">95%</div>
-                              <div className="text-sm opacity-90 flex items-center gap-1">
-                                Calculation Accuracy
-                                <Info className="h-3.5 w-3.5 opacity-70" />
-                              </div>
-                            </div>
-                          </div>
-                        </Card>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-xs leading-relaxed">
-                        <strong>How we get to 95%:</strong> Estimates use MNRE GHI atlas (solar irradiance),
-                        CPCB organic-waste norms (biogas), IMD rainfall data (RWH), and CEA grid emission
-                        factors. Each pillar's formula is published and explainable on the building report.
-                        The remaining ~5% comes from site-specific factors only a survey can capture
-                        (shading, slab strength, plumbing geometry).
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <Card className="p-6 bg-primary text-primary-foreground" data-testid="trust-accuracy-card">
+                    <div className="font-heading font-semibold text-lg leading-snug">
+                      AI powered insights in minutes
+                    </div>
+                  </Card>
                 </div>
                 <div className="space-y-4 pt-8">
                   <TooltipProvider delayDuration={120}>
