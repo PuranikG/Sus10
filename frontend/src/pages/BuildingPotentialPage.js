@@ -288,9 +288,6 @@ export default function BuildingPotentialPage() {
                   <Link to={`/buildings/${buildingId}`}>
                     <Button variant="outline" size="sm" data-testid="see-full-report-btn">See full report</Button>
                   </Link>
-                  <Link to={`/leads/new?building_id=${buildingId}`}>
-                    <Button variant="outline" size="sm" data-testid="connect-vendor-btn">Connect with a vendor</Button>
-                  </Link>
                 </div>
               </CardContent>
             </Card>
