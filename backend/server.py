@@ -2734,7 +2734,7 @@ async def get_building_potential(
         )
         if cars_offset:
             narrative_parts.append(f"— the same as taking **{cars_offset:,} cars off {bcity}'s roads**" if bcity else f"— the same as taking **{cars_offset:,} cars off the road**")
-        narrative_parts.append(f"— while saving **{_fmt_inr(annual_savings)}** for the building owner.")
+        narrative_parts.append(f"— while saving **{_fmt_inr(annual_savings)}** for you.")
     elif annual_savings:
         narrative_parts.append(f"**{bname}** could save **{_fmt_inr(annual_savings)}** every year through integrated sustenance.")
     else:
