@@ -141,20 +141,6 @@ export default function LandingPage() {
                 </span>
               </motion.div>
               
-              {/* Calculator-first CTA — primary homeowner path */}
-              <motion.div variants={fadeInUp} className="flex flex-wrap items-center gap-3 max-w-lg">
-                <Link to="/calculate" data-testid="hero-calculate-cta">
-                  <Button size="lg" className="h-12 px-6 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold shadow-lg shadow-emerald-500/20">
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Calculate your roof potential
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </Link>
-                <span className="text-sm text-muted-foreground">
-                  60 seconds · No login · Free integrated report
-                </span>
-              </motion.div>
-              
             </motion.div>
             
             {/* Right Column - Hero Image */}
@@ -239,26 +225,85 @@ export default function LandingPage() {
               <Link
                 key={p.slug}
                 to={href}
-                className="group rounded-2xl border border-border bg-card shadow-sm p-6 hover:shadow-md transition-all relative overflow-hidden"
+                className="group block transition-all hover:scale-[1.02]"
                 data-testid={p.testid}
+                style={{
+                  background: '#0e160e',
+                  border: '1px solid #1e2e1e',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                }}
               >
-                <div
-                  className="absolute top-0 left-0 h-1 w-full"
-                  style={{ backgroundColor: p.accent }}
-                />
-                <Icon className="h-6 w-6 mb-3" style={{ color: p.accent }} />
-                <div className="text-xs uppercase tracking-wider mb-2" style={{ color: p.accent }}>
-                  {p.eyebrow}
+                {/* Card Header */}
+                <div style={{
+                  background: 'linear-gradient(135deg, #1a2e1a 0%, #111b11 100%)',
+                  borderBottom: '1px solid #1a2a1a',
+                  padding: '22px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                }}>
+                  <div style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '50%',
+                    background: 'rgba(0,201,110,0.15)',
+                    border: '1px solid rgba(0,201,110,0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <Icon style={{ color: '#00c96e', width: '20px', height: '20px' }} />
+                  </div>
+                  <div>
+                    <div style={{
+                      fontSize: '10px',
+                      letterSpacing: '0.15em',
+                      color: '#00c96e',
+                      textTransform: 'uppercase',
+                      fontWeight: 500,
+                      marginBottom: '3px',
+                    }}>
+                      {p.eyebrow}
+                    </div>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: 700,
+                      color: '#ffffff',
+                      lineHeight: 1.25,
+                    }}>
+                      {p.title}
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold mb-1">{p.title}</h3>
-                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{p.blurb}</p>
-                <span
-                  className="inline-flex items-center text-sm font-medium group-hover:gap-2 gap-1 transition-all"
-                  style={{ color: p.accent }}
-                >
-                  {ctaText}
-                  <ArrowRight className="h-4 w-4" />
-                </span>
+                {/* Card Body */}
+                <div style={{
+                  background: '#0e160e',
+                  padding: '20px 22px 24px',
+                }}>
+                  <p style={{
+                    fontSize: '13px',
+                    color: '#6a8a6a',
+                    lineHeight: 1.65,
+                    marginBottom: '18px',
+                  }}>
+                    {p.blurb}
+                  </p>
+                  <span style={{
+                    fontSize: '11px',
+                    color: '#00c96e',
+                    fontWeight: 600,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}>
+                    {ctaText}
+                    <ArrowRight style={{ width: '12px', height: '12px' }} />
+                  </span>
+                </div>
               </Link>
               );
             })}
@@ -442,22 +487,17 @@ export default function LandingPage() {
                   </Button>
                 </Link>
               ) : (
-                <Button 
-                  size="lg" 
-                  variant="secondary" 
+                <Button
+                  size="lg"
+                  variant="secondary"
                   className="rounded-full text-lg px-8"
-                  onClick={login}
+                  onClick={() => document.getElementById('persona-switcher')?.scrollIntoView({ behavior: 'smooth' })}
                   data-testid="get-started-btn"
                 >
                   Get Started Free
                   <ChevronRight className="ml-2 h-5 w-5" />
                 </Button>
               )}
-              <Link to="/insights">
-                <Button size="lg" variant="outline" className="rounded-full text-lg px-8 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10" data-testid="view-insights-btn">
-                  See city insights
-                </Button>
-              </Link>
             </div>
           </motion.div>
         </div>
