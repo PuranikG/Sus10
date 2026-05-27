@@ -15,9 +15,9 @@ function resolveAssetUrl(url) {
   return url;
 }
 
-function IconByName({ name, className }) {
+function IconByName({ name, className, style }) {
   const Icon = name && LucideIcons[name] ? LucideIcons[name] : LucideIcons.Sparkle;
-  return <Icon className={className} aria-hidden="true" />;
+  return <Icon className={className} style={style} aria-hidden="true" />;
 }
 
 function injectGAScript(trackingId) {
@@ -185,16 +185,28 @@ export default function CmsPage({ expectedType = null }) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08 }}
-                className="rounded-xl border bg-card p-5"
+                style={{
+                  background: '#111e15',
+                  border: '1px solid #1e3024',
+                  borderRadius: '14px',
+                  padding: '24px',
+                }}
               >
-                <div
-                  className="inline-flex items-center justify-center w-10 h-10 rounded-lg mb-3"
-                  style={{ backgroundColor: `${cover}1A`, color: cover }}
-                >
-                  <IconByName name={b.icon} className="h-5 w-5" />
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  background: 'rgba(0,201,110,0.12)',
+                  border: '1px solid rgba(0,201,110,0.25)',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '14px',
+                }}>
+                  <IconByName name={b.icon} className="h-[18px] w-[18px]" style={{ color: '#00c96e' }} />
                 </div>
-                <h3 className="font-semibold mb-1.5">{b.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{b.body}</p>
+                <h3 style={{ color: '#f8fdf8', fontSize: '15px', fontWeight: 600, marginBottom: '8px' }}>{b.title}</h3>
+                <p style={{ color: '#7aaa8a', fontSize: '13px', lineHeight: 1.65, margin: 0 }}>{b.body}</p>
               </motion.div>
             ))}
           </div>
@@ -218,8 +230,46 @@ export default function CmsPage({ expectedType = null }) {
       {/* MAIN BODY */}
       {page.body_markdown && (
         <article className="max-w-3xl mx-auto px-6 py-12">
-          <div className="prose prose-lg dark:prose-invert max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{page.body_markdown}</ReactMarkdown>
+          <div style={{ background: '#0d1710', borderRadius: '12px', padding: '32px 36px' }}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                p: ({ children }) => (
+                  <p style={{ color: '#c8ddd0', fontSize: '15px', lineHeight: 1.75, marginBottom: '14px' }}>{children}</p>
+                ),
+                h1: ({ children }) => (
+                  <h1 style={{ color: '#f8fdf8', fontWeight: 700, fontSize: '26px', marginBottom: '16px', marginTop: '24px' }}>{children}</h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 style={{ color: '#f8fdf8', fontWeight: 700, fontSize: '21px', marginBottom: '12px', marginTop: '22px' }}>{children}</h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 style={{ color: '#f8fdf8', fontWeight: 700, fontSize: '17px', marginBottom: '10px', marginTop: '18px' }}>{children}</h3>
+                ),
+                li: ({ children }) => {
+                  const getFirstChar = (node) => {
+                    if (typeof node === 'string') return node.trimStart()[0] || '';
+                    if (Array.isArray(node)) return getFirstChar(node[0]);
+                    if (node?.props?.children) return getFirstChar(node.props.children);
+                    return '';
+                  };
+                  const first = getFirstChar(children);
+                  const color = first === '✓' ? '#4ade80' : first === '✗' ? '#ff6b6b' : '#c8ddd0';
+                  return <li style={{ color, marginBottom: '6px', lineHeight: 1.65 }}>{children}</li>;
+                },
+                ul: ({ children }) => (
+                  <ul style={{ paddingLeft: '20px', marginBottom: '14px' }}>{children}</ul>
+                ),
+                ol: ({ children }) => (
+                  <ol style={{ paddingLeft: '20px', marginBottom: '14px' }}>{children}</ol>
+                ),
+                strong: ({ children }) => (
+                  <strong style={{ color: '#f8fdf8', fontWeight: 700 }}>{children}</strong>
+                ),
+              }}
+            >
+              {page.body_markdown}
+            </ReactMarkdown>
           </div>
         </article>
       )}
@@ -228,12 +278,16 @@ export default function CmsPage({ expectedType = null }) {
       {page.survey_url && (
         <section className="max-w-5xl mx-auto px-6 py-16">
           <div className="rounded-xl border overflow-hidden bg-card shadow-sm" data-testid="cms-survey-iframe">
-            <iframe
-              src={page.survey_url}
-              title={`${page.title} survey`}
-              className="w-full"
-              style={{ height: '820px', border: 'none' }}
-            />
+            <div style={{ width: '100%', minHeight: '600px', overflow: 'hidden' }}>
+              <iframe
+                src={page.survey_url}
+                title={`${page.title} survey`}
+                className="w-full"
+                style={{ height: '820px', border: 'none' }}
+                sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
           </div>
         </section>
       )}

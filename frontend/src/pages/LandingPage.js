@@ -216,10 +216,10 @@ export default function LandingPage() {
                 ? '/for-installers/brochure'
                 : `/${p.slug}`;
               const ctaText = isHomeownerAspirational
-                ? 'Calculate my potential'
+                ? 'Calculate Savings'
                 : isInstaller
-                ? 'Get my free brochure'
-                : 'Read & take the survey';
+                ? 'Partner with us'
+                : 'Calculate Savings';
               const Icon = p.icon;
               return (
               <Link
@@ -494,7 +494,7 @@ export default function LandingPage() {
                   onClick={() => document.getElementById('persona-switcher')?.scrollIntoView({ behavior: 'smooth' })}
                   data-testid="get-started-btn"
                 >
-                  Get Started Free
+                  Get Started →
                   <ChevronRight className="ml-2 h-5 w-5" />
                 </Button>
               )}
