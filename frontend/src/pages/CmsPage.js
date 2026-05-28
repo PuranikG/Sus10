@@ -20,7 +20,7 @@ function IconByName({ name, className, style }) {
   return <Icon className={className} style={style} aria-hidden="true" />;
 }
 
-// ─── Sprint 4: Feature cards grid helpers ────────────────────────────────────
+// ─── Sprint 4 revised: FeatureRoadmapGrid ────────────────────────────────────
 
 function extractTextFromReactNode(node) {
   if (typeof node === 'string') return node;
@@ -39,102 +39,133 @@ function parseFeatureItem(text) {
   return { emoji: m[1], name: m[2], description: m[3].replace(/\.$/, ''), status: m[4] };
 }
 
-const ICON_KEYWORD_MAP = [
-  [['provider', 'marketplace', 'store', 'vendor', 'installer'], 'Store'],
-  [['community', 'member', 'partner', 'user', 'rwa', 'society'], 'Users'],
-  [['report', 'document', 'certificate', 'audit', 'record'], 'FileText'],
-  [['subsidy', 'government', 'policy', 'fund', 'incentive', 'finance'], 'Landmark'],
-  [['map', 'location', 'city', 'area', 'district', 'zone'], 'Map'],
-  [['building', 'property', 'apartment', 'terrace', 'roof'], 'Building2'],
-  [['analytics', 'dashboard', 'chart', 'insight', 'data', 'track'], 'BarChart2'],
-  [['solar', 'energy', 'power', 'fast', 'quick', 'instant'], 'Zap'],
+const FEATURE_ICON_MAP = [
+  { keywords: ['vendor', 'profile'],      icon: 'Store'     },
+  { keywords: ['lead', 'rwa', 'society'], icon: 'Users'     },
+  { keywords: ['proposal', 'scoping'],    icon: 'FileText'  },
+  { keywords: ['subsidy', 'compliance'],  icon: 'Landmark'  },
+  { keywords: ['rooftop', 'mapping'],     icon: 'Map'       },
+  { keywords: ['community', 'action'],    icon: 'Building2' },
+  { keywords: ['impact', 'dashboard'],    icon: 'BarChart2' },
 ];
 
-function getFeatureIcon(name) {
+function getFeatureIconName(name) {
   const lower = name.toLowerCase();
-  for (const [keywords] of ICON_KEYWORD_MAP) {
-    if (keywords.some(k => lower.includes(k))) {
-      return ICON_KEYWORD_MAP.find(([kws]) => kws === keywords)[1];
-    }
+  for (const { keywords, icon } of FEATURE_ICON_MAP) {
+    if (keywords.some(k => lower.includes(k))) return icon;
   }
-  return 'Sparkle';
+  return 'Zap';
 }
 
-const STATUS_COLORS = {
-  'In development': '#4ade80',
-  'Coming soon':    '#f5a623',
-  'Planned':        '#4a6a4a',
+const STATUS_STYLE_MAP = {
+  'in development': {
+    accentColor: '#4ade80',
+    badgeBg:     'rgba(74,222,128,0.1)',
+    badgeBorder: 'rgba(74,222,128,0.25)',
+    badgeColor:  '#4ade80',
+    label:       'In development',
+  },
+  'coming soon': {
+    accentColor: '#f5a623',
+    badgeBg:     'rgba(245,166,35,0.1)',
+    badgeBorder: 'rgba(245,166,35,0.25)',
+    badgeColor:  '#f5a623',
+    label:       'Coming soon',
+  },
+  'planned': {
+    accentColor: '#4a6a4a',
+    badgeBg:     'rgba(106,138,106,0.12)',
+    badgeBorder: 'rgba(106,138,106,0.2)',
+    badgeColor:  '#7aaa8a',
+    label:       'Planned',
+  },
 };
 
-function FeatureCardsGrid({ items }) {
+function FeatureRoadmapGrid({ items }) {
   return (
     <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(2, 1fr)',
-      gap: '14px',
-      marginBottom: '28px',
+      background: '#0d1710',
+      borderRadius: '20px',
+      padding: '40px',
+      margin: '40px 0',
     }}>
-      {items.map((item, i) => {
-        const accent = STATUS_COLORS[item.status] || '#4a6a4a';
-        return (
-          <div
-            key={i}
-            style={{
-              background: '#111e15',
-              border: '1px solid #1e3024',
-              borderTop: `2px solid ${accent}`,
-              borderRadius: '14px',
-              padding: '22px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px',
-            }}
-          >
-            {/* Icon + name row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '14px',
+      }}>
+        {items.map((item, i) => {
+          const s = STATUS_STYLE_MAP[item.status.toLowerCase()] || STATUS_STYLE_MAP['planned'];
+          const iconName = getFeatureIconName(item.name);
+          const IconComp = LucideIcons[iconName] || LucideIcons.Zap;
+          return (
+            <div
+              key={i}
+              style={{
+                background: '#111e15',
+                border: '1px solid #1e3024',
+                borderRadius: '14px',
+                padding: '22px',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Top accent line */}
               <div style={{
-                width: '36px',
-                height: '36px',
-                background: 'rgba(0,201,110,0.10)',
-                border: '1px solid rgba(0,201,110,0.20)',
-                borderRadius: '9px',
+                position: 'absolute',
+                top: 0, left: 0, right: 0,
+                height: '2px',
+                background: s.accentColor,
+              }} />
+
+              {/* Icon + status badge row */}
+              <div style={{
                 display: 'flex',
+                justifyContent: 'space-between',
                 alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                fontSize: '16px',
-                lineHeight: 1,
+                marginBottom: '12px',
               }}>
-                {item.emoji}
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  background: 'rgba(74,222,128,0.1)',
+                  border: '1px solid rgba(74,222,128,0.2)',
+                  borderRadius: '10px',
+                  padding: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <IconComp style={{ width: '18px', height: '18px', color: '#4ade80' }} />
+                </div>
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  padding: '4px 12px',
+                  borderRadius: '100px',
+                  color: s.badgeColor,
+                  background: s.badgeBg,
+                  border: `1px solid ${s.badgeBorder}`,
+                }}>
+                  {s.label}
+                </span>
               </div>
-              <span style={{ color: '#f8fdf8', fontSize: '14px', fontWeight: 600, lineHeight: 1.3 }}>
+
+              {/* Feature name */}
+              <div style={{ fontSize: '15px', fontWeight: 700, color: '#f8fdf8', marginBottom: '8px' }}>
                 {item.name}
-              </span>
+              </div>
+
+              {/* Description */}
+              <div style={{ fontSize: '13px', color: '#5a8a6a', lineHeight: 1.6 }}>
+                {item.description}
+              </div>
             </div>
-            {/* Description */}
-            <p style={{ color: '#7aaa8a', fontSize: '13px', lineHeight: 1.6, margin: 0 }}>
-              {item.description}
-            </p>
-            {/* Status badge */}
-            <div style={{ marginTop: 'auto' }}>
-              <span style={{
-                display: 'inline-block',
-                background: `${accent}1a`,
-                color: accent,
-                fontSize: '10px',
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                padding: '3px 10px',
-                borderRadius: '100px',
-                border: `1px solid ${accent}40`,
-              }}>
-                {item.status}
-              </span>
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -364,16 +395,30 @@ export default function CmsPage({ expectedType = null }) {
                   return (
                     <div style={{ marginTop: '32px', marginBottom: '12px' }}>
                       {isRoadmap && (
-                        <div style={{ color: '#4ade80', fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>
-                          Product roadmap
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginBottom: '12px',
+                        }}>
+                          <div style={{ width: '24px', height: '1px', background: '#4ade80', flexShrink: 0 }} />
+                          <span style={{
+                            fontSize: '10px',
+                            letterSpacing: '0.18em',
+                            color: '#4ade80',
+                            textTransform: 'uppercase',
+                          }}>Product Roadmap</span>
                         </div>
                       )}
-                      <h2 style={{ color: '#f8fdf8', fontSize: '20px', fontWeight: 700, fontFamily: "'Playfair Display', serif", margin: 0 }}>
+                      <h2 style={{
+                        fontFamily: "'Playfair Display', Georgia, serif",
+                        fontSize: isRoadmap ? '28px' : '20px',
+                        fontWeight: 700,
+                        color: '#f8fdf8',
+                        margin: 0,
+                      }}>
                         {children}
                       </h2>
-                      {isRoadmap && (
-                        <div style={{ width: '24px', height: '2px', background: '#4ade80', marginTop: '8px' }} />
-                      )}
                     </div>
                   );
                 },
@@ -423,7 +468,7 @@ export default function CmsPage({ expectedType = null }) {
                     }
                   }
                   if (allMatch && featureItems.length >= 2) {
-                    return <FeatureCardsGrid items={featureItems} />;
+                    return <FeatureRoadmapGrid items={featureItems} />;
                   }
                   return <ul style={{ marginBottom: '20px', paddingLeft: 0, listStyle: 'none' }}>{children}</ul>;
                 },
