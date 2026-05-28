@@ -235,36 +235,43 @@ export default function CmsPage({ expectedType = null }) {
               remarkPlugins={[remarkGfm]}
               components={{
                 p: ({ children }) => (
-                  <p style={{ color: '#c8ddd0', fontSize: '15px', lineHeight: 1.75, marginBottom: '14px' }}>{children}</p>
-                ),
-                h1: ({ children }) => (
-                  <h1 style={{ color: '#f8fdf8', fontWeight: 700, fontSize: '26px', marginBottom: '16px', marginTop: '24px' }}>{children}</h1>
+                  <p style={{ color: '#c8ddd0', fontSize: '14px', lineHeight: 1.75, marginBottom: '16px' }}>{children}</p>
                 ),
                 h2: ({ children }) => (
-                  <h2 style={{ color: '#f8fdf8', fontWeight: 700, fontSize: '21px', marginBottom: '12px', marginTop: '22px' }}>{children}</h2>
+                  <h2 style={{ color: '#f8fdf8', fontSize: '20px', fontWeight: 700, marginTop: '32px', marginBottom: '12px', fontFamily: "'Playfair Display', serif" }}>{children}</h2>
                 ),
                 h3: ({ children }) => (
-                  <h3 style={{ color: '#f8fdf8', fontWeight: 700, fontSize: '17px', marginBottom: '10px', marginTop: '18px' }}>{children}</h3>
+                  <h3 style={{ color: '#f8fdf8', fontSize: '16px', fontWeight: 600, marginTop: '24px', marginBottom: '8px' }}>{children}</h3>
+                ),
+                strong: ({ children }) => (
+                  <strong style={{ color: '#f8fdf8', fontWeight: 700 }}>{children}</strong>
                 ),
                 li: ({ children }) => {
                   const getFirstChar = (node) => {
                     if (typeof node === 'string') return node.trimStart()[0] || '';
-                    if (Array.isArray(node)) return getFirstChar(node[0]);
+                    if (Array.isArray(node)) {
+                      for (const child of node) {
+                        const ch = getFirstChar(child);
+                        if (ch) return ch;
+                      }
+                      return '';
+                    }
                     if (node?.props?.children) return getFirstChar(node.props.children);
                     return '';
                   };
                   const first = getFirstChar(children);
                   const color = first === '✓' ? '#4ade80' : first === '✗' ? '#ff6b6b' : '#c8ddd0';
-                  return <li style={{ color, marginBottom: '6px', lineHeight: 1.65 }}>{children}</li>;
+                  return (
+                    <li style={{ color, fontSize: '14px', lineHeight: 1.75, marginBottom: '8px', paddingLeft: '4px' }}>
+                      {children}
+                    </li>
+                  );
                 },
                 ul: ({ children }) => (
-                  <ul style={{ paddingLeft: '20px', marginBottom: '14px' }}>{children}</ul>
+                  <ul style={{ marginBottom: '20px', paddingLeft: 0, listStyle: 'none' }}>{children}</ul>
                 ),
                 ol: ({ children }) => (
-                  <ol style={{ paddingLeft: '20px', marginBottom: '14px' }}>{children}</ol>
-                ),
-                strong: ({ children }) => (
-                  <strong style={{ color: '#f8fdf8', fontWeight: 700 }}>{children}</strong>
+                  <ol style={{ marginBottom: '20px', paddingLeft: 0, listStyle: 'none' }}>{children}</ol>
                 ),
               }}
             >
