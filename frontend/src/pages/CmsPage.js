@@ -274,20 +274,48 @@ export default function CmsPage({ expectedType = null }) {
         </article>
       )}
 
-      {/* SURVEY IFRAME */}
+      {/* SURVEY CTA */}
       {page.survey_url && (
-        <section className="max-w-5xl mx-auto px-6 py-16">
-          <div className="rounded-xl border overflow-hidden bg-card shadow-sm" data-testid="cms-survey-iframe">
-            <div style={{ width: '100%', minHeight: '600px', overflow: 'hidden' }}>
-              <iframe
-                src={page.survey_url}
-                title={`${page.title} survey`}
-                className="w-full"
-                style={{ height: '820px', border: 'none' }}
-                sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            </div>
+        <section className="max-w-3xl mx-auto px-6 py-16">
+          <div
+            data-testid="cms-survey-cta"
+            style={{
+              background: '#111e15',
+              border: '1px solid #1e3024',
+              borderRadius: '16px',
+              padding: '40px',
+              textAlign: 'center',
+            }}
+          >
+            <h3 style={{ color: '#f8fdf8', fontSize: '20px', fontWeight: 700, marginBottom: '12px' }}>
+              Share your thoughts
+            </h3>
+            <p style={{ color: '#7aaa8a', fontSize: '13px', marginBottom: '28px' }}>
+              Takes 10–12 minutes · Anonymous · No login required
+            </p>
+            <a
+              href={page.survey_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-block',
+                background: '#00c96e',
+                color: '#0a0f0a',
+                fontWeight: 700,
+                padding: '14px 32px',
+                borderRadius: '100px',
+                fontSize: '15px',
+                textDecoration: 'none',
+                transition: 'background 0.2s',
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#00e87a'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#00c96e'; }}
+            >
+              Take the Survey →
+            </a>
+            <p style={{ color: '#4a6a4a', fontSize: '11px', marginTop: '16px', marginBottom: 0 }}>
+              Powered by Zoho Survey · Your responses are confidential
+            </p>
           </div>
         </section>
       )}

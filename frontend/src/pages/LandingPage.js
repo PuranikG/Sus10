@@ -150,14 +150,30 @@ export default function LandingPage() {
               transition={{ duration: 0.7, delay: 0.2 }}
               className="relative hidden lg:block"
             >
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl">
+              <div style={{
+                position: 'relative',
+                borderRadius: '20px',
+                overflow: 'hidden',
+                border: '1px solid rgba(74,222,128,0.25)',
+                boxShadow: '0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(74,222,128,0.08)',
+                maxHeight: '480px',
+              }}>
                 <img
-                  src="https://images.pexels.com/photos/29206495/pexels-photo-29206495.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
-                  alt="Green building rooftop"
-                  className="w-full h-[600px] object-cover"
+                  src="/hero_rooftop.png"
+                  alt="Transform your rooftop — from bare concrete to solar, garden and biogas"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                  }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
-                
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'linear-gradient(to bottom, transparent 60%, rgba(13,23,16,0.4) 100%)',
+                  pointerEvents: 'none',
+                }} />
               </div>
             </motion.div>
           </div>
