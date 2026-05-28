@@ -20,6 +20,127 @@ function IconByName({ name, className, style }) {
   return <Icon className={className} style={style} aria-hidden="true" />;
 }
 
+// ─── Sprint 4: Feature cards grid helpers ────────────────────────────────────
+
+function extractTextFromReactNode(node) {
+  if (typeof node === 'string') return node;
+  if (Array.isArray(node)) return node.map(extractTextFromReactNode).join('');
+  if (node?.props?.children) return extractTextFromReactNode(node.props.children);
+  return '';
+}
+
+// Matches: emoji Name — description. (Status)
+// e.g.  "🏛️ Verified Provider Marketplace — Connect with installers. (Coming soon)"
+const FEATURE_ITEM_RE = /^(\S+)\s+(.+?)\s+[—–]\s+(.+?\.?)\s*\((In development|Coming soon|Planned)\)\.?\s*$/i;
+
+function parseFeatureItem(text) {
+  const m = text.trim().match(FEATURE_ITEM_RE);
+  if (!m) return null;
+  return { emoji: m[1], name: m[2], description: m[3].replace(/\.$/, ''), status: m[4] };
+}
+
+const ICON_KEYWORD_MAP = [
+  [['provider', 'marketplace', 'store', 'vendor', 'installer'], 'Store'],
+  [['community', 'member', 'partner', 'user', 'rwa', 'society'], 'Users'],
+  [['report', 'document', 'certificate', 'audit', 'record'], 'FileText'],
+  [['subsidy', 'government', 'policy', 'fund', 'incentive', 'finance'], 'Landmark'],
+  [['map', 'location', 'city', 'area', 'district', 'zone'], 'Map'],
+  [['building', 'property', 'apartment', 'terrace', 'roof'], 'Building2'],
+  [['analytics', 'dashboard', 'chart', 'insight', 'data', 'track'], 'BarChart2'],
+  [['solar', 'energy', 'power', 'fast', 'quick', 'instant'], 'Zap'],
+];
+
+function getFeatureIcon(name) {
+  const lower = name.toLowerCase();
+  for (const [keywords] of ICON_KEYWORD_MAP) {
+    if (keywords.some(k => lower.includes(k))) {
+      return ICON_KEYWORD_MAP.find(([kws]) => kws === keywords)[1];
+    }
+  }
+  return 'Sparkle';
+}
+
+const STATUS_COLORS = {
+  'In development': '#4ade80',
+  'Coming soon':    '#f5a623',
+  'Planned':        '#4a6a4a',
+};
+
+function FeatureCardsGrid({ items }) {
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, 1fr)',
+      gap: '14px',
+      marginBottom: '28px',
+    }}>
+      {items.map((item, i) => {
+        const accent = STATUS_COLORS[item.status] || '#4a6a4a';
+        return (
+          <div
+            key={i}
+            style={{
+              background: '#111e15',
+              border: '1px solid #1e3024',
+              borderTop: `2px solid ${accent}`,
+              borderRadius: '14px',
+              padding: '22px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}
+          >
+            {/* Icon + name row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                background: 'rgba(0,201,110,0.10)',
+                border: '1px solid rgba(0,201,110,0.20)',
+                borderRadius: '9px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                fontSize: '16px',
+                lineHeight: 1,
+              }}>
+                {item.emoji}
+              </div>
+              <span style={{ color: '#f8fdf8', fontSize: '14px', fontWeight: 600, lineHeight: 1.3 }}>
+                {item.name}
+              </span>
+            </div>
+            {/* Description */}
+            <p style={{ color: '#7aaa8a', fontSize: '13px', lineHeight: 1.6, margin: 0 }}>
+              {item.description}
+            </p>
+            {/* Status badge */}
+            <div style={{ marginTop: 'auto' }}>
+              <span style={{
+                display: 'inline-block',
+                background: `${accent}1a`,
+                color: accent,
+                fontSize: '10px',
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                padding: '3px 10px',
+                borderRadius: '100px',
+                border: `1px solid ${accent}40`,
+              }}>
+                {item.status}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function injectGAScript(trackingId) {
   if (!trackingId || typeof window === 'undefined') return;
   // Whitelist: GA4 IDs are `G-XXXXXXXXXX`, UA IDs are `UA-…`, AW are `AW-…`.
@@ -237,9 +358,25 @@ export default function CmsPage({ expectedType = null }) {
                 p: ({ children }) => (
                   <p style={{ color: '#c8ddd0', fontSize: '14px', lineHeight: 1.75, marginBottom: '16px' }}>{children}</p>
                 ),
-                h2: ({ children }) => (
-                  <h2 style={{ color: '#f8fdf8', fontSize: '20px', fontWeight: 700, marginTop: '32px', marginBottom: '12px', fontFamily: "'Playfair Display', serif" }}>{children}</h2>
-                ),
+                h2: ({ children }) => {
+                  const text = extractTextFromReactNode(children);
+                  const isRoadmap = /roadmap/i.test(text);
+                  return (
+                    <div style={{ marginTop: '32px', marginBottom: '12px' }}>
+                      {isRoadmap && (
+                        <div style={{ color: '#4ade80', fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>
+                          Product roadmap
+                        </div>
+                      )}
+                      <h2 style={{ color: '#f8fdf8', fontSize: '20px', fontWeight: 700, fontFamily: "'Playfair Display', serif", margin: 0 }}>
+                        {children}
+                      </h2>
+                      {isRoadmap && (
+                        <div style={{ width: '24px', height: '2px', background: '#4ade80', marginTop: '8px' }} />
+                      )}
+                    </div>
+                  );
+                },
                 h3: ({ children }) => (
                   <h3 style={{ color: '#f8fdf8', fontSize: '16px', fontWeight: 600, marginTop: '24px', marginBottom: '8px' }}>{children}</h3>
                 ),
@@ -267,9 +404,29 @@ export default function CmsPage({ expectedType = null }) {
                     </li>
                   );
                 },
-                ul: ({ children }) => (
-                  <ul style={{ marginBottom: '20px', paddingLeft: 0, listStyle: 'none' }}>{children}</ul>
-                ),
+                ul: ({ children }) => {
+                  // Try to parse as feature cards grid
+                  const childArr = Array.isArray(children)
+                    ? children.filter(Boolean)
+                    : children ? [children] : [];
+                  const featureItems = [];
+                  let allMatch = childArr.length >= 2;
+                  for (const child of childArr) {
+                    if (typeof child !== 'object' || !child) { allMatch = false; break; }
+                    const rawText = extractTextFromReactNode(child.props?.children).trim();
+                    const parsed = parseFeatureItem(rawText);
+                    if (parsed) {
+                      featureItems.push(parsed);
+                    } else {
+                      allMatch = false;
+                      break;
+                    }
+                  }
+                  if (allMatch && featureItems.length >= 2) {
+                    return <FeatureCardsGrid items={featureItems} />;
+                  }
+                  return <ul style={{ marginBottom: '20px', paddingLeft: 0, listStyle: 'none' }}>{children}</ul>;
+                },
                 ol: ({ children }) => (
                   <ol style={{ marginBottom: '20px', paddingLeft: 0, listStyle: 'none' }}>{children}</ol>
                 ),
