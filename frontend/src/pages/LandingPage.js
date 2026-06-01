@@ -328,7 +328,7 @@ export default function LandingPage() {
       </section>
 
       {/* How It Works Section */}
-      <section style={{ padding: '80px 0' }}>
+      <section style={{ padding: '80px 0', background: '#0d1710', borderTop: '2px solid #4ade80', borderBottom: '2px solid #4ade80' }}>
         <div className="container-max section-padding">
 
           {/* Header */}
