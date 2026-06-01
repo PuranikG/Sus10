@@ -5,7 +5,7 @@ import {
   Leaf, Sun, Droplets, Search, ArrowRight, Building2,
   Users, TrendingUp, MapPin, ChevronRight, Sparkles,
   TreePine, Recycle, BarChart3, Shield, Info, TrendingDown,
-  Home, Zap, ClipboardList, BarChart2, FileCheck,
+  Home, Zap,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -323,100 +323,6 @@ export default function LandingPage() {
               </Link>
               );
             })}
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section style={{ padding: '80px 0', background: '#0d1710', borderTop: '2px solid #4ade80', borderBottom: '2px solid #4ade80' }}>
-        <div className="container-max section-padding">
-
-          {/* Header */}
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
-              <div style={{ width: '24px', height: '1px', background: '#4ade80', flexShrink: 0 }} />
-              <span style={{ fontSize: '11px', letterSpacing: '0.18em', color: '#4ade80', textTransform: 'uppercase' }}>
-                How it works
-              </span>
-              <div style={{ width: '24px', height: '1px', background: '#4ade80', flexShrink: 0 }} />
-            </div>
-            <h2 style={{
-              fontFamily: "'Playfair Display', Georgia, serif",
-              fontSize: 'clamp(1.8rem, 3vw, 2.4rem)',
-              fontWeight: 700,
-              color: '#f8fdf8',
-              textAlign: 'center',
-              marginBottom: '12px',
-            }}>
-              See what your rooftop could do — in 60 seconds
-            </h2>
-            <p style={{
-              fontSize: '14px',
-              color: '#7aaa8a',
-              textAlign: 'center',
-              maxWidth: '520px',
-              margin: '0 auto 48px',
-              lineHeight: 1.65,
-            }}>
-              AI-powered estimates based on your location, building data, and live air quality. A starting point — not a substitute for a site survey.
-            </p>
-          </div>
-
-          {/* Steps — flex row on desktop, column on mobile; arrows hidden on mobile */}
-          <div className="flex flex-col md:flex-row md:items-stretch" style={{ gap: '24px' }}>
-
-            {/* Step 1 */}
-            <div className="flex-1" style={{ background: '#111e15', border: '1px solid #1e3024', borderRadius: '16px', padding: '32px 24px', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '56px', fontWeight: 900, color: 'rgba(74,222,128,0.1)', lineHeight: 1, marginBottom: '20px' }}>01</div>
-              <div style={{ width: '48px', height: '48px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: '12px', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ClipboardList style={{ color: '#4ade80', width: '22px', height: '22px' }} />
-              </div>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '17px', fontWeight: 700, color: '#f8fdf8', marginBottom: '10px' }}>
-                Tell us about your building
-              </div>
-              <p style={{ fontSize: '13px', color: '#7aaa8a', lineHeight: 1.65 }}>
-                Share your location, rooftop size, and how you use the space. No technical knowledge needed.
-              </p>
-            </div>
-
-            {/* Arrow connector — desktop only */}
-            <div className="hidden md:flex items-center justify-center flex-shrink-0">
-              <ChevronRight style={{ color: 'rgba(74,222,128,0.3)', width: '28px', height: '28px' }} />
-            </div>
-
-            {/* Step 2 */}
-            <div className="flex-1" style={{ background: '#111e15', border: '1px solid #1e3024', borderRadius: '16px', padding: '32px 24px', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '56px', fontWeight: 900, color: 'rgba(74,222,128,0.1)', lineHeight: 1, marginBottom: '20px' }}>02</div>
-              <div style={{ width: '48px', height: '48px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: '12px', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <BarChart2 style={{ color: '#4ade80', width: '22px', height: '22px' }} />
-              </div>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '17px', fontWeight: 700, color: '#f8fdf8', marginBottom: '10px' }}>
-                See your savings potential
-              </div>
-              <p style={{ fontSize: '13px', color: '#7aaa8a', lineHeight: 1.65 }}>
-                Get an AI-powered estimate of what solar, rainwater, biogas, and greening could generate — shown in rupees.
-              </p>
-            </div>
-
-            {/* Arrow connector — desktop only */}
-            <div className="hidden md:flex items-center justify-center flex-shrink-0">
-              <ChevronRight style={{ color: 'rgba(74,222,128,0.3)', width: '28px', height: '28px' }} />
-            </div>
-
-            {/* Step 3 */}
-            <div className="flex-1" style={{ background: '#111e15', border: '1px solid #1e3024', borderRadius: '16px', padding: '32px 24px', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '56px', fontWeight: 900, color: 'rgba(74,222,128,0.1)', lineHeight: 1, marginBottom: '20px' }}>03</div>
-              <div style={{ width: '48px', height: '48px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: '12px', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <FileCheck style={{ color: '#4ade80', width: '22px', height: '22px' }} />
-              </div>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '17px', fontWeight: 700, color: '#f8fdf8', marginBottom: '10px' }}>
-                Get guidance to act
-              </div>
-              <p style={{ fontSize: '13px', color: '#7aaa8a', lineHeight: 1.65 }}>
-                Matched subsidies, verified vendors, and a step-by-step guide. Real experts take it from here.
-              </p>
-            </div>
-
           </div>
         </div>
       </section>
