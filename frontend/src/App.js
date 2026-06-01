@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { Toaster } from './components/ui/sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -64,6 +65,19 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+// SignInRedirect — /signin triggers the OAuth flow immediately, no UI link needed
+function SignInRedirect() {
+  const { login, loading } = useAuth();
+  useEffect(() => {
+    if (!loading) login();
+  }, [loading, login]);
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+}
+
 // App Router - handles session_id detection synchronously
 function AppRouter() {
   const location = useLocation();
@@ -78,15 +92,24 @@ function AppRouter() {
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<LandingPage />} />
-      <Route path="/search" element={<BuildingSearchPage />} />
-      <Route path="/buildings/:buildingId" element={<BuildingReportPage />} />
-      <Route path="/providers" element={<ProvidersPage />} />
-      <Route path="/providers/:providerId" element={<ProviderDetailPage />} />
+      {/* /signin — not linked in the UI; triggers OAuth flow for allowlist users */}
+      <Route path="/signin" element={<SignInRedirect />} />
       <Route path="/initiatives" element={<InitiativesPage />} />
       <Route path="/initiatives/:initiativeId" element={<InitiativeDetailPage />} />
       <Route path="/resources" element={<ResourcesIndexPage />} />
       <Route path="/blog" element={<ResourcesIndexPage />} />
       <Route path="/blog/:slug" element={<CmsPage expectedType="blog" />} />
+
+      {/* Allowlist-only Routes (authentication = allowlist via backend enforcement) */}
+      <Route path="/search" element={<ProtectedRoute><BuildingSearchPage /></ProtectedRoute>} />
+      <Route path="/buildings/:buildingId" element={<ProtectedRoute><BuildingReportPage /></ProtectedRoute>} />
+      <Route path="/providers" element={<ProtectedRoute><ProvidersPage /></ProtectedRoute>} />
+      <Route path="/providers/:providerId" element={<ProtectedRoute><ProviderDetailPage /></ProtectedRoute>} />
+      <Route path="/subsidies" element={<ProtectedRoute><SubsidiesPage /></ProtectedRoute>} />
+      <Route path="/calculate" element={<ProtectedRoute><SustenanceCalculatorPage /></ProtectedRoute>} />
+      <Route path="/sustenance-calculator" element={<ProtectedRoute><SustenanceCalculatorPage /></ProtectedRoute>} />
+      <Route path="/insights" element={<ProtectedRoute><CityInsightsPage /></ProtectedRoute>} />
+      <Route path="/insights/:city" element={<ProtectedRoute><CityInsightsPage /></ProtectedRoute>} />
 
       {/* Protected Routes */}
       <Route
@@ -222,10 +245,6 @@ function AppRouter() {
           </ProtectedRoute>
         }
       />
-      <Route path="/subsidies" element={<SubsidiesPage />} />
-      <Route path="/calculate" element={<SustenanceCalculatorPage />} />
-      <Route path="/insights" element={<CityInsightsPage />} />
-      <Route path="/insights/:city" element={<CityInsightsPage />} />
       <Route path="/for-installers/brochure" element={<VendorBrochurePage />} />
       <Route
         path="/admin/subsidies"
@@ -237,7 +256,7 @@ function AppRouter() {
       />
       <Route
         path="/buildings/:buildingId/potential"
-        element={<BuildingPotentialPage />}
+        element={<ProtectedRoute><BuildingPotentialPage /></ProtectedRoute>}
       />
       <Route
         path="/admin/audit"

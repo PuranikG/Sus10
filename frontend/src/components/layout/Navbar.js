@@ -17,7 +17,7 @@ import { useFeatureFlags } from '../../context/FeatureFlagContext';
 import { usePreviewRole } from '../../context/PreviewRoleContext';
 
 export default function Navbar() {
-  const { user, isAuthenticated, login, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { isEnabled } = useFeatureFlags();
   const { previewRole } = usePreviewRole();
@@ -81,80 +81,78 @@ export default function Navbar() {
             </div>
           )}
 
-          {/* Right Side */}
-          <div className="flex items-center gap-3">
-            {/* Theme Toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="rounded-full"
-              data-testid="theme-toggle"
-            >
-              {theme === 'light' ? (
-                <Moon className="h-5 w-5" />
-              ) : (
-                <Sun className="h-5 w-5" />
-              )}
-            </Button>
-
-            {/* Auth */}
-            {isAuthenticated && user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="rounded-full p-1" data-testid="user-menu-trigger">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.picture} alt={user.name} />
-                      <AvatarFallback>{user.name?.[0] || 'U'}</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="px-2 py-1.5">
-                    <p className="text-sm font-medium">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate('/dashboard')} data-testid="menu-dashboard">
-                    <LayoutDashboard className="mr-2 h-4 w-4" />
-                    Dashboard
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/profile')} data-testid="menu-profile">
-                    <User className="mr-2 h-4 w-4" />
-                    Profile
-                  </DropdownMenuItem>
-                  {user.user_type === 'admin' && (
-                    <DropdownMenuItem onClick={() => navigate('/admin')} data-testid="menu-admin">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Admin Panel
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="text-destructive" data-testid="menu-logout">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button onClick={login} className="rounded-full" data-testid="login-btn">
-                Sign In
-              </Button>
-            )}
-
-            {/* Mobile Menu Button */}
-            {showNav && (
+          {/* Right Side — only visible to authenticated (allowlist) users */}
+          {isAuthenticated && (
+            <div className="flex items-center gap-3">
+              {/* Theme Toggle */}
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden rounded-full"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                data-testid="mobile-menu-toggle"
+                onClick={toggleTheme}
+                className="rounded-full"
+                data-testid="theme-toggle"
               >
-                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                {theme === 'light' ? (
+                  <Moon className="h-5 w-5" />
+                ) : (
+                  <Sun className="h-5 w-5" />
+                )}
               </Button>
-            )}
-          </div>
+
+              {/* User menu */}
+              {user && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="rounded-full p-1" data-testid="user-menu-trigger">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={user.picture} alt={user.name} />
+                        <AvatarFallback>{user.name?.[0] || 'U'}</AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="px-2 py-1.5">
+                      <p className="text-sm font-medium">{user.name}</p>
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate('/dashboard')} data-testid="menu-dashboard">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/profile')} data-testid="menu-profile">
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </DropdownMenuItem>
+                    {user.user_type === 'admin' && (
+                      <DropdownMenuItem onClick={() => navigate('/admin')} data-testid="menu-admin">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Admin Panel
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={logout} className="text-destructive" data-testid="menu-logout">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              {/* Mobile Menu Button */}
+              {showNav && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden rounded-full"
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  data-testid="mobile-menu-toggle"
+                >
+                  {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Mobile Menu */}
