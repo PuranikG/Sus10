@@ -39,6 +39,34 @@
     --solar-blue: 199 89% 48%;
     --alert-orange: 24 95% 53%;
     --earth-brown: 30 80% 25%;
+
+    /* Sus10 Brand Typography
+       Headings: Playfair Display (serif)
+       Body: DM Sans (sans-serif)
+       Base size: 14px
+       Scale: xs(11) sm(13) base(14)
+              md(15) lg(17) xl(20) 2xl(24) 3xl(32)
+    */
+    --font-size-xs: 11px;
+    --font-size-sm: 13px;
+    --font-size-base: 14px;
+    --font-size-md: 15px;
+    --font-size-lg: 17px;
+    --font-size-xl: 20px;
+    --font-size-2xl: 24px;
+    --font-size-3xl: 32px;
+    --font-size-hero: clamp(2.4rem, 5vw, 3.8rem);
+
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-black: 900;
+
+    --line-height-tight: 1.2;
+    --line-height-snug: 1.4;
+    --line-height-normal: 1.65;
+    --line-height-relaxed: 1.75;
   }
 
   .dark {
