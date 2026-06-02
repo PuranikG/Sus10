@@ -4281,9 +4281,6 @@ async def root():
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
-# Include router and CORS
-app.include_router(api_router)
-
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -4987,6 +4984,9 @@ async def _seed_calculator_config():
 
 
 # ==================== END SPRINT A ====================
+
+# Include router AFTER all routes are registered
+app.include_router(api_router)
 
 
 @app.on_event("shutdown")
