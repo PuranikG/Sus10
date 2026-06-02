@@ -42,6 +42,8 @@ import CmsPage from './pages/CmsPage';
 import CmsAdminPage from './pages/CmsAdminPage';
 import CmsEditorPage from './pages/CmsEditorPage';
 import ResourcesIndexPage from './pages/ResourcesIndexPage';
+import CalculatorPage from './pages/CalculatorPage';
+import ReportPage from './pages/ReportPage';
 
 import './App.css';
 
@@ -94,6 +96,9 @@ function AppRouter() {
       <Route path="/" element={<LandingPage />} />
       {/* /signin — not linked in the UI; triggers OAuth flow for allowlist users */}
       <Route path="/signin" element={<SignInRedirect />} />
+      {/* Calculator & Report — public, no login required */}
+      <Route path="/calculator" element={<CalculatorPage />} />
+      <Route path="/report/:assessmentId" element={<ReportPage />} />
       <Route path="/initiatives" element={<InitiativesPage />} />
       <Route path="/initiatives/:initiativeId" element={<InitiativeDetailPage />} />
       <Route path="/resources" element={<ResourcesIndexPage />} />

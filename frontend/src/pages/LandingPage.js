@@ -180,8 +180,70 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Persona Switcher — pre-launch teasers */}
-      <section id="persona-switcher" className="py-20 border-y border-border bg-background" data-testid="persona-switcher">
+      {/* Calculator CTA Widget — Sprint A Task 1 */}
+      <section className="py-16 bg-background">
+        <div className="container-max section-padding">
+          <div style={{
+            background: 'linear-gradient(135deg, #0d1710 0%, #111e15 100%)',
+            border: '1px solid rgba(74,222,128,0.2)',
+            borderRadius: '20px',
+            padding: '56px 48px',
+            textAlign: 'center',
+            position: 'relative',
+            overflow: 'hidden',
+          }}>
+            {/* Subtle glow */}
+            <div style={{
+              position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+              width: '60%', height: '1px', background: 'linear-gradient(90deg, transparent, rgba(74,222,128,0.5), transparent)',
+            }} />
+            <h2 style={{
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: 'clamp(2rem, 4vw, 2.5rem)',
+              fontWeight: 700,
+              color: '#f8fdf8',
+              marginBottom: '12px',
+              lineHeight: 1.2,
+            }}>
+              See what your rooftop could do
+            </h2>
+            <p style={{
+              fontSize: '15px',
+              color: '#7aaa8a',
+              marginBottom: '32px',
+              letterSpacing: '0.02em',
+            }}>
+              60 seconds &middot; No login &middot; Free report
+            </p>
+            <Link
+              to="/calculator"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#22c55e',
+                color: '#0a1a0e',
+                fontSize: '16px',
+                fontWeight: 700,
+                padding: '14px 40px',
+                borderRadius: '100px',
+                textDecoration: 'none',
+                transition: 'opacity 0.2s, transform 0.2s',
+                boxShadow: '0 4px 24px rgba(34,197,94,0.3)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              data-testid="calculator-cta-btn"
+            >
+              Start the Assessment
+              <ArrowRight style={{ width: '18px', height: '18px' }} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Persona Switcher — pre-launch teasers (hidden for Sprint A) */}
+      <section id="persona-switcher" className="py-20 border-y border-border bg-background hidden" data-testid="persona-switcher">
         <div className="container-max section-padding">
           <div className="text-center mb-10">
             <Badge variant="outline" className="mb-3" data-testid="persona-eyebrow">For everyone with a rooftop</Badge>
@@ -226,11 +288,7 @@ export default function LandingPage() {
             ].map((p) => {
               const isHomeownerAspirational = p.slug === 'for-homeowners';
               const isInstaller = p.slug === 'for-installers';
-              const href = isHomeownerAspirational
-                ? '/calculate'
-                : isInstaller
-                ? '/for-installers/brochure'
-                : `/${p.slug}`;
+              const href = '#'; // disabled — persona cards hidden in Sprint A
               const ctaText = isHomeownerAspirational
                 ? 'Calculate Savings'
                 : isInstaller
@@ -408,15 +466,16 @@ export default function LandingPage() {
               </div>
               
               <div className="mt-8 flex gap-4">
-                <Button
-                  size="lg"
-                  className="rounded-full btn-primary"
-                  onClick={() => document.getElementById('persona-switcher')?.scrollIntoView({ behavior: 'smooth' })}
-                  data-testid="get-started-btn"
-                >
-                  Get Started
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
+                <Link to="/calculator">
+                  <Button
+                    size="lg"
+                    className="rounded-full btn-primary"
+                    data-testid="get-started-btn"
+                  >
+                    Start the Assessment
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
               </div>
             </motion.div>
             
@@ -503,16 +562,17 @@ export default function LandingPage() {
                   </Button>
                 </Link>
               ) : (
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  className="rounded-full text-lg px-8"
-                  onClick={() => document.getElementById('persona-switcher')?.scrollIntoView({ behavior: 'smooth' })}
-                  data-testid="get-started-btn"
-                >
-                  Get Started →
-                  <ChevronRight className="ml-2 h-5 w-5" />
-                </Button>
+                <Link to="/calculator">
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    className="rounded-full text-lg px-8"
+                    data-testid="get-started-btn"
+                  >
+                    Start the Assessment →
+                    <ChevronRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
               )}
             </div>
           </motion.div>

@@ -12,6 +12,8 @@ from typing import List, Optional, Dict, Any
 import uuid
 import re
 import asyncio
+import hashlib
+import json as json_module
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 import sys
@@ -4316,6 +4318,675 @@ async def ensure_critical_flags():
         }},
         upsert=True,
     )
+    # Sprint A: seed calculator config
+    await _seed_calculator_config()
+
+
+# ==================== SPRINT A: CALCULATOR & REPORT ====================
+
+CALCULATOR_CONFIG_V1 = {
+    "config_id": "homeowner_v1",
+    "pages": [
+        {
+            "page": 1,
+            "title": "About Your Home",
+            "questions": [
+                {
+                    "id": "D",
+                    "type": "text_group",
+                    "fields": ["first_name", "last_name", "phone", "email", "city", "state"],
+                    "label": "Tell us about yourself",
+                    "scored": False,
+                    "stored": True,
+                },
+                {
+                    "id": "D6",
+                    "type": "single_select",
+                    "label": "Your age group",
+                    "scored": False,
+                    "stored": True,
+                    "options": ["18-25", "26-40", "41-55", "55+"],
+                },
+                {
+                    "id": "Q1",
+                    "type": "single_select",
+                    "label": "Your residence / building type is:",
+                    "dimension": "Capacity",
+                    "scored": True,
+                    "options": [
+                        {"label": "Independent House", "score": 4},
+                        {"label": "Row House", "score": 3},
+                        {"label": "Mid/low-rise Apartment (1-4 floors)", "score": 2},
+                        {"label": "High-rise apartment (5+ floors)", "score": 1},
+                    ],
+                    "conditional_trigger": "R01_R02",
+                },
+                {
+                    "id": "Q2",
+                    "type": "single_select",
+                    "label": "How old is your building?",
+                    "dimension": "Capacity",
+                    "scored": True,
+                    "options": [
+                        {"label": "1 to 5 years", "score": 1},
+                        {"label": "6 to 15 years", "score": 3},
+                        {"label": "16 to 30 years", "score": 4},
+                        {"label": "31 to 50 years", "score": 3},
+                        {"label": "50+ years", "score": 2},
+                    ],
+                },
+                {
+                    "id": "Q3",
+                    "type": "single_select",
+                    "label": "Your ownership status:",
+                    "scored": False,
+                    "stored": True,
+                    "conditional_trigger": "R09",
+                    "options": ["Owner", "Renter", "Other"],
+                },
+            ],
+        },
+        {
+            "page": 2,
+            "title": "Your Bills & Awareness",
+            "questions": [
+                {
+                    "id": "Q4a",
+                    "type": "single_select",
+                    "label": "Monthly maintenance bill (INR)",
+                    "scored": False,
+                    "stored": True,
+                    "options": ["Below Rs.1,000", "Rs.1,000-Rs.3,000", "Rs.3,000-Rs.7,000", "Above Rs.7,000"],
+                },
+                {
+                    "id": "Q4b",
+                    "type": "single_select",
+                    "label": "Monthly electricity bill (INR)",
+                    "dimension": "Motivation",
+                    "scored": True,
+                    "conditional_trigger": "R06",
+                    "options": [
+                        {"label": "Below Rs.1,000", "score": 1},
+                        {"label": "Rs.1,000-Rs.3,000", "score": 2},
+                        {"label": "Rs.3,000-Rs.7,000", "score": 3},
+                        {"label": "Above Rs.7,000", "score": 4},
+                    ],
+                },
+                {
+                    "id": "Q4c",
+                    "type": "single_select",
+                    "label": "Monthly cooking gas bill (INR)",
+                    "dimension": "Motivation",
+                    "scored": True,
+                    "conditional_trigger": "R07",
+                    "options": [
+                        {"label": "Below Rs.500", "score": 1},
+                        {"label": "Rs.500-Rs.1,500", "score": 2},
+                        {"label": "Rs.1,500-Rs.3,000", "score": 3},
+                        {"label": "Above Rs.3,000", "score": 4},
+                    ],
+                },
+                {
+                    "id": "Q5",
+                    "type": "multi_select",
+                    "label": "Which of these technologies are you aware of? (Select all that apply)",
+                    "dimension": "Interest",
+                    "scored": True,
+                    "cap": 3,
+                    "conditional_trigger": "R10",
+                    "options": [
+                        {"label": "Rooftop gardening", "score": 1},
+                        {"label": "Rooftop / Terrace farming", "score": 1},
+                        {"label": "Solar panels", "score": 1},
+                        {"label": "Biogas systems", "score": 1},
+                        {"label": "Rain Water Harvesting", "score": 1},
+                        {"label": "Composting", "score": 1},
+                        {"label": "None of these", "score": 0},
+                    ],
+                },
+                {
+                    "id": "Q6",
+                    "type": "single_select",
+                    "label": "Do you currently segregate wet waste for compost or biogas?",
+                    "dimension": "Capacity",
+                    "scored": True,
+                    "conditional_trigger": "R08",
+                    "options": [
+                        {"label": "Not at all", "score": 0},
+                        {"label": "Rarely to never", "score": 1},
+                        {"label": "Sometimes", "score": 2},
+                        {"label": "Regularly", "score": 3},
+                    ],
+                },
+            ],
+        },
+        {
+            "page": 3,
+            "title": "Your Beliefs & Readiness",
+            "questions": [
+                {
+                    "id": "Q7",
+                    "type": "single_select",
+                    "label": "Would having a terrace garden make you healthier or happier?",
+                    "dimension": "Motivation",
+                    "scored": True,
+                    "conditional_trigger": "R12",
+                    "options": [
+                        {"label": "No, I don't believe this", "score": 0},
+                        {"label": "I'd believe this", "score": 2},
+                    ],
+                },
+                {
+                    "id": "Q8",
+                    "type": "single_select",
+                    "label": "Do you believe green roofs can reduce urban heat and improve air quality?",
+                    "dimension": "Motivation",
+                    "scored": True,
+                    "conditional_trigger": "R11",
+                    "options": [
+                        {"label": "I don't believe it", "score": 0},
+                        {"label": "I don't know", "score": 1},
+                        {"label": "Yes, it's a strong solution", "score": 3},
+                    ],
+                },
+                {
+                    "id": "Q9",
+                    "type": "single_select",
+                    "label": "How interested are you in building a self-sustaining roof system?",
+                    "dimension": "Interest",
+                    "scored": True,
+                    "conditional_trigger": "R03",
+                    "options": [
+                        {"label": "Not interested", "score": 0},
+                        {"label": "I am not sure", "score": 1},
+                        {"label": "Somewhat interested", "score": 2},
+                        {"label": "Very interested", "score": 3},
+                    ],
+                },
+                {
+                    "id": "Q10",
+                    "type": "single_select",
+                    "label": "Do you currently have access to vendors, materials, or technology for rooftop projects?",
+                    "dimension": "Capacity",
+                    "scored": True,
+                    "options": [
+                        {"label": "No access", "score": 0},
+                        {"label": "Limited access", "score": 1},
+                        {"label": "Good access", "score": 3},
+                        {"label": "Other", "score": 1},
+                    ],
+                },
+                {
+                    "id": "Q12",
+                    "type": "multi_select",
+                    "label": "What are your top motivators? (Pick up to 3)",
+                    "dimension": "Motivation",
+                    "scored": True,
+                    "cap_selections": 3,
+                    "options": [
+                        {"label": "Environmental concern", "score": 3},
+                        {"label": "Saving electricity costs", "score": 2},
+                        {"label": "Reducing waste sustainably", "score": 2},
+                        {"label": "Reduce bills / back to home", "score": 2},
+                        {"label": "Growing organic pesticide-free food", "score": 1},
+                        {"label": "Reduce cost of LPG/piped gas", "score": 1},
+                        {"label": "Increasing property value", "score": 1},
+                    ],
+                },
+                {
+                    "id": "Q13",
+                    "type": "single_select",
+                    "label": "How is your water availability for green development?",
+                    "dimension": "Capacity",
+                    "scored": True,
+                    "conditional_trigger": "R05",
+                    "options": [
+                        {"label": "Inadequate - need external supply", "score": 0},
+                        {"label": "Somewhat adequate", "score": 1},
+                        {"label": "Adequate - need minor top-up", "score": 3},
+                        {"label": "Not sure", "score": 1},
+                    ],
+                },
+                {
+                    "id": "Q14",
+                    "type": "single_select",
+                    "label": "How affordable is a rooftop investment of Rs.800-1,500 per m2 for you?",
+                    "dimension": "Barriers",
+                    "scored": True,
+                    "inverted": True,
+                    "conditional_trigger": "R04",
+                    "options": [
+                        {"label": "Unaffordable", "score": 0},
+                        {"label": "Somewhat affordable", "score": 2},
+                        {"label": "Completely affordable", "score": 3},
+                    ],
+                },
+                {
+                    "id": "Q15",
+                    "type": "multi_select",
+                    "label": "What would help your RWA/building decide faster? (Select all that apply)",
+                    "scored": False,
+                    "stored": True,
+                    "conditional_trigger": "R13",
+                    "options": [
+                        "Free Feasibility Report",
+                        "Certified site visit",
+                        "Expert meeting on guidelines",
+                        "ROI/Subsidy success stories",
+                    ],
+                },
+                {
+                    "id": "Q16",
+                    "type": "multi_select",
+                    "label": "What support would make this easier for you? (Select all that apply)",
+                    "scored": False,
+                    "stored": True,
+                    "conditional_trigger": "R14",
+                    "options": [
+                        "Subsidy or financial support",
+                        "EMI / pay-as-you-earn",
+                        "Free consultation",
+                        "Professional installation",
+                        "Maintenance support",
+                        "Step-by-step guide",
+                        "Vendor recommendation near me",
+                    ],
+                },
+            ],
+        },
+    ],
+}
+
+
+@api_router.get("/calculator/config")
+async def get_calculator_config():
+    """Return the active homeowner_v1 calculator config."""
+    doc = await db.calculator_config.find_one({"config_id": "homeowner_v1"}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Config not found")
+    return doc
+
+
+def _score_for_answer(question: dict, answer) -> int:
+    """Extract numeric score from a single_select or multi_select answer."""
+    if not question.get("scored"):
+        return 0
+    q_type = question.get("type")
+    opts = question.get("options", [])
+    if q_type == "single_select":
+        for opt in opts:
+            if isinstance(opt, dict) and opt.get("label") == answer:
+                return int(opt.get("score", 0))
+        return 0
+    if q_type == "multi_select":
+        if not isinstance(answer, list):
+            return 0
+        total = 0
+        for sel in answer:
+            for opt in opts:
+                if isinstance(opt, dict) and opt.get("label") == sel:
+                    total += int(opt.get("score", 0))
+        return total
+    return 0
+
+
+@api_router.post("/calculator/score")
+async def calculator_score(request: Request):
+    """Score a completed calculator submission and store the assessment."""
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    answers = payload.get("answers", {})
+    website_hp = payload.get("website", "")
+
+    # Honeypot — silently pass (actual rejection is in /report/generate)
+    # We still store a placeholder assessment so the ID is consistent
+    honeypot_triggered = bool(website_hp)
+
+    # ---- Extract individual question answers ----
+    q1_answer = answers.get("Q1", "")
+    q2_answer = answers.get("Q2", "")
+    q3_answer = answers.get("Q3", "")
+    q4b_answer = answers.get("Q4b", "")
+    q4c_answer = answers.get("Q4c", "")
+    q5_answer = answers.get("Q5", [])  # list
+    q6_answer = answers.get("Q6", "")
+    q7_answer = answers.get("Q7", "")
+    q8_answer = answers.get("Q8", "")
+    q9_answer = answers.get("Q9", "")
+    q10_answer = answers.get("Q10", "")
+    q12_answer = answers.get("Q12", [])  # list
+    q13_answer = answers.get("Q13", "")
+    q14_answer = answers.get("Q14", "")
+    q15_answer = answers.get("Q15", [])  # list
+    q16_answer = answers.get("Q16", [])  # list
+
+    # Load config to get score mappings
+    cfg = await db.calculator_config.find_one({"config_id": "homeowner_v1"})
+    if not cfg:
+        cfg = CALCULATOR_CONFIG_V1
+
+    # Build question lookup by id
+    q_map: dict = {}
+    for page in cfg.get("pages", []):
+        for q in page.get("questions", []):
+            q_map[q["id"]] = q
+
+    def score(qid: str, ans) -> int:
+        return _score_for_answer(q_map.get(qid, {}), ans)
+
+    q1_score = score("Q1", q1_answer)
+    q2_score = score("Q2", q2_answer)
+    q4b_score = score("Q4b", q4b_answer)
+    q4c_score = score("Q4c", q4c_answer)
+    q5_sum_raw = score("Q5", q5_answer)
+    q5_sum = min(q5_sum_raw, 3)  # cap at 3
+    q6_score = score("Q6", q6_answer)
+    q7_score = score("Q7", q7_answer)
+    q8_score = score("Q8", q8_answer)
+    q9_score = score("Q9", q9_answer)
+    q10_score = score("Q10", q10_answer)
+    q12_total = score("Q12", q12_answer)
+    q13_score = score("Q13", q13_answer)
+    q14_score = score("Q14", q14_answer)
+
+    # ---- Dimension raw scores ----
+    capacity_raw = q1_score + q2_score + q6_score + q10_score + q13_score  # max 17
+    motivation_raw = q4b_score + q4c_score + q7_score + q8_score + q12_total  # max 22
+    interest_raw = q9_score + q5_sum  # max 6
+    barriers_raw = q14_score  # max 3, inverted
+
+    # ---- Normalise ----
+    capacity_norm = round((capacity_raw / 17) * 100)
+    motivation_norm = round((motivation_raw / 22) * 100)
+    interest_norm = round((interest_raw / 6) * 100)
+    barriers_norm = round(((3 - barriers_raw) / 3) * 100)
+
+    # ---- Overall ----
+    overall = round(
+        (capacity_norm * 0.30)
+        + (motivation_norm * 0.30)
+        + (interest_norm * 0.25)
+        + (barriers_norm * 0.15)
+    )
+
+    # ---- Tier ----
+    if overall <= 25:
+        tier = "Explorer"
+        tier_color = "#FF7070"
+    elif overall <= 50:
+        tier = "Getting Ready"
+        tier_color = "#F5A623"
+    elif overall <= 75:
+        tier = "Action Ready"
+        tier_color = "#4ADE80"
+    else:
+        tier = "Sustainability Champion"
+        tier_color = "#00C96E"
+
+    # ---- Conditional flags ----
+    r07 = q4c_score >= 3
+    flags = {
+        "R03": q9_score == 3,
+        "R04": q14_score == 0,
+        "R05": q13_score == 0,
+        "R06": q4b_score >= 3,
+        "R07": r07,
+        "R08": q6_score == 3,
+        "R09": q3_answer == "Renter",
+        "R10": q5_sum_raw == 0,
+        "R11": q8_score == 3,
+        "R12": q7_score == 0,
+        "R13": "ROI/Subsidy success stories" in (q15_answer if isinstance(q15_answer, list) else []),
+        "R14": "EMI / pay-as-you-earn" in (q16_answer if isinstance(q16_answer, list) else []),
+    }
+    show_biogas = q1_answer in ("Independent House", "Row House") or r07
+
+    # ---- IP hash ----
+    client_ip = request.client.host if request.client else "unknown"
+    ip_hash = hashlib.sha256(client_ip.encode()).hexdigest()
+
+    # ---- Store assessment ----
+    now = datetime.now(timezone.utc)
+    assessment_id = str(uuid.uuid4())
+    assessment_doc = {
+        "assessment_id": assessment_id,
+        "answers": answers,
+        "scores": {
+            "capacity": capacity_norm,
+            "motivation": motivation_norm,
+            "interest": interest_norm,
+            "barriers": barriers_norm,
+            "overall": overall,
+        },
+        "readiness_tier": tier,
+        "tier_color": tier_color,
+        "show_biogas": show_biogas,
+        "conditional_flags": flags,
+        "ip_hash": ip_hash,
+        "honeypot_triggered": honeypot_triggered,
+        "created_at": now,
+        "report_text": None,
+        "report_generated_at": None,
+        "tokens_used": None,
+    }
+    await db.assessments.insert_one(assessment_doc)
+
+    return {
+        "capacity_score": capacity_norm,
+        "motivation_score": motivation_norm,
+        "interest_score": interest_norm,
+        "barriers_score": barriers_norm,
+        "overall_score": overall,
+        "readiness_tier": tier,
+        "tier_color": tier_color,
+        "show_biogas": show_biogas,
+        "conditional_flags": flags,
+        "assessment_id": assessment_id,
+    }
+
+
+BLOCKED_EMAIL_DOMAINS = {
+    "mailinator.com", "guerrillamail.com", "tempmail.com",
+    "throwaway.email", "yopmail.com",
+}
+
+CLAUDE_SYSTEM_PROMPT = """You are Sus10 AI, an expert in climate-resilient homes, green roofs, rooftop farming, solar energy, rainwater harvesting, composting, and sustainable living in the Indian context.
+
+GUARDRAILS (non-negotiable):
+- Never promise specific Rs. savings or ROI timelines
+- Always use cautious language: 'could', 'may', 'potentially', 'estimates suggest'
+- Never recommend solutions the user's building type cannot support
+- Keep total report between 700-1200 words
+- No technical jargon — speak to a non-expert Indian homeowner
+- Be encouraging, practical, and action-oriented
+- Personalise every section to the actual answers provided
+- Do not generate generic advice
+- Always end with: 'Every roof has the potential to become a climate solution. Your journey toward a Self-Sustaining Roof starts with one small step.'"""
+
+
+@api_router.post("/report/generate")
+async def report_generate(request: Request):
+    """Apply guardrails then call Claude API to generate personalised report."""
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    assessment_id = payload.get("assessment_id", "")
+    email = payload.get("email", "")
+    website_hp = payload.get("website", "")
+
+    # GUARDRAIL 3 — Honeypot: silently succeed without doing anything
+    if website_hp:
+        fake_id = str(uuid.uuid4())
+        return {"assessment_id": fake_id, "status": "queued"}
+
+    # GUARDRAIL 1 — Email domain blocklist
+    email_domain = email.split("@")[-1].lower() if "@" in email else ""
+    if email_domain in BLOCKED_EMAIL_DOMAINS:
+        raise HTTPException(status_code=400, detail="Please use a valid email address.")
+
+    # GUARDRAIL 2 — Rate limit (3/IP/hour)
+    client_ip = request.client.host if request.client else "unknown"
+    ip_hash = hashlib.sha256(client_ip.encode()).hexdigest()
+    one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+
+    # Ensure TTL index exists (idempotent)
+    await db.rate_limits.create_index("created_at", expireAfterSeconds=3600, background=True)
+
+    recent_count = await db.rate_limits.count_documents(
+        {"ip_hash": ip_hash, "created_at": {"$gte": one_hour_ago}}
+    )
+    if recent_count >= 3:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please try again in an hour.",
+        )
+
+    # GUARDRAIL 4 — Daily hard cap (100/day IST)
+    # IST = UTC+5:30
+    now_utc = datetime.now(timezone.utc)
+    ist_offset = timedelta(hours=5, minutes=30)
+    now_ist = now_utc + ist_offset
+    today_ist_midnight = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_utc_start = today_ist_midnight - ist_offset
+
+    daily_count = await db.assessments.count_documents(
+        {"created_at": {"$gte": today_utc_start}, "report_text": {"$ne": None}}
+    )
+    if daily_count >= 100:
+        raise HTTPException(
+            status_code=503,
+            detail="We've reached our daily report limit. Please try again tomorrow or email hello@sus10.ai",
+        )
+
+    # Fetch assessment
+    assessment = await db.assessments.find_one({"assessment_id": assessment_id})
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    answers = assessment.get("answers", {})
+    scores = assessment.get("scores", {})
+    flags = assessment.get("conditional_flags", {})
+
+    def ans(key, default="Not provided"):
+        v = answers.get(key)
+        if v is None or v == "" or v == []:
+            return default
+        if isinstance(v, list):
+            return ", ".join(str(i) for i in v) if v else default
+        return str(v)
+
+    user_prompt = f"""Generate a Sus10 AI Home Sustainability Readiness Report for:
+
+NAME: {ans('first_name')} {ans('last_name')}
+CITY: {ans('city')}, {ans('state')}
+BUILDING TYPE: {ans('Q1')}
+BUILDING AGE: {ans('Q2')}
+OWNERSHIP: {ans('Q3')}
+MONTHLY ELECTRICITY BILL: {ans('Q4b')}
+MONTHLY GAS BILL: {ans('Q4c')}
+
+SCORES:
+- Capacity Score: {scores.get('capacity', 0)}/100
+- Motivation Score: {scores.get('motivation', 0)}/100
+- Interest Score: {scores.get('interest', 0)}/100
+- Barriers Score: {scores.get('barriers', 0)}/100
+- OVERALL READINESS: {scores.get('overall', 0)}/100
+- READINESS TIER: {assessment.get('readiness_tier', '')}
+
+KEY ANSWERS:
+- Technologies aware of: {ans('Q5')}
+- Waste segregation: {ans('Q6')}
+- Believes in green roof health benefits: {ans('Q7')}
+- Believes in environmental impact: {ans('Q8')}
+- Interest level: {ans('Q9')}
+- Vendor access: {ans('Q10')}
+- Top motivators: {ans('Q12')}
+- Water availability: {ans('Q13')}
+- Affordability: {ans('Q14')}
+- Support needed (Q15): {ans('Q15')}
+- Support needed (Q16): {ans('Q16')}
+
+Generate the report following this structure:
+1. Respondent Profile (with sustainability opportunity interpretation)
+2. Sus10 Readiness Score (tier: Explorer / Getting Ready / Action Ready / Sustainability Champion)
+3. Strengths Identified (3-5 strengths with explanation)
+4. Gap Analysis Matrix (6 dimensions: Motivation, Affordability, Technology Access, Waste Readiness, Water Availability, Community Readiness)
+5. Personalized Recommendations (max 7, based on actual answers, suppress irrelevant solutions)
+6. Potential Savings and Benefits (cautious language throughout)
+7. Suggested Sus10 Roadmap (Phase 1: 0-3 months / Phase 2: 3-12 months / Phase 3: 1-3 years)
+8. Support Needed (based on Q15/Q16 answers)
+9. Final Assessment (readiness level + biggest opportunity + biggest barrier + one action this month)
+
+End with: 'Every roof has the potential to become a climate solution. Your journey toward a Self-Sustaining Roof starts with one small step.'"""
+
+    # Call Claude API
+    try:
+        import anthropic as _anthropic
+        ac = _anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
+        message = await ac.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1500,
+            temperature=0.3,
+            top_p=0.9,
+            system=CLAUDE_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        report_text = message.content[0].text
+        tokens_used = message.usage.output_tokens
+    except Exception as e:
+        logger.error(f"Claude API error: {e}")
+        raise HTTPException(status_code=502, detail=f"Report generation failed: {str(e)}")
+
+    # Record rate-limit entry
+    await db.rate_limits.insert_one({"ip_hash": ip_hash, "created_at": now_utc})
+
+    # Update assessment with report
+    gen_time = datetime.now(timezone.utc)
+    await db.assessments.update_one(
+        {"assessment_id": assessment_id},
+        {"$set": {
+            "report_text": report_text,
+            "report_generated_at": gen_time,
+            "tokens_used": tokens_used,
+        }},
+    )
+
+    return {
+        "assessment_id": assessment_id,
+        "report_text": report_text,
+        "readiness_tier": assessment.get("readiness_tier"),
+        "overall_score": scores.get("overall", 0),
+    }
+
+
+@api_router.get("/report/{assessment_id}")
+async def get_report(assessment_id: str):
+    """Fetch a stored assessment + report by assessment_id."""
+    doc = await db.assessments.find_one({"assessment_id": assessment_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Report not found")
+    # Convert datetime objects to ISO strings for JSON serialisation
+    for k, v in doc.items():
+        if isinstance(v, datetime):
+            doc[k] = v.isoformat()
+    return doc
+
+
+# Seed calculator config in startup
+async def _seed_calculator_config():
+    await db.calculator_config.update_one(
+        {"config_id": "homeowner_v1"},
+        {"$setOnInsert": CALCULATOR_CONFIG_V1},
+        upsert=True,
+    )
+
+
+# ==================== END SPRINT A ====================
 
 
 @app.on_event("shutdown")
