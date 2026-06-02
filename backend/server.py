@@ -4608,17 +4608,18 @@ def _score_for_answer(question: dict, answer) -> int:
     """Extract numeric score from a single_select or multi_select answer."""
     if not question.get("scored"):
         return 0
-    q_type = question.get("type")
-    opts = question.get("options", [])
+    q_type: str = question.get("type", "")
+    opts: list = question.get("options", [])
     if q_type == "single_select":
+        ans_str: str = answer if isinstance(answer, str) else ""
         for opt in opts:
-            if isinstance(opt, dict) and opt.get("label") == answer:
+            if isinstance(opt, dict) and opt.get("label") == ans_str:
                 return int(opt.get("score", 0))
         return 0
     if q_type == "multi_select":
         if not isinstance(answer, list):
             return 0
-        total = 0
+        total: int = 0
         for sel in answer:
             for opt in opts:
                 if isinstance(opt, dict) and opt.get("label") == sel:
@@ -4665,11 +4666,13 @@ async def calculator_score(request: Request):
     if not cfg:
         cfg = CALCULATOR_CONFIG_V1
 
-    # Build question lookup by id
+    # Build question lookup by id (guard against malformed config entries)
     q_map: dict = {}
     for page in cfg.get("pages", []):
         for q in page.get("questions", []):
-            q_map[q["id"]] = q
+            qid = q.get("id")
+            if qid:
+                q_map[qid] = q
 
     def score(qid: str, ans) -> int:
         return _score_for_answer(q_map.get(qid, {}), ans)
@@ -4709,19 +4712,17 @@ async def calculator_score(request: Request):
         + (barriers_norm * 0.15)
     )
 
-    # ---- Tier ----
+    # ---- Tier ---- (initialised first so static analysers never see them as unbound)
+    tier: str = "Explorer"
+    tier_color: str = "#FF7070"
     if overall <= 25:
-        tier = "Explorer"
-        tier_color = "#FF7070"
+        tier, tier_color = "Explorer", "#FF7070"
     elif overall <= 50:
-        tier = "Getting Ready"
-        tier_color = "#F5A623"
+        tier, tier_color = "Getting Ready", "#F5A623"
     elif overall <= 75:
-        tier = "Action Ready"
-        tier_color = "#4ADE80"
+        tier, tier_color = "Action Ready", "#4ADE80"
     else:
-        tier = "Sustainability Champion"
-        tier_color = "#00C96E"
+        tier, tier_color = "Sustainability Champion", "#00C96E"
 
     # ---- Conditional flags ----
     r07 = q4c_score >= 3
@@ -4921,7 +4922,9 @@ Generate the report following this structure:
 
 End with: 'Every roof has the potential to become a climate solution. Your journey toward a Self-Sustaining Roof starts with one small step.'"""
 
-    # Call Claude API
+    # Call Claude API (initialised before try so static analysers never see them as unbound)
+    report_text: str = ""
+    tokens_used: int = 0
     try:
         import anthropic as _anthropic
         ac = _anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))

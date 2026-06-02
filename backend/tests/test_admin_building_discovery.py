@@ -26,64 +26,67 @@ class TestAdminBuildingDiscovery:
         """Create test users and sessions via MongoDB"""
         import subprocess
         import time
-        
+
+        admin_token_prefix = os.getenv('TEST_ADMIN_TOKEN_PREFIX', 'test_admin_session_')
+        user_token_prefix = os.getenv('TEST_USER_TOKEN_PREFIX', 'test_user_session_')
+
         # Create admin user session
         result = subprocess.run([
-            'mongosh', '--quiet', '--eval', '''
+            'mongosh', '--quiet', '--eval', f'''
             use('test_database');
             var userId = 'test_admin_' + Date.now();
-            var sessionToken = 'test_admin_session_' + Date.now();
-            
+            var sessionToken = '{admin_token_prefix}' + Date.now();
+
             // Create admin user
-            db.users.insertOne({
+            db.users.insertOne({{
                 user_id: userId,
                 email: 'test_admin_discovery_' + Date.now() + '@test.com',
                 name: 'Test Admin',
                 user_type: 'admin',
                 created_at: new Date()
-            });
-            
+            }});
+
             // Create session
-            db.user_sessions.insertOne({
+            db.user_sessions.insertOne({{
                 user_id: userId,
                 session_token: sessionToken,
                 expires_at: new Date(Date.now() + 60*60*1000),
                 created_at: new Date()
-            });
-            
+            }});
+
             print('ADMIN_TOKEN:' + sessionToken);
             '''
         ], capture_output=True, text=True)
-        
+
         # Extract admin token
         for line in result.stdout.split('\n'):
             if 'ADMIN_TOKEN:' in line:
                 TestAdminBuildingDiscovery.admin_token = line.split('ADMIN_TOKEN:')[1].strip()
                 break
-        
+
         # Create non-admin user session
         result = subprocess.run([
-            'mongosh', '--quiet', '--eval', '''
+            'mongosh', '--quiet', '--eval', f'''
             use('test_database');
             var userId = 'test_user_' + Date.now();
-            var sessionToken = 'test_user_session_' + Date.now();
+            var sessionToken = '{user_token_prefix}' + Date.now();
             
             // Create regular user
-            db.users.insertOne({
+            db.users.insertOne({{
                 user_id: userId,
                 email: 'test_user_discovery_' + Date.now() + '@test.com',
                 name: 'Test User',
                 user_type: 'individual',
                 created_at: new Date()
-            });
-            
+            }});
+
             // Create session
-            db.user_sessions.insertOne({
+            db.user_sessions.insertOne({{
                 user_id: userId,
                 session_token: sessionToken,
                 expires_at: new Date(Date.now() + 60*60*1000),
                 created_at: new Date()
-            });
+            }});
             
             print('USER_TOKEN:' + sessionToken);
             '''
@@ -285,26 +288,29 @@ class TestAdminBuildingsBasicCRUD:
     def setup_admin_token(self):
         """Get existing admin token"""
         import subprocess
-        
+
+        admin_email = os.getenv('TEST_ADMIN_EMAIL', '')
+        admin_crud_prefix = os.getenv('TEST_ADMIN_CRUD_PREFIX', 'admin_crud_test_')
+
         result = subprocess.run([
-            'mongosh', '--quiet', '--eval', '''
+            'mongosh', '--quiet', '--eval', f'''
             use('test_database');
-            var admin = db.users.findOne({email: 'vgpuranik@gmail.com'});
-            if (admin) {
-                var session = db.user_sessions.findOne({user_id: admin.user_id, expires_at: {'$gt': new Date()}});
-                if (session) {
+            var admin = db.users.findOne({{email: '{admin_email}'}});
+            if (admin) {{
+                var session = db.user_sessions.findOne({{user_id: admin.user_id, expires_at: {{'$gt': new Date()}}}});
+                if (session) {{
                     print('TOKEN:' + session.session_token);
-                } else {
-                    var token = 'admin_crud_test_' + Date.now();
-                    db.user_sessions.insertOne({
+                }} else {{
+                    var token = '{admin_crud_prefix}' + Date.now();
+                    db.user_sessions.insertOne({{
                         user_id: admin.user_id,
                         session_token: token,
                         expires_at: new Date(Date.now() + 60*60*1000),
                         created_at: new Date()
-                    });
+                    }});
                     print('TOKEN:' + token);
-                }
-            }
+                }}
+            }}
             '''
         ], capture_output=True, text=True)
         

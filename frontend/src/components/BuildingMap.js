@@ -10,6 +10,17 @@ import { getBuildingTypeLabel, getAQILevel } from '../lib/utils';
 // Helper to sanitize text for HTML insertion
 const sanitizeText = (text) => DOMPurify.sanitize(text || '', { ALLOWED_TAGS: [] });
 
+// Map Tailwind color class → CSS hex for inline styles
+const TAILWIND_COLOR_HEX = {
+  'text-green-500': '#22c55e',
+  'text-yellow-500': '#eab308',
+  'text-orange-500': '#f97316',
+  'text-red-500': '#ef4444',
+  'text-purple-500': '#a855f7',
+  'text-red-900': '#7f1d1d',
+};
+const aqiCssColor = (twClass) => TAILWIND_COLOR_HEX[twClass] || '#888888';
+
 export default function BuildingMap({ buildings, center, zoom = 12, onBuildingClick }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -77,9 +88,11 @@ export default function BuildingMap({ buildings, center, zoom = 12, onBuildingCl
       // Create custom marker element
       const markerDiv = document.createElement('div');
       markerDiv.className = 'custom-marker';
-      markerDiv.innerHTML = `
+      // Use only safe boolean → static-string ternary; still sanitized defensively
+      const markerBg = building.is_approved ? '#22c55e' : '#f59e0b';
+      markerDiv.innerHTML = DOMPurify.sanitize(`
         <div style="
-          background: ${building.is_approved ? '#22c55e' : '#f59e0b'};
+          background: ${markerBg};
           color: white;
           border-radius: 50%;
           width: 36px;
@@ -98,7 +111,7 @@ export default function BuildingMap({ buildings, center, zoom = 12, onBuildingCl
             <path d="M8 6h.01M16 6h.01M12 6h.01M8 10h.01M16 10h.01M12 10h.01M8 14h.01M16 14h.01M12 14h.01"/>
           </svg>
         </div>
-      `;
+      `, { FORCE_BODY: true });
 
       const marker = new window.google.maps.marker.AdvancedMarkerElement({
         map: mapInstanceRef.current,
@@ -141,7 +154,7 @@ export default function BuildingMap({ buildings, center, zoom = 12, onBuildingCl
               ` : ''}
               ${aqiInfo ? `
                 <div>
-                  <div style="font-size: 18px; font-weight: 700; color: ${aqiInfo.color.replace('text-', '')};">
+                  <div style="font-size: 18px; font-weight: 700; color: ${aqiCssColor(aqiInfo.color)};">
                     ${building.current_aqi}
                   </div>
                   <div style="font-size: 11px; color: #888;">AQI</div>
