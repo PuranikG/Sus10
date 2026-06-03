@@ -4125,8 +4125,10 @@ async def calculate_quick_potential(payload: QuickCalcRequest, request: Request)
     """
     now_iso = datetime.now(timezone.utc).isoformat()
     building_id = f"bld_{uuid.uuid4().hex[:12]}"
-    # Estimate usable terrace as 80% of footprint (conservative)
-    usable = round(payload.roof_area_sqm * 0.8, 2)
+    # Usable area fixed at 70% of total — standard assumption for
+    # Indian rooftops accounting for water tanks, stairwell access,
+    # AC units and unusable edges
+    usable = round(payload.roof_area_sqm * 0.70, 2)
     # Determine families count for biogas estimation:
     # - explicit `families` (e.g. society admin) wins
     # - otherwise default to 1 (single home). Multi-family buildings should pass `families`.
@@ -4872,6 +4874,14 @@ async def report_generate(request: Request):
     answers = assessment.get("answers", {})
     scores = assessment.get("scores", {})
     flags = assessment.get("conditional_flags", {})
+
+    # Unit boundary: user inputs sqft, calculator uses sqm internally.
+    # Usable area fixed at 70% of total — standard assumption for
+    # Indian rooftops accounting for water tanks, stairwell access,
+    # AC units and unusable edges
+    terrace_area_sqft = float(answers.get("terrace_area_sqft") or 0)
+    area_sqm = terrace_area_sqft * 0.0929
+    usable_area_sqm = round(area_sqm * 0.70, 2)
 
     def ans(key, default="Not provided"):
         v = answers.get(key)
