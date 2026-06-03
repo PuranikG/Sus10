@@ -2459,6 +2459,10 @@ These incentives make 2026 the best time to invest in building sustainability.""
 from services.sustenance_calculator import (
     calculate_full_sustenance_potential,
     aggregate_group_potential,
+    calculate_solar_potential,
+    calculate_rainwater_potential,
+    calculate_biogas_potential,
+    calculate_plantation_potential,
 )
 from services.gemini_rooftop_analyzer import analyze_rooftop
 
@@ -4360,6 +4364,74 @@ CALCULATOR_CONFIG_V1 = {
                     ],
                     "conditional_trigger": "R01_R02",
                 },
+                # ── Track A: shown for Independent House / Row House ──────────
+                {
+                    "id": "terrace_area_sqft",
+                    "type": "numeric_input",
+                    "label": "Approximate terrace / rooftop area (sq ft)",
+                    "helper_text": "Approximate is fine — check your building plan or measure later. Typical independent house terrace: 500–1,500 sq ft",
+                    "scored": False,
+                    "stored": True,
+                    "track": "A",
+                    "show_when": ["Independent House", "Row House"],
+                    "validation": {"required": True, "min": 50, "max": 15000},
+                },
+                {
+                    "id": "num_floors",
+                    "type": "single_select",
+                    "label": "Number of floors in your building",
+                    "scored": False,
+                    "stored": True,
+                    "track": "A",
+                    "show_when": ["Independent House", "Row House"],
+                    "options": ["1", "2", "3", "4 or more"],
+                    "validation": {"required": True},
+                },
+                {
+                    "id": "household_size",
+                    "type": "single_select",
+                    "label": "Number of people in your household",
+                    "scored": False,
+                    "stored": True,
+                    "track": "A",
+                    "show_when": ["Independent House", "Row House"],
+                    "options": ["1-2", "3-5", "6-10", "More than 10"],
+                    "validation": {"required": True},
+                },
+                # ── Track B: shown for Apartment types ────────────────────────
+                {
+                    "id": "terrace_area_sqft",
+                    "type": "numeric_input",
+                    "label": "Approximate rooftop area of the entire building (sq ft)",
+                    "helper_text": "This is the total roof area of your building, not your flat. Check with your Society or building management. Typical 20-flat building: 2,000–4,000 sq ft",
+                    "scored": False,
+                    "stored": True,
+                    "track": "B",
+                    "show_when": ["Mid/low-rise Apartment (1-4 floors)", "High-rise apartment (5+ floors)"],
+                    "validation": {"required": True, "min": 200, "max": 100000},
+                },
+                {
+                    "id": "num_apartments",
+                    "type": "single_select",
+                    "label": "Number of apartments in your building",
+                    "scored": False,
+                    "stored": True,
+                    "track": "B",
+                    "show_when": ["Mid/low-rise Apartment (1-4 floors)", "High-rise apartment (5+ floors)"],
+                    "options": ["Less than 10", "10-25", "26-50", "51-100", "More than 100"],
+                    "validation": {"required": True},
+                },
+                {
+                    "id": "household_size",
+                    "type": "single_select",
+                    "label": "Number of people in your flat",
+                    "scored": False,
+                    "stored": True,
+                    "track": "B",
+                    "show_when": ["Mid/low-rise Apartment (1-4 floors)", "High-rise apartment (5+ floors)"],
+                    "options": ["1-2", "3-5", "6 or more"],
+                    "validation": {"required": True},
+                },
                 {
                     "id": "Q2",
                     "type": "single_select",
@@ -4563,7 +4635,7 @@ CALCULATOR_CONFIG_V1 = {
                 {
                     "id": "Q15",
                     "type": "multi_select",
-                    "label": "What would help your RWA/building decide faster? (Select all that apply)",
+                    "label": "What would help your Society or building management decide faster? (Select all that apply)",
                     "scored": False,
                     "stored": True,
                     "conditional_trigger": "R13",
@@ -4809,8 +4881,7 @@ GUARDRAILS (non-negotiable):
 
 @api_router.post("/report/generate")
 async def report_generate(request: Request):
-    """Apply guardrails then call Claude API to generate personalised report."""
-    # Diagnostic: log API key presence (never log the value itself)
+    """Run deterministic calculations, then call Claude API to generate personalised report."""
     logger.info(f"report/generate called — ANTHROPIC_API_KEY present: {'ANTHROPIC_API_KEY' in os.environ}")
 
     try:
@@ -4866,7 +4937,7 @@ async def report_generate(request: Request):
             detail="We've reached our daily report limit. Please try again tomorrow or email hello@sus10.ai",
         )
 
-    # Fetch assessment
+    # ── STEP A: Fetch assessment ──────────────────────────────────────────────
     assessment = await db.assessments.find_one({"assessment_id": assessment_id})
     if not assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
@@ -4874,14 +4945,7 @@ async def report_generate(request: Request):
     answers = assessment.get("answers", {})
     scores = assessment.get("scores", {})
     flags = assessment.get("conditional_flags", {})
-
-    # Unit boundary: user inputs sqft, calculator uses sqm internally.
-    # Usable area fixed at 70% of total — standard assumption for
-    # Indian rooftops accounting for water tanks, stairwell access,
-    # AC units and unusable edges
-    terrace_area_sqft = float(answers.get("terrace_area_sqft") or 0)
-    area_sqm = terrace_area_sqft * 0.0929
-    usable_area_sqm = round(area_sqm * 0.70, 2)
+    show_biogas = assessment.get("show_biogas", True)
 
     def ans(key, default="Not provided"):
         v = answers.get(key)
@@ -4890,6 +4954,128 @@ async def report_generate(request: Request):
         if isinstance(v, list):
             return ", ".join(str(i) for i in v) if v else default
         return str(v)
+
+    # ── STEP B: Prepare inputs ────────────────────────────────────────────────
+    q1_value = answers.get("Q1", "")
+    _track_a = {"Independent House", "Row House"}
+    _track_b = {"Mid/low-rise Apartment (1-4 floors)", "High-rise apartment (5+ floors)"}
+    track = "A" if q1_value in _track_a else ("B" if q1_value in _track_b else "A")
+    city = str(answers.get("city") or "").strip() or "default"
+    building_type = "residential"
+
+    # ── STEP C: Map select answers to integers ────────────────────────────────
+    _FLOOR_MAP = {"1": 1, "2": 2, "3": 3, "4 or more": 4}
+    _HH_A = {"1-2": 2, "3-5": 4, "6-10": 8, "More than 10": 10}
+    _HH_B = {"1-2": 2, "3-5": 4, "6 or more": 6}
+    _APT = {"Less than 10": 5, "10-25": 17, "26-50": 38, "51-100": 75, "More than 100": 120}
+
+    if track == "A":
+        num_floors_int = _FLOOR_MAP.get(str(answers.get("num_floors", "")), 2)
+        household_size_int = _HH_A.get(str(answers.get("household_size", "")), 4)
+        num_apartments_int = 1
+        families_for_biogas = 1
+    else:
+        # Track B has no num_floors field — derive from Q1
+        num_floors_int = 7 if ("high-rise" in q1_value.lower() or "5+" in q1_value) else 3
+        household_size_int = _HH_B.get(str(answers.get("household_size", "")), 4)
+        num_apartments_int = _APT.get(str(answers.get("num_apartments", "")), 17)
+        families_for_biogas = num_apartments_int
+
+    # ── STEP D: Unit conversion (API boundary — one place only) ──────────────
+    # Unit boundary: user inputs sqft, calculator uses sqm internally
+    # Convert here and nowhere else
+    terrace_area_sqft = float(answers.get("terrace_area_sqft") or 0)
+    area_sqm = round(terrace_area_sqft * 0.0929, 2)
+    # Usable area fixed at 70% of total — standard assumption for
+    # Indian rooftops accounting for water tanks, stairwell access,
+    # AC units and unusable edges
+    usable_area_sqm = round(area_sqm * 0.70, 2)
+    usable_area_sqft = round(usable_area_sqm * 10.764)
+
+    # ── STEP E: Call calculator functions ────────────────────────────────────
+    solar_result = calculate_solar_potential(usable_area_sqm=usable_area_sqm, city=city)
+    rainwater_result = calculate_rainwater_potential(catchment_area_sqm=area_sqm, city=city)
+    biogas_result = calculate_biogas_potential(
+        building_footprint_sqm=area_sqm,
+        building_type=building_type,
+        floors=num_floors_int,
+        families=families_for_biogas,
+        waste_kg_per_family_per_day=0.5,
+    )
+    plantation_result = calculate_plantation_potential(usable_area_sqm=usable_area_sqm)
+
+    # Biogas suppression — suppress if flagged off or monthly output < 1 m³
+    biogas_monthly_m3 = biogas_result["biogas_m3_per_day"] * 30
+    if not show_biogas or biogas_monthly_m3 < 1.0:
+        biogas_result = None
+
+    # Area outputs back-converted to sqft for display only (non-area outputs unchanged)
+    catchment_area_sqft = round(area_sqm * 10.764)
+    plantation_area_sqft = round(plantation_result["effective_area_sqm"] * 10.764)
+
+    # Aggregate totals
+    total_savings_inr = (
+        solar_result["annual_savings_inr"] + rainwater_result["annual_savings_inr"]
+    )
+    total_co2_kg = (
+        solar_result["co2_offset_kg_per_year"]
+        + plantation_result["co2_sequestered_kg_per_year"]
+    )
+    if biogas_result:
+        total_savings_inr += biogas_result["annual_savings_inr"]
+        total_co2_kg += biogas_result["co2_offset_kg_per_year"]
+
+    # ── STEP F: Store computed results in assessment ──────────────────────────
+    await db.assessments.update_one(
+        {"assessment_id": assessment_id},
+        {"$set": {
+            "calculated_solar": solar_result,
+            "calculated_biogas": biogas_result,
+            "calculated_rainwater": rainwater_result,
+            "calculated_plantation": plantation_result,
+            "calculation_inputs_sqft": {
+                "terrace_area_sqft": terrace_area_sqft,
+                "usable_area_sqft": usable_area_sqft,
+                "city": city,
+                "floors": num_floors_int,
+                "families": families_for_biogas,
+                "track": track,
+            },
+        }},
+    )
+
+    # ── STEP G: Build Claude prompt with real computed numbers ────────────────
+    _solar_trees = round(solar_result["co2_offset_kg_per_year"] / 21)
+    _trees_total = round(total_co2_kg / 21)
+
+    _biogas_block = ""
+    if biogas_result:
+        _biogas_block = (
+            f"\nBIOGAS:\n"
+            f"- Daily organic waste input: {biogas_result['daily_organic_waste_kg']} kg/day\n"
+            f"- Monthly biogas output: {round(biogas_result['biogas_m3_per_day'] * 30, 1)} m³/month\n"
+            f"- Annual LPG savings: Rs.{biogas_result['annual_savings_inr']:,}/year\n"
+            f"- CO2 offset: {biogas_result['co2_offset_kg_per_year']:,} kg/year\n"
+        )
+    else:
+        _biogas_block = "\nBIOGAS: Not applicable — waste volume insufficient for a viable plant.\n"
+
+    _savings_label = "solar + rainwater" + (" + biogas" if biogas_result else "")
+
+    if track == "A":
+        _track_note = (
+            "FRAMING: Track A (independent house / row house). "
+            "Frame all recommendations as personal decisions this homeowner can take themselves."
+        )
+    else:
+        _per_flat_kwp = round(solar_result["installed_capacity_kwp"] / max(num_apartments_int, 1), 2)
+        _track_note = (
+            f"FRAMING: Track B (apartment). Frame solar, biogas, and rainwater as building-level "
+            f"projects requiring Society approval. Where relevant, state the per-flat share: "
+            f"'Your building could install {solar_result['installed_capacity_kwp']} kWp — roughly "
+            f"{_per_flat_kwp} kWp per flat.' "
+            f"For greening, use community garden language: 'your building's shared terrace'."
+        )
 
     user_prompt = f"""Generate a Sus10 AI Home Sustainability Readiness Report for:
 
@@ -4922,20 +5108,66 @@ KEY ANSWERS:
 - Support needed (Q15): {ans('Q15')}
 - Support needed (Q16): {ans('Q16')}
 
+BUILDING DETAILS:
+- Terrace / rooftop area: {int(terrace_area_sqft) if terrace_area_sqft else 'Not provided'} sq ft
+- Usable area (70% of total): {usable_area_sqft} sq ft
+- Building type: {ans('Q1')}
+- Floors: {num_floors_int}
+- Households / families: {families_for_biogas}
+
+CALCULATED SUSTENANCE POTENTIAL
+(Deterministic calculations — use these exact numbers. Do not estimate or recalculate. Your role is to explain what these numbers mean in plain language for this homeowner.)
+
+SOLAR:
+- Installable capacity: {solar_result['installed_capacity_kwp']} kWp
+- Monthly generation: {solar_result['monthly_generation_kwh']} units/month
+- Annual savings: Rs.{solar_result['annual_savings_inr']:,}
+- CO2 offset: {solar_result['co2_offset_kg_per_year']:,} kg/year
+- Equivalent to: {_solar_trees} trees planted/year (21 kg CO2/tree/year)
+{_biogas_block}
+RAINWATER HARVESTING:
+- Catchment area: {catchment_area_sqft:,} sq ft
+- Water captured/year: {rainwater_result['annual_yield_kiloliters']} kL ({rainwater_result['annual_yield_liters']:,} litres)
+- Annual savings: Rs.{rainwater_result['annual_savings_inr']:,}
+- Household consumption basis: {families_for_biogas * 150} litres/day
+
+PLANTATION / GREENING:
+- Plantable area: {plantation_area_sqft:,} sq ft
+- Approximate plant count: {plantation_result['total_plants_count']} plants
+- Estimated food yield: {plantation_result['annual_food_yield_kg'] or 0} kg/year
+- CO2 sequestered: {plantation_result['co2_sequestered_kg_per_year']:,} kg/year
+- Water needed: {plantation_result['water_required_lpd']} litres/day
+
+GREENING SECTION INSTRUCTIONS — READ CAREFULLY:
+Do NOT recommend specific plants or suggest a planting plan. The platform does not yet have city-validated species data.
+Write the greening section as follows:
+1. State the approximate number of plants the terrace could support based on the calculated plantable area.
+2. Mention 2-3 generic plant categories as illustrations only (e.g. "food plants such as leafy vegetables, herbs, or dwarf fruit trees"; "wellness plants such as medicinal herbs"). Do NOT name specific varieties.
+3. State the aggregate numbers: {plantation_result['annual_food_yield_kg'] or 0} kg/year food yield, {plantation_result['co2_sequestered_kg_per_year']:,} kg/year CO2 sequestered.
+4. Tell the user: "The right plant selection for your specific terrace depends on your city's climate, sun exposure, shade patterns, and structural loading. We recommend a site assessment or consultation with a qualified horticulturist before finalising your planting plan."
+5. Keep this section to 3-4 sentences only.
+
+TOTAL ANNUAL IMPACT SUMMARY:
+- Total estimated savings: Rs.{total_savings_inr:,}/year ({_savings_label})
+- Total CO2 offset: {total_co2_kg:,} kg/year
+- Equivalent to approximately {_trees_total} trees planted/year
+
+{_track_note}
+
 Generate the report following this structure:
 1. Respondent Profile (with sustainability opportunity interpretation)
 2. Sus10 Readiness Score (tier: Explorer / Getting Ready / Action Ready / Sustainability Champion)
 3. Strengths Identified (3-5 strengths with explanation)
 4. Gap Analysis Matrix (6 dimensions: Motivation, Affordability, Technology Access, Waste Readiness, Water Availability, Community Readiness)
 5. Personalized Recommendations (max 7, based on actual answers, suppress irrelevant solutions)
-6. Potential Savings and Benefits (cautious language throughout)
+6. Potential Savings and Benefits — USE THE EXACT CALCULATED FIGURES ABOVE. Do not invent alternative numbers.
 7. Suggested Sus10 Roadmap (Phase 1: 0-3 months / Phase 2: 3-12 months / Phase 3: 1-3 years)
 8. Support Needed (based on Q15/Q16 answers)
 9. Final Assessment (readiness level + biggest opportunity + biggest barrier + one action this month)
 
 End with: 'Every roof has the potential to become a climate solution. Your journey toward a Self-Sustaining Roof starts with one small step.'"""
 
-    # Call Claude API (initialised before try so static analysers never see them as unbound)
+    # ── STEP H: Call Claude API ───────────────────────────────────────────────
     report_text: str = ""
     tokens_used: int = 0
     try:
@@ -4943,7 +5175,7 @@ End with: 'Every roof has the potential to become a climate solution. Your journ
         import asyncio
 
         client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-        logger.info(f"Anthropic client created — calling claude-sonnet-4-20250514")
+        logger.info("Anthropic client created — calling claude-sonnet-4-20250514")
 
         # Run sync client in a thread so we don't block the event loop
         message = await asyncio.to_thread(
@@ -4973,7 +5205,7 @@ End with: 'Every roof has the potential to become a climate solution. Your journ
     # Record rate-limit entry
     await db.rate_limits.insert_one({"ip_hash": ip_hash, "created_at": now_utc})
 
-    # Update assessment with report
+    # ── STEP I: Store report_text and tokens_used ─────────────────────────────
     gen_time = datetime.now(timezone.utc)
     await db.assessments.update_one(
         {"assessment_id": assessment_id},
@@ -5007,9 +5239,11 @@ async def get_report(assessment_id: str):
 
 # Seed calculator config in startup
 async def _seed_calculator_config():
-    await db.calculator_config.update_one(
+    # replace_one ensures the config in MongoDB always matches the code —
+    # $setOnInsert would leave an old config in place after updates.
+    await db.calculator_config.replace_one(
         {"config_id": "homeowner_v1"},
-        {"$setOnInsert": CALCULATOR_CONFIG_V1},
+        CALCULATOR_CONFIG_V1,
         upsert=True,
     )
 

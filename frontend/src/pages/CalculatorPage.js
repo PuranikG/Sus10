@@ -126,6 +126,77 @@ function SingleSelectQuestion({ question, value, onChange }) {
   );
 }
 
+// ─── Live area helper text ────────────────────────────────────────────────────
+function areaHint(value) {
+  const v = parseFloat(value);
+  if (!v || v <= 0) return null;
+  if (v <= 200) return { text: 'Small terrace — suitable for container garden and small RWH', color: '#f59e0b' };
+  if (v <= 800) return { text: 'Medium terrace — good potential for solar + garden', color: '#22c55e' };
+  if (v <= 2000) return { text: 'Large terrace — strong potential across all solutions', color: '#22c55e' };
+  return { text: 'Very large roof — excellent potential, recommend professional assessment', color: '#4ade80' };
+}
+
+function NumericInputQuestion({ question, value, onChange }) {
+  const hint = areaHint(value);
+  const val = value ?? '';
+  const vNum = parseFloat(val);
+  const min = question.validation?.min;
+  const max = question.validation?.max;
+  const hasError = val !== '' && vNum && (vNum < min || vNum > max);
+  return (
+    <div style={{ marginBottom: '28px' }}>
+      <div style={{ fontSize: '15px', fontWeight: 600, color: '#f8fdf8', marginBottom: '6px' }}>{question.label}</div>
+      {question.helper_text && (
+        <div style={{ fontSize: '12px', color: '#7aaa8a', marginBottom: '12px', lineHeight: 1.5 }}>{question.helper_text}</div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <input
+          type="number"
+          value={val}
+          onChange={e => onChange(e.target.value)}
+          min={min}
+          max={max}
+          placeholder={`e.g. ${min ? Math.round((min + (max || min * 3)) / 2) : 500}`}
+          style={{
+            width: '180px',
+            padding: '10px 14px',
+            background: '#0d1710',
+            border: `1px solid ${hasError ? '#ef4444' : '#1e3024'}`,
+            borderRadius: '8px',
+            color: '#f8fdf8',
+            fontSize: '16px',
+            fontWeight: 600,
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+        <span style={{ fontSize: '13px', color: '#4a6a4a' }}>sq ft</span>
+      </div>
+      {hasError && (
+        <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>
+          Please enter a value between {min?.toLocaleString()} and {max?.toLocaleString()} sq ft
+        </div>
+      )}
+      {hint && !hasError && val !== '' && (
+        <div style={{
+          marginTop: '8px',
+          padding: '8px 12px',
+          background: 'rgba(34,197,94,0.08)',
+          border: `1px solid ${hint.color}40`,
+          borderRadius: '8px',
+          fontSize: '13px',
+          color: hint.color,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+        }}>
+          <span>✦</span> {hint.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MultiSelectQuestion({ question, value = [], onChange }) {
   const opts = question.options || [];
   const capSelections = question.cap_selections || null;
@@ -242,26 +313,52 @@ export default function CalculatorPage() {
     setAnswers(prev => ({ ...prev, [qid]: val }));
   }, []);
 
+  // Q1 value — used to determine which track questions to show
+  const q1Value = answers['Q1'] || '';
+  const trackATypes = ['Independent House', 'Row House'];
+  const trackBTypes = ['Mid/low-rise Apartment (1-4 floors)', 'High-rise apartment (5+ floors)'];
+
+  // A question is "active" (shown) if it has no show_when, or if show_when matches current Q1 answer.
+  // Questions with a track that doesn't match the current Q1 are hidden.
+  const isQuestionActive = useCallback((q) => {
+    if (!q.show_when) return true; // no condition — always shown
+    return q.show_when.includes(q1Value);
+  }, [q1Value]);
+
   // ── Validation: is current page ready to proceed? ──
   const isPageValid = useCallback(() => {
     if (!questions.length) return false;
     for (const q of questions) {
+      // Skip questions hidden by track logic
+      if (!isQuestionActive(q)) continue;
+
       if (q.type === 'text_group') {
         const fields = q.fields || [];
         for (const f of fields) {
           if (!answers[f] || answers[f].trim() === '') return false;
         }
-        // Email must be valid
         if (fields.includes('email') && !isValidEmail(answers['email'] || '')) return false;
+      } else if (q.type === 'numeric_input') {
+        // Mandatory numeric field: must have a value in range
+        const raw = answers[q.id];
+        const v = parseFloat(raw);
+        const min = q.validation?.min ?? 0;
+        const max = q.validation?.max ?? Infinity;
+        if (!raw || !v || v < min || v > max) return false;
       } else if (q.scored) {
-        // Must have a non-empty answer for scored questions
         const v = answers[q.id];
         if (v === undefined || v === null || v === '') return false;
         if (Array.isArray(v) && v.length === 0) return false;
+      } else if (q.validation?.required) {
+        // Non-scored but explicitly required (e.g. num_floors, household_size in track fields)
+        const v = answers[q.id];
+        if (v === undefined || v === null || v === '') return false;
       }
     }
+    // Extra rule: if Q1 is on this page and answered, track fields must also be valid before Next
+    // (handled above via show_when + validation.required)
     return true;
-  }, [questions, answers]);
+  }, [questions, answers, isQuestionActive]);
 
   // ── Submit ──
   const handleSubmit = async () => {
@@ -355,21 +452,40 @@ export default function CalculatorPage() {
           </h2>
 
           {/* Questions */}
-          {questions.map((q) => {
+          {questions.map((q, qi) => {
+            // Hide track questions until Q1 is answered; hide wrong-track questions always
+            if (q.show_when) {
+              if (!q1Value) return null; // Q1 not yet answered — hide all track questions
+              if (!q.show_when.includes(q1Value)) return null; // wrong track
+            }
+
+            // Use q.id + track as React key to avoid duplicate-key warnings
+            const reactKey = `${q.id}_${q.track || qi}`;
+
             if (q.type === 'text_group') {
               return (
                 <TextGroupQuestion
-                  key={q.id}
+                  key={reactKey}
                   question={q}
                   answers={answers}
                   onChange={handleTextGroup}
                 />
               );
             }
+            if (q.type === 'numeric_input') {
+              return (
+                <NumericInputQuestion
+                  key={reactKey}
+                  question={q}
+                  value={answers[q.id] || ''}
+                  onChange={(val) => setAnswers(prev => ({ ...prev, [q.id]: val }))}
+                />
+              );
+            }
             if (q.type === 'single_select') {
               return (
                 <SingleSelectQuestion
-                  key={q.id}
+                  key={reactKey}
                   question={q}
                   value={answers[q.id] || ''}
                   onChange={(val) => handleSingleSelect(q.id, val)}
@@ -379,7 +495,7 @@ export default function CalculatorPage() {
             if (q.type === 'multi_select') {
               return (
                 <MultiSelectQuestion
-                  key={q.id}
+                  key={reactKey}
                   question={q}
                   value={answers[q.id] || []}
                   onChange={(val) => handleMultiSelect(q.id, val)}

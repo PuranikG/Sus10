@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Loader2, Leaf, Mail } from 'lucide-react';
+import { Loader2, Leaf, Mail, Info } from 'lucide-react';
 import { apiRequest } from '../lib/utils';
 
 // ─── Score card colour logic ──────────────────────────────────────────────────
@@ -44,7 +44,7 @@ const CTA_CONFIG = {
 
 function CtaBlock({ tier, flags, tierColor }) {
   const cta = CTA_CONFIG[tier] || CTA_CONFIG['Explorer'];
-  const btnText = flags?.R09 ? 'Talk to your RWA or building owner' : cta.text;
+  const btnText = flags?.R09 ? 'Talk to your Society committee or building owner' : cta.text;
   return (
     <div style={{
       background: 'rgba(34,197,94,0.06)',
@@ -193,6 +193,52 @@ export default function ReportPage() {
             Report is being generated. Please refresh in a moment.
           </div>
         )}
+
+        {/* Disclaimer — About These Estimates */}
+        <div style={{
+          background: '#FEF3C7',
+          borderLeft: '4px solid #D97706',
+          borderRadius: '8px',
+          padding: '20px 24px',
+          marginBottom: '24px',
+          display: 'flex',
+          gap: '16px',
+          alignItems: 'flex-start',
+        }}>
+          <div style={{
+            flexShrink: 0,
+            width: '28px',
+            height: '28px',
+            borderRadius: '50%',
+            background: '#D97706',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: '2px',
+          }}>
+            <Info style={{ width: '15px', height: '15px', color: '#fff' }} />
+          </div>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: '#92400E', marginBottom: '8px' }}>
+              About These Estimates
+            </div>
+            <p style={{ fontSize: '13px', color: '#78350F', lineHeight: 1.65, margin: '0 0 8px 0' }}>
+              The figures in this report are calculated using standard engineering parameters for Indian conditions
+              (MNRE solar data, IMD rainfall data, CPCB waste norms). They are indicative — actual potential can
+              only be confirmed after a site assessment, in-person or virtual.
+            </p>
+            <p style={{ fontSize: '13px', color: '#78350F', lineHeight: 1.65, margin: '0 0 8px 0' }}>
+              Real-world outcomes depend on factors that need professional evaluation: structural load capacity,
+              roof slope and orientation, shade from trees or adjacent buildings, piped gas availability,
+              and local regulations.
+            </p>
+            <p style={{ fontSize: '13px', color: '#78350F', lineHeight: 1.65, margin: 0 }}>
+              AI can make mistakes. If anything looks incorrect or doesn't match your situation, write to us at{' '}
+              <a href="mailto:hello@sus10.ai" style={{ color: '#92400E', fontWeight: 600 }}>hello@sus10.ai</a>
+              {' '}— we review all feedback and fix errors.
+            </p>
+          </div>
+        </div>
 
         {/* CTA at bottom */}
         <CtaBlock tier={tier} flags={flags} tierColor={tierColor} />
