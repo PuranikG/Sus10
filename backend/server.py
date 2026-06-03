@@ -4887,6 +4887,16 @@ async def report_generate(request: Request):
     logger.error("REPORT ENDPOINT HIT — assessment_id incoming")
     logger.info(f"report/generate called — ANTHROPIC_API_KEY present: {'ANTHROPIC_API_KEY' in os.environ}")
 
+    # Guard: fail fast with a clear 500 if the key is missing rather than letting
+    # the Anthropic client raise an opaque TypeError later.
+    _anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not _anthropic_key:
+        logger.error("ANTHROPIC_API_KEY is not set — cannot generate report")
+        raise HTTPException(
+            status_code=500,
+            detail="ANTHROPIC_API_KEY not configured on this server. Contact support.",
+        )
+
     try:
         payload = await request.json()
     except Exception:
@@ -5171,13 +5181,13 @@ Generate the report following this structure:
 End with: 'Every roof has the potential to become a climate solution. Your journey toward a Self-Sustaining Roof starts with one small step.'"""
 
     # ── STEP H: Call Claude API ───────────────────────────────────────────────
+    import anthropic as _anthropic_module
+    import asyncio
+
     report_text: str = ""
     tokens_used: int = 0
     try:
-        import anthropic
-        import asyncio
-
-        client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        client = _anthropic_module.Anthropic(api_key=_anthropic_key)
         logger.info("Anthropic client created — calling claude-sonnet-4-20250514")
 
         # Run sync client in a thread so we don't block the event loop
@@ -5193,7 +5203,7 @@ End with: 'Every roof has the potential to become a climate solution. Your journ
         report_text = message.content[0].text
         tokens_used = message.usage.output_tokens
         logger.info(f"Claude API success — tokens_used={tokens_used}")
-    except Exception as e:
+    except (_anthropic_module.APIError, TypeError, Exception) as e:
         error_type = type(e).__name__
         error_msg = str(e)
         logger.error(
@@ -5202,7 +5212,7 @@ End with: 'Every roof has the potential to become a climate solution. Your journ
         )
         raise HTTPException(
             status_code=502,
-            detail={"error": f"{error_type}: {error_msg}"},
+            detail=f"{error_type}: {error_msg}",
         )
 
     # Record rate-limit entry
@@ -5259,11 +5269,14 @@ async def _seed_calculator_config():
 async def test_claude():
     """Minimal Claude API smoke-test. Isolates key presence and connectivity."""
     key_present = "ANTHROPIC_API_KEY" in os.environ
+    api_key_val = os.environ.get("ANTHROPIC_API_KEY")
     logger.info(f"test/claude — ANTHROPIC_API_KEY present: {key_present}")
+    if not api_key_val:
+        return {"status": "error", "detail": "ANTHROPIC_API_KEY is not set in environment", "key_present": False}
     try:
         import anthropic
         import asyncio
-        client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        client = anthropic.Anthropic(api_key=api_key_val)
         response = await asyncio.to_thread(
             client.messages.create,
             model="claude-sonnet-4-20250514",
