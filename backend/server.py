@@ -4710,6 +4710,8 @@ async def calculator_score(request: Request):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON payload")
 
+    logger.error(f"SCORE ENDPOINT HIT — payload keys: {list(payload.keys())}")
+
     answers = payload.get("answers", {})
     website_hp = payload.get("website", "")
 
@@ -4882,6 +4884,7 @@ GUARDRAILS (non-negotiable):
 @api_router.post("/report/generate")
 async def report_generate(request: Request):
     """Run deterministic calculations, then call Claude API to generate personalised report."""
+    logger.error("REPORT ENDPOINT HIT — assessment_id incoming")
     logger.info(f"report/generate called — ANTHROPIC_API_KEY present: {'ANTHROPIC_API_KEY' in os.environ}")
 
     try:
