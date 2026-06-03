@@ -5250,6 +5250,38 @@ async def _seed_calculator_config():
 
 # ==================== END SPRINT A ====================
 
+# ── Diagnostic test endpoints ─────────────────────────────────────────────────
+
+@api_router.get("/test/claude")
+async def test_claude():
+    """Minimal Claude API smoke-test. Isolates key presence and connectivity."""
+    key_present = "ANTHROPIC_API_KEY" in os.environ
+    logger.info(f"test/claude — ANTHROPIC_API_KEY present: {key_present}")
+    try:
+        import anthropic
+        import asyncio
+        client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        response = await asyncio.to_thread(
+            client.messages.create,
+            model="claude-sonnet-4-20250514",
+            max_tokens=10,
+            messages=[{"role": "user", "content": "Say OK"}],
+        )
+        return {"status": "ok", "response": response.content[0].text, "key_present": key_present}
+    except Exception as e:
+        return {"status": "error", "detail": str(e), "key_present": key_present}
+
+
+@api_router.get("/test/score")
+async def test_score():
+    """Smoke-test sustenance calculator with fixed dummy inputs."""
+    try:
+        result = calculate_solar_potential(usable_area_sqm=50, city="Bengaluru")
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+
 # Include router AFTER all routes are registered
 app.include_router(api_router)
 
