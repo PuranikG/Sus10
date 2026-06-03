@@ -234,7 +234,7 @@ export default function ReportPage() {
             </p>
             <p style={{ fontSize: '13px', color: '#78350F', lineHeight: 1.65, margin: 0 }}>
               AI can make mistakes. If anything looks incorrect or doesn't match your situation, write to us at{' '}
-              <a href="mailto:hello@sus10.ai" style={{ color: '#92400E', fontWeight: 600 }}>hello@sus10.ai</a>
+              <a href="mailto:gp@sus10.ai" style={{ color: '#92400E', fontWeight: 600 }}>gp@sus10.ai</a>
               {' '}— we review all feedback and fix errors.
             </p>
           </div>
