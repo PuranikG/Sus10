@@ -4808,6 +4808,9 @@ GUARDRAILS (non-negotiable):
 @api_router.post("/report/generate")
 async def report_generate(request: Request):
     """Apply guardrails then call Claude API to generate personalised report."""
+    # Diagnostic: log API key presence (never log the value itself)
+    logger.info(f"report/generate called — ANTHROPIC_API_KEY present: {'ANTHROPIC_API_KEY' in os.environ}")
+
     try:
         payload = await request.json()
     except Exception:
@@ -4926,9 +4929,15 @@ End with: 'Every roof has the potential to become a climate solution. Your journ
     report_text: str = ""
     tokens_used: int = 0
     try:
-        import anthropic as _anthropic
-        ac = _anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
-        message = await ac.messages.create(
+        import anthropic
+        import asyncio
+
+        client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        logger.info(f"Anthropic client created — calling claude-sonnet-4-20250514")
+
+        # Run sync client in a thread so we don't block the event loop
+        message = await asyncio.to_thread(
+            client.messages.create,
             model="claude-sonnet-4-20250514",
             max_tokens=1500,
             temperature=0.3,
@@ -4938,9 +4947,18 @@ End with: 'Every roof has the potential to become a climate solution. Your journ
         )
         report_text = message.content[0].text
         tokens_used = message.usage.output_tokens
+        logger.info(f"Claude API success — tokens_used={tokens_used}")
     except Exception as e:
-        logger.error(f"Claude API error: {e}")
-        raise HTTPException(status_code=502, detail=f"Report generation failed: {str(e)}")
+        error_type = type(e).__name__
+        error_msg = str(e)
+        logger.error(
+            f"Claude API error — type={error_type}, message={error_msg}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail={"error": f"{error_type}: {error_msg}"},
+        )
 
     # Record rate-limit entry
     await db.rate_limits.insert_one({"ip_hash": ip_hash, "created_at": now_utc})
