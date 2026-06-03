@@ -4883,18 +4883,16 @@ GUARDRAILS (non-negotiable):
 
 @api_router.post("/report/generate")
 async def report_generate(request: Request):
-    """Run deterministic calculations, then call Claude API to generate personalised report."""
+    """Run deterministic calculations, then call LLM to generate personalised report."""
     logger.error("REPORT ENDPOINT HIT — assessment_id incoming")
-    logger.info(f"report/generate called — ANTHROPIC_API_KEY present: {'ANTHROPIC_API_KEY' in os.environ}")
 
-    # Guard: fail fast with a clear 500 if the key is missing rather than letting
-    # the Anthropic client raise an opaque TypeError later.
-    _anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not _anthropic_key:
-        logger.error("ANTHROPIC_API_KEY is not set — cannot generate report")
+    # Guard: fail fast with a clear 500 if the Emergent LLM key is missing.
+    _llm_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not _llm_key:
+        logger.error("EMERGENT_LLM_KEY is not set — cannot generate report")
         raise HTTPException(
             status_code=500,
-            detail="ANTHROPIC_API_KEY not configured on this server. Contact support.",
+            detail="LLM service not configured on this server. Contact support.",
         )
 
     try:
@@ -5180,34 +5178,28 @@ Generate the report following this structure:
 
 End with: 'Every roof has the potential to become a climate solution. Your journey toward a Self-Sustaining Roof starts with one small step.'"""
 
-    # ── STEP H: Call Claude API ───────────────────────────────────────────────
-    import anthropic as _anthropic_module
-    import asyncio
+    # ── STEP H: Call LLM via Emergent integration ────────────────────────────
+    from emergentintegrations.llm.chat import LlmChat, UserMessage as LlmUserMessage
 
     report_text: str = ""
     tokens_used: int = 0
     try:
-        client = _anthropic_module.Anthropic(api_key=_anthropic_key)
-        logger.info("Anthropic client created — calling claude-sonnet-4-20250514")
+        chat = LlmChat(
+            api_key=_llm_key,
+            session_id=f"sus10-report-{assessment_id}",
+            system_message=CLAUDE_SYSTEM_PROMPT,
+        ).with_model("claude", "claude-sonnet-4-5")
 
-        # Run sync client in a thread so we don't block the event loop
-        message = await asyncio.to_thread(
-            client.messages.create,
-            model="claude-sonnet-4-20250514",
-            max_tokens=1500,
-            temperature=0.3,
-            top_p=0.9,
-            system=CLAUDE_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-        report_text = message.content[0].text
-        tokens_used = message.usage.output_tokens
-        logger.info(f"Claude API success — tokens_used={tokens_used}")
-    except (_anthropic_module.APIError, TypeError, Exception) as e:
+        logger.info("LlmChat created — calling claude-sonnet-4-5 via Emergent")
+        msg = LlmUserMessage(text=user_prompt)
+        report_text = await chat.send_message(msg)
+        tokens_used = 0  # emergentintegrations does not expose token counts
+        logger.info("LLM call success")
+    except Exception as e:
         error_type = type(e).__name__
         error_msg = str(e)
         logger.error(
-            f"Claude API error — type={error_type}, message={error_msg}",
+            f"LLM error — type={error_type}, message={error_msg}",
             exc_info=True,
         )
         raise HTTPException(
@@ -5267,23 +5259,21 @@ async def _seed_calculator_config():
 
 @api_router.get("/test/claude")
 async def test_claude():
-    """Minimal Claude API smoke-test. Isolates key presence and connectivity."""
-    key_present = "ANTHROPIC_API_KEY" in os.environ
-    api_key_val = os.environ.get("ANTHROPIC_API_KEY")
-    logger.info(f"test/claude — ANTHROPIC_API_KEY present: {key_present}")
-    if not api_key_val:
-        return {"status": "error", "detail": "ANTHROPIC_API_KEY is not set in environment", "key_present": False}
+    """Minimal LLM smoke-test via Emergent integration. Isolates key presence and connectivity."""
+    llm_key = os.environ.get("EMERGENT_LLM_KEY")
+    key_present = bool(llm_key)
+    logger.info(f"test/claude — EMERGENT_LLM_KEY present: {key_present}")
+    if not llm_key:
+        return {"status": "error", "detail": "EMERGENT_LLM_KEY is not set in environment", "key_present": False}
     try:
-        import anthropic
-        import asyncio
-        client = anthropic.Anthropic(api_key=api_key_val)
-        response = await asyncio.to_thread(
-            client.messages.create,
-            model="claude-sonnet-4-20250514",
-            max_tokens=10,
-            messages=[{"role": "user", "content": "Say OK"}],
-        )
-        return {"status": "ok", "response": response.content[0].text, "key_present": key_present}
+        from emergentintegrations.llm.chat import LlmChat, UserMessage as LlmUserMessage
+        chat = LlmChat(
+            api_key=llm_key,
+            session_id="sus10-test-smoke",
+            system_message="You are a test assistant.",
+        ).with_model("claude", "claude-sonnet-4-5")
+        response = await chat.send_message(LlmUserMessage(text="Say OK"))
+        return {"status": "ok", "response": response, "key_present": True}
     except Exception as e:
         return {"status": "error", "detail": str(e), "key_present": key_present}
 
