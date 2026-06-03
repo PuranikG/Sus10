@@ -5282,7 +5282,9 @@ async def test_score():
         return {"status": "error", "detail": str(e)}
 
 
-# Include router AFTER all routes are registered
+# IMPORTANT: This must remain the last line before shutdown handler in the file.
+# All routes must be registered on api_router BEFORE this call.
+# Moving this line earlier will silently drop all routes defined after it.
 app.include_router(api_router)
 
 
