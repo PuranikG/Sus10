@@ -5,7 +5,10 @@ export function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
-export const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
+// REACT_APP_BACKEND_URL is set at build time by the hosting platform.
+// Fall back to "" (empty string) so API calls become relative paths
+// (/api/...) when frontend and backend are served from the same domain.
+export const API_URL = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 
 export async function apiRequest(endpoint, options = {}) {
   const url = `${API_URL}${endpoint}`;
