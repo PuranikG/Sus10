@@ -2465,6 +2465,7 @@ from services.sustenance_calculator import (
     calculate_plantation_potential,
 )
 from services.gemini_rooftop_analyzer import analyze_rooftop
+from services.email_service import send_report_email, send_admin_notification
 
 class GroupCreate(BaseModel):
     name: str
@@ -5286,6 +5287,55 @@ End with: 'Every roof has the potential to become a climate solution. Your journ
             "tokens_used": tokens_used,
         }},
     )
+
+    # ── STEP J: Send transactional emails ─────────────────────────────────────
+    _overall_score  = scores.get("overall", 0)
+    _readiness_tier = assessment.get("readiness_tier") or ""
+
+    # User report email
+    try:
+        email_sent = await asyncio.to_thread(
+            send_report_email,
+            to_email=answers.get("email"),
+            first_name=answers.get("first_name"),
+            assessment_id=str(assessment_id),
+            overall_score=_overall_score,
+            readiness_tier=_readiness_tier,
+            solar_kwh=solar_result.get("annual_generation_kwh", 0),
+            rainwater_kl=rainwater_result.get("annual_yield_kiloliters", 0),
+            food_kg=plantation_result.get("annual_food_yield_kg", 0),
+            co2_tonnes=round(total_co2_kg / 1000, 1),
+        )
+    except Exception as _email_exc:
+        logger.error(f"send_report_email raised unexpectedly: {_email_exc}", exc_info=True)
+        email_sent = False
+
+    await db.assessments.update_one(
+        {"assessment_id": assessment_id},
+        {"$set": {
+            "email_sent":    email_sent,
+            "email_sent_at": datetime.now(timezone.utc) if email_sent else None,
+        }},
+    )
+
+    # Admin notification
+    try:
+        _phone_raw    = str(answers.get("phone") or "").strip()
+        _phone_digits = re.sub(r"[^0-9]", "", _phone_raw).lstrip("91")
+        await asyncio.to_thread(
+            send_admin_notification,
+            first_name=answers.get("first_name"),
+            last_name=answers.get("last_name"),
+            email=answers.get("email"),
+            phone=_phone_raw,
+            phone_digits=_phone_digits,
+            city=answers.get("city"),
+            overall_score=_overall_score,
+            readiness_tier=_readiness_tier,
+            assessment_id=str(assessment_id),
+        )
+    except Exception as _notif_exc:
+        logger.error(f"send_admin_notification raised unexpectedly: {_notif_exc}", exc_info=True)
 
     return {
         "assessment_id": assessment_id,
