@@ -3789,7 +3789,73 @@ async def admin_list_beta_waitlist(
     pipeline = [{"$group": {"_id": "$persona", "count": {"$sum": 1}}}]
     by_persona_raw = await db.beta_waitlist.aggregate(pipeline).to_list(50)
     by_persona = {(p["_id"] or "unspecified"): p["count"] for p in by_persona_raw}
+
+    # Join assessments by email so the waitlist table can show "View Report" links
+    emails = [e.get("email") for e in entries if e.get("email")]
+    if emails:
+        assessment_map: Dict[str, str] = {}
+        async for a in db.assessments.find(
+            {"answers.email": {"$in": emails}},
+            {"_id": 0, "assessment_id": 1, "answers.email": 1},
+        ):
+            em = ((a.get("answers") or {}).get("email") or "").strip().lower()
+            if em:
+                assessment_map[em] = a.get("assessment_id", "")
+        for e in entries:
+            key = (e.get("email") or "").strip().lower()
+            e["assessment_id"] = assessment_map.get(key)
+
     return {"entries": entries, "total": total, "by_persona": by_persona, "limit": limit}
+
+
+@api_router.get("/admin/leads")
+async def admin_list_assessment_leads(
+    request: Request,
+    limit: int = Query(default=1000, le=5000),
+):
+    """Return all calculator assessment submissions for the admin Leads table."""
+    await require_admin(request)
+
+    docs = await (
+        db.assessments.find(
+            {},
+            {"_id": 0, "assessment_id": 1, "answers": 1, "scores": 1,
+             "readiness_tier": 1, "created_at": 1},
+        )
+        .sort("created_at", -1)
+        .limit(limit)
+        .to_list(limit)
+    )
+
+    def _clean_phone(raw: str) -> str:
+        """Strip spaces, dashes, +91 prefix; return digits only."""
+        digits = raw.replace(" ", "").replace("-", "").replace("+", "")
+        if digits.startswith("91") and len(digits) > 10:
+            digits = digits[2:]
+        return digits
+
+    rows = []
+    for doc in docs:
+        answers = doc.get("answers") or {}
+        scores  = doc.get("scores")  or {}
+        raw_phone = str(answers.get("phone") or "").strip()
+        clean_digits = _clean_phone(raw_phone) if raw_phone else ""
+        wa_number    = "91" + clean_digits if clean_digits else ""
+        created = doc.get("created_at")
+        rows.append({
+            "assessment_id": doc.get("assessment_id") or "",
+            "created_at":    created.isoformat() if isinstance(created, datetime) else (created or ""),
+            "first_name":    answers.get("first_name") or "",
+            "last_name":     answers.get("last_name")  or "",
+            "email":         answers.get("email")      or "",
+            "phone":         raw_phone,
+            "wa_number":     wa_number,
+            "city":          answers.get("city")       or "",
+            "building_type": answers.get("Q1")         or "",
+            "overall_score": scores.get("overall"),
+            "readiness_tier": doc.get("readiness_tier") or "",
+        })
+    return {"leads": rows, "total": len(rows)}
 
 
 @api_router.post("/webhooks/zoho-survey")

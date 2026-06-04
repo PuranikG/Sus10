@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Loader2, MessageCircle, ExternalLink } from 'lucide-react';
 import { Toaster } from './components/ui/sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -235,17 +235,62 @@ function AppRouter() {
           <ProtectedRoute>
             <AdminGenericListPage
               title="Leads"
-              subtitle="Inbound lead form submissions"
+              subtitle="Calculator assessment submissions"
               endpoint="/admin/leads"
-              fallbackEndpoint="/leads"
               columns={[
-                { key: 'user_name', label: 'Name' },
+                {
+                  key: 'created_at', label: 'Date',
+                  render: (r) => r.created_at
+                    ? new Date(r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '—',
+                },
+                {
+                  key: 'name', label: 'Name',
+                  render: (r) => [r.first_name, r.last_name].filter(Boolean).join(' ') || '—',
+                },
                 { key: 'email', label: 'Email' },
-                { key: 'building_id', label: 'Building' },
-                { key: 'lead_status', label: 'Status' },
+                {
+                  key: 'phone', label: 'Phone',
+                  render: (r) => !r.phone ? '—' : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      {r.phone}
+                      {r.wa_number && (
+                        <a
+                          href={`https://wa.me/${r.wa_number}`}
+                          target="_blank" rel="noopener noreferrer"
+                          title="Open in WhatsApp"
+                          style={{ color: '#22c55e', lineHeight: 0 }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <MessageCircle size={13} />
+                        </a>
+                      )}
+                    </span>
+                  ),
+                },
+                { key: 'city', label: 'City' },
+                { key: 'building_type', label: 'Building Type' },
+                {
+                  key: 'overall_score', label: 'Score',
+                  render: (r) => r.overall_score != null ? r.overall_score : '—',
+                },
+                { key: 'readiness_tier', label: 'Tier' },
+                {
+                  key: 'report', label: 'View Report',
+                  render: (r) => r.assessment_id ? (
+                    <a
+                      href={`/report/${r.assessment_id}`}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ color: '#22c55e', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      Report <ExternalLink size={11} />
+                    </a>
+                  ) : '—',
+                },
               ]}
-              getId={(r) => r.lead_id || r._id}
-              emptyHint="No leads yet."
+              getId={(r) => r.assessment_id}
+              emptyHint="No assessments yet."
             />
           </ProtectedRoute>
         }

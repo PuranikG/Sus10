@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Search, Loader2, Mail, RefreshCw, Download } from 'lucide-react';
+import { Search, Loader2, Mail, RefreshCw, Download, ExternalLink } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -133,11 +133,12 @@ export default function AdminWaitlistPage() {
                   <TableHead>City</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Joined</TableHead>
+                  <TableHead>Report</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-10">No signups yet — share the teasers to start collecting!</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-10">No signups yet — share the teasers to start collecting!</TableCell></TableRow>
                 ) : filtered.map((e) => (
                   <TableRow key={e.waitlist_id || e.email} data-testid={`row-${e.email}`}>
                     <TableCell className="font-mono text-xs flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-muted-foreground" />{e.email}</TableCell>
@@ -148,6 +149,18 @@ export default function AdminWaitlistPage() {
                     <TableCell>{e.city || '—'}</TableCell>
                     <TableCell className="text-xs">{e.source || '—'}</TableCell>
                     <TableCell className="text-xs">{e.created_at ? new Date(e.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</TableCell>
+                    <TableCell>
+                      {e.assessment_id ? (
+                        <a
+                          href={`/report/${e.assessment_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-emerald-500 hover:text-emerald-400"
+                        >
+                          Report <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : <span className="text-muted-foreground text-xs">—</span>}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
