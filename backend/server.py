@@ -5421,10 +5421,10 @@ async def test_email():
 
 @api_router.get("/test/email-send")
 async def test_email_send():
-    """Fire a live admin-notification to confirm SMTP + credentials.
+    """Test both email functions end-to-end with dummy data.
     Always returns JSON — never raises so nginx never sees a 502."""
     try:
-        result = await asyncio.to_thread(
+        admin_result = await asyncio.to_thread(
             send_admin_notification,
             first_name="Test",
             last_name="User",
@@ -5436,9 +5436,25 @@ async def test_email_send():
             readiness_tier="Action Ready",
             assessment_id="test-assessment-123",
         )
-        return {"status": "sent" if result else "failed", "result": result}
+
+        report_result = await asyncio.to_thread(
+            send_report_email,
+            to_email=os.environ.get("GMAIL_ADMIN_EMAIL"),
+            first_name="Test",
+            assessment_id="test-assessment-123",
+            overall_score=67,
+            readiness_tier="Action Ready",
+            solar_kwh=12034,
+            rainwater_kl=180,
+            food_kg=653,
+            co2_tonnes=7.1,
+        )
+
+        return {
+            "admin_notification":  "sent" if admin_result  else "failed",
+            "user_report_email":   "sent" if report_result else "failed",
+        }
     except BaseException as e:
-        # Catch BaseException (not just Exception) to ensure nothing escapes
         logger.error(
             f"test/email-send — unhandled exception "
             f"type={type(e).__name__} message={e}",

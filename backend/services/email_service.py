@@ -84,6 +84,7 @@ def send_report_email(
     tier_color = _TIER_COLOR.get(readiness_tier, "#4ade80")
     tier_emoji = _TIER_EMOJI.get(readiness_tier, "🌱")
     report_url = f"{app_url}/report/{assessment_id}"
+    logger.info(f"send_report_email — to={to_email} link={report_url} smtp=587/STARTTLS")
 
     # ── Build metric rows ──────────────────────────────────────────────────
     def _fmt_num(n):
@@ -216,6 +217,13 @@ def send_admin_notification(
         logger.warning("Admin notification skipped — Gmail creds missing")
         return False
 
+    report_link = f"{app_url}/report/{assessment_id}"
+    logger.info(
+        f"send_admin_notification — to={admin} "
+        f"lead={first_name} {last_name} "
+        f"link={report_link} smtp=587/STARTTLS"
+    )
+
     subject = (
         f"New Sus10 lead — {first_name} {last_name} · "
         f"{city} · {readiness_tier}"
@@ -239,7 +247,7 @@ def send_admin_notification(
         </td></tr>
   </table>
   <div style="margin-top:20px;display:flex;gap:12px">
-    <a href="{app_url}/report/{assessment_id}"
+    <a href="{report_link}"
        style="background:#22c55e;color:#fff;padding:10px 18px;
               border-radius:6px;text-decoration:none;font-size:14px">
       View Report
