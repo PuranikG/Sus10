@@ -5404,6 +5404,42 @@ async def test_score():
         return {"status": "error", "detail": str(e)}
 
 
+@api_router.get("/test/email")
+async def test_email():
+    """Return Gmail env-var presence (safe — never logs the password)."""
+    sender   = os.environ.get("GMAIL_SENDER")
+    password = os.environ.get("GMAIL_APP_PASSWORD")
+    admin    = os.environ.get("GMAIL_ADMIN_EMAIL")
+    return {
+        "gmail_sender_set":   bool(sender),
+        "gmail_password_set": bool(password),
+        "gmail_admin_set":    bool(admin),
+        "gmail_sender_value": sender,   # not a secret — safe to expose
+        "gmail_admin_value":  admin,
+    }
+
+
+@api_router.get("/test/email-send")
+async def test_email_send():
+    """Fire a live admin-notification to confirm SMTP + credentials."""
+    try:
+        result = await asyncio.to_thread(
+            send_admin_notification,
+            first_name="Test",
+            last_name="User",
+            email="test@test.com",
+            phone="+919999999999",
+            phone_digits="9999999999",
+            city="Mumbai",
+            overall_score=67,
+            readiness_tier="Action Ready",
+            assessment_id="test-assessment-123",
+        )
+        return {"status": "sent" if result else "failed", "result": result}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+
 # IMPORTANT: This must remain the last line before shutdown handler in the file.
 # All routes must be registered on api_router BEFORE this call.
 # Moving this line earlier will silently drop all routes defined after it.

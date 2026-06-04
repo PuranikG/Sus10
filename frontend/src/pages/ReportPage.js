@@ -31,12 +31,8 @@ const TIER_COLORS = {
   'Sustainability Champion':'#00c96e',
 };
 
-const CTA_TEXTS = {
-  'Explorer':               'Join our free awareness session →',
-  'Getting Ready':          'Book a free consultation →',
-  'Action Ready':           'Connect with a verified installer →',
-  'Sustainability Champion':'Join the Sus10 pilot programme →',
-};
+// Universal consultation CTA — single text for all tiers in research phase
+const UNIVERSAL_CTA_TEXT = 'Connect with us for a 1:1 Consultation';
 
 // ── Number helpers ────────────────────────────────────────────────────────────
 const fmtRs  = n => new Intl.NumberFormat('en-IN').format(Math.round(n || 0));
@@ -56,9 +52,14 @@ function wasteHabit(q6) {
   return { score: 0, label: '—', color: DIM };
 }
 
-function ctaText(tier, flags) {
-  if (flags && flags.R09) return 'Talk to your Society committee or building owner →';
-  return CTA_TEXTS[tier] || CTA_TEXTS['Getting Ready'];
+function buildMailto(firstName, overallScore, tier) {
+  const subject  = encodeURIComponent('Sus10 Consultation Request — ' + (firstName || ''));
+  const bodyText = encodeURIComponent(
+    'Hi, I just received my Sus10 sustainability report' +
+    (overallScore ? ' (Score: ' + overallScore + '/100 — ' + (tier || '') + ')' : '') +
+    ' and would like to book a free 1:1 consultation.'
+  );
+  return 'mailto:gp@sus10.ai?subject=' + subject + '&body=' + bodyText;
 }
 
 // ── Report-text parser ────────────────────────────────────────────────────────
@@ -102,16 +103,21 @@ function extractBullets(text, max) {
   return out;
 }
 
+// Strip markdown bold/italic markers from display text
+const stripMd = s => (s || '').replace(/\*{1,3}/g, '').trim();
+
 function parseTitle(raw) {
   if (!raw) return { title: '', body: '' };
-  const trunc = s => (s.length > 120 ? s.slice(0, 120) + '…' : s);
+  // **Title**: body  or  **Title** body
   let m = raw.match(/^\*\*([^*]{3,60})\*\*\s*:?\s*(.*)$/s);
-  if (m) return { title: m[1].trim(), body: trunc(m[2].replace(/\*{1,2}/g, '').trim()) };
+  if (m) return { title: m[1].trim(), body: stripMd(m[2]) };
+  // Title: body (colon-separated, title < 60 chars)
   m = raw.match(/^([^:]{5,60}):\s*(.{10,})$/s);
-  if (m) return { title: m[1].replace(/\*{1,2}/g, '').trim(), body: trunc(m[2].replace(/\*{1,2}/g, '').trim()) };
-  const clean = raw.replace(/\*{1,2}/g, '');
+  if (m) return { title: stripMd(m[1]), body: stripMd(m[2]) };
+  // Fallback: first 5 words as title, rest as body
+  const clean = stripMd(raw);
   const words = clean.split(' ').filter(Boolean);
-  return { title: words.slice(0, Math.min(5, words.length)).join(' '), body: trunc(clean) };
+  return { title: words.slice(0, Math.min(5, words.length)).join(' '), body: clean };
 }
 
 function extractPhases(roadmapText) {
@@ -138,15 +144,14 @@ function extractFinalCards(faText, tier, overall) {
     action:      'Start with a professional site assessment to confirm these estimates.',
   };
   if (!faText) return def;
-  const clean = s => (s || '').replace(/\*{1,2}/g, '').trim().slice(0, 200);
   const sents = faText.match(/[^.!?]+[.!?]+/g) || [];
   if (!sents.length) return def;
   const opp    = sents.find(s => /opportunit|biggest|highest|strong|potential|best bet/i.test(s)) || sents[1] || sents[0];
   const action = sents.find(s => /this month|one action|first step|start with|recommend|next step/i.test(s)) || sents[sents.length - 1];
   return {
-    readiness:   clean(sents[0]) || def.readiness,
-    opportunity: clean(opp)      || def.opportunity,
-    action:      clean(action)   || def.action,
+    readiness:   stripMd(sents[0]) || def.readiness,
+    opportunity: stripMd(opp)      || def.opportunity,
+    action:      stripMd(action)   || def.action,
   };
 }
 
@@ -208,6 +213,20 @@ function InfoCard({ Icon, title, body, tagText, tagGreen }) {
   );
 }
 
+// ── Section markdown fallback ─────────────────────────────────────────────────
+// Used when bullet extraction yields no items but section text exists.
+// Raw markdown is always better than truncated / garbled placeholders.
+function SectionFallback({ text }) {
+  if (!text) return null;
+  return (
+    <div style={{ background: CARD, border: '0.5px solid ' + BORDER, borderRadius: 8, padding: '12px 16px' }}>
+      <div className="rp-md">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+      </div>
+    </div>
+  );
+}
+
 // ── Loading / Error ───────────────────────────────────────────────────────────
 function LoadingState() {
   return (
@@ -236,18 +255,16 @@ function ErrorState({ error }) {
 }
 
 // ── CTA Block ─────────────────────────────────────────────────────────────────
-function CtaBlock({ tier, flags, firstName, email }) {
-  const text     = ctaText(tier, flags);
-  const subject  = encodeURIComponent('Sus10 Consultation Request — ' + firstName);
-  const bodyTxt  = encodeURIComponent('Hi, I just received my Sus10 sustainability report and would like to book a free consultation.');
+function CtaBlock({ tier, firstName, email, overallScore }) {
+  const mailto = buildMailto(firstName, overallScore, tier);
   return (
     <div className="rp-cta" style={{ margin: '14px 24px 0', background: CARD, border: '0.5px solid rgba(74,222,128,0.2)', borderRadius: 10, padding: 16, textAlign: 'center' }}>
       <div style={{ fontSize: 13, color: MUTED, marginBottom: 12 }}>Ready to turn your rooftop into a climate solution?</div>
       <a
-        href={'mailto:gp@sus10.ai?subject=' + subject + '&body=' + bodyTxt}
+        href={mailto}
         style={{ display: 'inline-block', background: GREEN, color: NAV_BG, fontSize: 13, fontWeight: 500, padding: '10px 28px', borderRadius: 20, textDecoration: 'none' }}
       >
-        {text}
+        {UNIVERSAL_CTA_TEXT}
       </a>
       {email && (
         <div style={{ fontSize: 11, color: 'rgba(240,240,232,0.25)', marginTop: 8 }}>
@@ -358,8 +375,8 @@ export default function ReportPage() {
       {/* ── Global styles ───────────────────────────────────────────────────── */}
       <style>{`
         .rp-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-        .rp-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-        .rp-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+        .rp-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-items:start}
+        .rp-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;align-items:start}
         @media(max-width:600px){
           .rp-grid-4{grid-template-columns:repeat(2,1fr)}
           .rp-grid-3{grid-template-columns:1fr}
@@ -469,7 +486,7 @@ export default function ReportPage() {
       {/* R03 — very interested: show CTA above report body too */}
       {flags.R03 && (
         <div style={{ marginTop: 16 }}>
-          <CtaBlock tier={tier} flags={flags} firstName={firstName} email={email} />
+          <CtaBlock tier={tier} firstName={firstName} email={email} overallScore={overallScore} />
         </div>
       )}
 
@@ -584,17 +601,17 @@ export default function ReportPage() {
       {parsed.parsedOk && (
         <div className="rp-page" style={{ padding: '0 24px', marginBottom: 16 }}>
           <SecLabel>Strengths Identified</SecLabel>
-          <div className="rp-grid-3">
-            {(strengthItems.length ? strengthItems : [
-              'Roof access and available space',
-              'Personal motivation to act',
-              'Access to vendors and services',
-            ]).map((raw, i) => {
-              const { title, body } = parseTitle(raw);
-              const Icon = strengthIcon(title + ' ' + body);
-              return <InfoCard key={i} Icon={Icon} title={title || ('Strength ' + (i + 1))} body={body} tagText="Strength" tagGreen={true} />;
-            })}
-          </div>
+          {strengthItems.length > 0 ? (
+            <div className="rp-grid-3">
+              {strengthItems.map((raw, i) => {
+                const { title, body } = parseTitle(raw);
+                const Icon = strengthIcon(title + ' ' + body);
+                return <InfoCard key={i} Icon={Icon} title={title || ('Strength ' + (i + 1))} body={body} tagText="Strength" tagGreen={true} />;
+              })}
+            </div>
+          ) : (
+            <SectionFallback text={parsed.strengths} />
+          )}
         </div>
       )}
 
@@ -627,19 +644,19 @@ export default function ReportPage() {
       {parsed.parsedOk && (
         <div className="rp-page" style={{ padding: '0 24px', marginBottom: 16 }}>
           <SecLabel>Top Recommendations</SecLabel>
-          <div className="rp-grid-3">
-            {(recItems.length ? recItems : [
-              'Install solar panels on your rooftop',
-              'Set up rainwater harvesting system',
-              'Start a container terrace garden',
-            ]).map((raw, i) => {
-              const { title, body } = parseTitle(raw);
-              const Icon = recIcon(title + ' ' + body);
-              const tags  = ['Highest impact', 'Time-sensitive', 'Your motivator'];
-              const isAmber = [false, true, false];
-              return <InfoCard key={i} Icon={Icon} title={title || ('Recommendation ' + (i + 1))} body={body} tagText={tags[i] || 'Recommended'} tagGreen={!isAmber[i]} />;
-            })}
-          </div>
+          {recItems.length > 0 ? (
+            <div className="rp-grid-3">
+              {recItems.map((raw, i) => {
+                const { title, body } = parseTitle(raw);
+                const Icon = recIcon(title + ' ' + body);
+                const tags  = ['Highest impact', 'Time-sensitive', 'Your motivator'];
+                const isAmber = [false, true, false];
+                return <InfoCard key={i} Icon={Icon} title={title || ('Recommendation ' + (i + 1))} body={body} tagText={tags[i] || 'Recommended'} tagGreen={!isAmber[i]} />;
+              })}
+            </div>
+          ) : (
+            <SectionFallback text={parsed.recommendations} />
+          )}
         </div>
       )}
 
@@ -663,7 +680,7 @@ export default function ReportPage() {
                   {(bullets && bullets.length ? bullets : ['Getting started', 'Initial steps', 'Planning phase', 'Next actions']).map((b, i) => (
                     <li key={i} style={{ fontSize: 11, color: MUTED, padding: '2px 0 2px 14px', position: 'relative' }}>
                       <span style={{ position: 'absolute', left: 0, color: GREEN, fontSize: 9 }}>→</span>
-                      {b.length > 40 ? b.slice(0, 40) + '…' : b}
+                      {stripMd(b)}
                     </li>
                   ))}
                 </ul>
@@ -713,7 +730,7 @@ export default function ReportPage() {
       </div>
 
       {/* ── 15. CTA BLOCK (bottom) ────────────────────────────────────────────── */}
-      <CtaBlock tier={tier} flags={flags} firstName={firstName} email={email} />
+      <CtaBlock tier={tier} firstName={firstName} email={email} overallScore={overallScore} />
 
       {/* Bottom padding */}
       <div style={{ height: 24 }} />
