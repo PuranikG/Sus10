@@ -33,14 +33,25 @@ _TIER_EMOJI = {
 
 
 def _smtp_send(sender: str, password: str, to: str, msg: MIMEMultipart) -> bool:
-    """Shared SMTP-SSL send helper."""
+    """Shared SMTP send helper using STARTTLS on port 587.
+
+    Port 587 + STARTTLS is used instead of port 465 (SSL) because cloud /
+    container hosts commonly block outbound port 465 while leaving 587 open.
+    A 15-second timeout prevents silent hangs that would cause nginx 502s.
+    """
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.ehlo()
             smtp.login(sender, password)
             smtp.sendmail(sender, to, msg.as_string())
         return True
     except Exception as exc:
-        logger.error(f"SMTP send failed (to={to}): {exc}")
+        logger.error(
+            f"SMTP send failed — type={type(exc).__name__} "
+            f"message={exc} (to={to})"
+        )
         return False
 
 
