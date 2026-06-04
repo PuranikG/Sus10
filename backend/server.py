@@ -3813,15 +3813,52 @@ async def admin_list_beta_waitlist(
 async def admin_list_assessment_leads(
     request: Request,
     limit: int = Query(default=1000, le=5000),
+    tier: Optional[str] = None,
+    city: Optional[str] = None,
+    building_type: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
 ):
-    """Return all calculator assessment submissions for the admin Leads table."""
+    """Return calculator assessment submissions for the admin Leads table.
+    Supports optional filters: tier, city, building_type, date_from, date_to."""
     await require_admin(request)
+
+    query: Dict[str, Any] = {}
+    if tier:
+        query["readiness_tier"] = tier
+    if city:
+        query["answers.city"] = {"$regex": city, "$options": "i"}
+    if building_type:
+        query["answers.Q1"] = building_type
+    if date_from or date_to:
+        dt_filter: Dict[str, Any] = {}
+        if date_from:
+            try:
+                dt_filter["$gte"] = datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                dt_filter["$lte"] = datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc)
+            except ValueError:
+                pass
+        if dt_filter:
+            query["created_at"] = dt_filter
+
+    total = await db.assessments.count_documents(query)
+
+    # Counts for summary strip
+    now_utc = datetime.now(timezone.utc)
+    today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start  = today_start - timedelta(days=today_start.weekday())
+    today_count = await db.assessments.count_documents({"created_at": {"$gte": today_start}})
+    week_count  = await db.assessments.count_documents({"created_at": {"$gte": week_start}})
 
     docs = await (
         db.assessments.find(
-            {},
+            query,
             {"_id": 0, "assessment_id": 1, "answers": 1, "scores": 1,
-             "readiness_tier": 1, "created_at": 1},
+             "readiness_tier": 1, "created_at": 1, "email_sent": 1},
         )
         .sort("created_at", -1)
         .limit(limit)
@@ -3829,7 +3866,6 @@ async def admin_list_assessment_leads(
     )
 
     def _clean_phone(raw: str) -> str:
-        """Strip spaces, dashes, +91 prefix; return digits only."""
         digits = raw.replace(" ", "").replace("-", "").replace("+", "")
         if digits.startswith("91") and len(digits) > 10:
             digits = digits[2:]
@@ -3852,11 +3888,15 @@ async def admin_list_assessment_leads(
             "phone":         raw_phone,
             "wa_number":     wa_number,
             "city":          answers.get("city")       or "",
+            "state":         answers.get("state")      or "",
             "building_type": answers.get("Q1")         or "",
+            "terrace_sqft":  answers.get("terrace_area_sqft") or "",
             "overall_score": scores.get("overall"),
             "readiness_tier": doc.get("readiness_tier") or "",
+            "email_sent":    bool(doc.get("email_sent")),
         })
-    return {"leads": rows, "total": len(rows)}
+    return {"leads": rows, "total": total,
+            "today": today_count, "this_week": week_count}
 
 
 @api_router.post("/webhooks/zoho-survey")
@@ -4404,10 +4444,19 @@ CALCULATOR_CONFIG_V1 = {
                 {
                     "id": "D",
                     "type": "text_group",
-                    "fields": ["first_name", "last_name", "phone", "email", "city", "state"],
+                    "fields": ["first_name", "last_name", "phone", "email"],
                     "label": "Tell us about yourself",
                     "scored": False,
                     "stored": True,
+                },
+                {
+                    "id": "address",
+                    "type": "address_autocomplete",
+                    "label": "Your building address",
+                    "helper_text": "Select from the dropdown — we use this to calculate local solar and rainfall data for your area",
+                    "scored": False,
+                    "stored": True,
+                    "validation": {"required": True},
                 },
                 {
                     "id": "D6",
@@ -4769,6 +4818,65 @@ def _score_for_answer(question: dict, answer) -> int:
     return 0
 
 
+# ── Submission validation ─────────────────────────────────────────────────────
+_GIBBERISH_NAMES: set = {
+    "test", "asdf", "qwerty", "abc", "xyz", "aaa", "bbb", "ccc",
+    "foo", "bar", "demo", "sample", "dummy", "fake", "random",
+    "user", "admin", "name", "hello", "hi", "na", "none", "null",
+    "undefined", "string", "example", "xxx", "yyy", "zzz",
+}
+
+
+def _validate_submission(answers: dict) -> Optional[dict]:
+    """Return None if valid, or dict with {error, field} if invalid."""
+    first = (answers.get("first_name") or "").strip()
+    last  = (answers.get("last_name")  or "").strip()
+    email = (answers.get("email")      or "").strip()
+    area  = answers.get("terrace_area_sqft")
+
+    if len(first) < 2:
+        return {"error": "Please check your details and try again.", "field": "first_name"}
+    if len(last) < 2:
+        return {"error": "Please check your details and try again.", "field": "last_name"}
+    if first.lower() in _GIBBERISH_NAMES:
+        return {"error": "Please check your details and try again.", "field": "first_name"}
+    if last.lower() in _GIBBERISH_NAMES:
+        return {"error": "Please check your details and try again.", "field": "last_name"}
+    if first.lower() == last.lower():
+        return {"error": "Please check your details and try again.", "field": "last_name"}
+    if not ("@" in email and "." in email and len(email) > 6):
+        return {"error": "Please enter a valid email address.", "field": "email"}
+    if area is not None:
+        try:
+            v = float(area)
+            if v < 50 or v > 50000:
+                return {"error": "Please enter a valid terrace area between 50 and 50,000 sq ft.", "field": "terrace_area_sqft"}
+        except (TypeError, ValueError):
+            return {"error": "Please check your details and try again.", "field": "terrace_area_sqft"}
+    return None  # valid
+
+
+@api_router.post("/waitlist/international")
+async def join_international_waitlist(request: Request):
+    """Capture non-India visitors who try to use the calculator."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    email = (body.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Email required")
+    doc = {
+        "id": f"intl_{uuid.uuid4().hex[:12]}",
+        "email": email,
+        "display_address": body.get("display_address", ""),
+        "country": body.get("country", ""),
+        "created_at": datetime.now(timezone.utc),
+    }
+    await db.waitlist_international.insert_one(doc)
+    return {"saved": True}
+
+
 @api_router.post("/calculator/score")
 async def calculator_score(request: Request):
     """Score a completed calculator submission and store the assessment."""
@@ -4785,6 +4893,24 @@ async def calculator_score(request: Request):
     # Honeypot — silently pass (actual rejection is in /report/generate)
     # We still store a placeholder assessment so the ID is consistent
     honeypot_triggered = bool(website_hp)
+
+    # Submission validation (skip for honeypot — we still want to record those)
+    if not honeypot_triggered:
+        _invalid = _validate_submission(answers)
+        if _invalid:
+            client_ip = request.client.host if request.client else "unknown"
+            ip_hash = hashlib.sha256(client_ip.encode()).hexdigest()
+            await db.rejected_submissions.insert_one({
+                "ip_hash": ip_hash,
+                "answers_summary": {
+                    "first_name": answers.get("first_name", "")[:30],
+                    "last_name":  answers.get("last_name", "")[:30],
+                    "email":      answers.get("email", "")[:60],
+                },
+                "reason": _invalid.get("field", "unknown"),
+                "created_at": datetime.now(timezone.utc),
+            })
+            raise HTTPException(status_code=400, detail=_invalid["error"])
 
     # ---- Extract individual question answers ----
     q1_answer = answers.get("Q1", "")
@@ -4945,7 +5071,19 @@ GUARDRAILS (non-negotiable):
 - Be encouraging, practical, and action-oriented
 - Personalise every section to the actual answers provided
 - Do not generate generic advice
-- Always end with: 'Every roof has the potential to become a climate solution. Your journey toward a Self-Sustaining Roof starts with one small step.'"""
+- Always end with: 'Every roof has the potential to become a climate solution. Your journey toward a Self-Sustaining Roof starts with one small step.'
+
+SOLAR ACCURACY RULES:
+- Solar panels realistically cover 50-60% of total terrace area due to water tanks, stairwells, AC units, parapet walls, and shade from adjacent structures. Never assume the full terrace is available for panels.
+- Residential solar in India is sized by household load: Independent house 3-7 kWp practical maximum, Row house 2-5 kWp, Apartment per-flat share 1-3 kWp.
+- Always present solar savings as a range, not a single number. Use: 'could generate between X and Y units per month' and 'potential savings in the range of Rs.X to Rs.Y per year'.
+
+ROADMAP FORMAT RULES:
+- For the Sus10 Roadmap section, output plain text bullets only.
+- No bold markers, no 'Action N:' prefixes, no asterisks anywhere.
+- Format each bullet as: '- Short action phrase under 50 characters'
+- WRONG: '**Action 1:** Start daily waste segregation for biogas readiness'
+- RIGHT: '- Start daily wet waste segregation'"""
 
 
 @api_router.post("/report/generate")
@@ -5064,14 +5202,18 @@ async def report_generate(request: Request):
     # Convert here and nowhere else
     terrace_area_sqft = float(answers.get("terrace_area_sqft") or 0)
     area_sqm = round(terrace_area_sqft * 0.0929, 2)
-    # Usable area fixed at 70% of total — standard assumption for
-    # Indian rooftops accounting for water tanks, stairwell access,
-    # AC units and unusable edges
-    usable_area_sqm = round(area_sqm * 0.70, 2)
-    usable_area_sqft = round(usable_area_sqm * 10.764)
+
+    # Solar: 50-60% of terrace (tanks, stairwells, AC units, parapet walls,
+    # shade from adjacent structures). Use midpoint 55% for base calculation.
+    # Plantation: 70% (containers fit around edges and unused corners).
+    solar_usable_sqm      = round(area_sqm * 0.55, 2)
+    plantation_usable_sqm = round(area_sqm * 0.70, 2)
+    # Legacy alias kept for rainwater + biogas (catchment = full terrace)
+    usable_area_sqm = solar_usable_sqm   # used only for solar calc below
+    usable_area_sqft = round(solar_usable_sqm * 10.764)
 
     # ── STEP E: Call calculator functions ────────────────────────────────────
-    solar_result = calculate_solar_potential(usable_area_sqm=usable_area_sqm, city=city)
+    solar_result = calculate_solar_potential(usable_area_sqm=solar_usable_sqm, city=city)
     rainwater_result = calculate_rainwater_potential(catchment_area_sqm=area_sqm, city=city)
     biogas_result = calculate_biogas_potential(
         building_footprint_sqm=area_sqm,
@@ -5080,7 +5222,40 @@ async def report_generate(request: Request):
         families=families_for_biogas,
         waste_kg_per_family_per_day=0.5,
     )
-    plantation_result = calculate_plantation_potential(usable_area_sqm=usable_area_sqm)
+    plantation_result = calculate_plantation_potential(usable_area_sqm=plantation_usable_sqm)
+
+    # ── Solar kWp cap by building type ────────────────────────────────────────
+    _SOLAR_KWP_CAPS = {
+        "Independent House": 7.0,
+        "Row House": 5.0,
+        "Mid/low-rise Apartment (1-4 floors)": 3.0,
+        "High-rise apartment (5+ floors)": 2.0,
+    }
+    _kwp_cap = _SOLAR_KWP_CAPS.get(q1_value, 5.0)
+    if solar_result.get("installed_capacity_kwp", 0) > _kwp_cap:
+        _scale = _kwp_cap / solar_result["installed_capacity_kwp"]
+        solar_result["installed_capacity_kwp"] = round(_kwp_cap, 2)
+        for _k in ["annual_generation_kwh", "monthly_generation_kwh",
+                   "annual_savings_inr", "co2_offset_kg_per_year"]:
+            if _k in solar_result:
+                solar_result[_k] = round(solar_result[_k] * _scale)
+        solar_result["capped"] = True
+        solar_result["cap_note"] = (
+            f"Sized to {_kwp_cap} kWp — practical for "
+            f"typical {q1_value} household load"
+        )
+
+    # ── Solar low/high range (50–60% of terrace) ─────────────────────────────
+    _scale_low  = 50.0 / 55.0   # ~0.909
+    _scale_high = 60.0 / 55.0   # ~1.091
+    solar_result["kwh_low"]          = round(solar_result.get("annual_generation_kwh",  0) * _scale_low)
+    solar_result["kwh_high"]         = round(solar_result.get("annual_generation_kwh",  0) * _scale_high)
+    solar_result["monthly_kwh_low"]  = round(solar_result.get("monthly_generation_kwh", 0) * _scale_low)
+    solar_result["monthly_kwh_high"] = round(solar_result.get("monthly_generation_kwh", 0) * _scale_high)
+    solar_result["savings_low_inr"]  = round(solar_result.get("annual_savings_inr",     0) * _scale_low)
+    solar_result["savings_high_inr"] = round(solar_result.get("annual_savings_inr",     0) * _scale_high)
+    solar_result["area_low_sqft"]    = round(area_sqm * 0.50 * 10.764)
+    solar_result["area_high_sqft"]   = round(area_sqm * 0.60 * 10.764)
 
     # Biogas suppression — suppress if flagged off or monthly output < 1 m³
     biogas_monthly_m3 = biogas_result["biogas_m3_per_day"] * 30
@@ -5088,8 +5263,9 @@ async def report_generate(request: Request):
         biogas_result = None
 
     # Area outputs back-converted to sqft for display only (non-area outputs unchanged)
-    catchment_area_sqft = round(area_sqm * 10.764)
+    catchment_area_sqft  = round(area_sqm * 10.764)
     plantation_area_sqft = round(plantation_result["effective_area_sqm"] * 10.764)
+    solar_area_sqft_mid  = round(solar_usable_sqm * 10.764)
 
     # Aggregate totals
     total_savings_inr = (
@@ -5113,6 +5289,7 @@ async def report_generate(request: Request):
             "calculated_plantation": plantation_result,
             "calculation_inputs_sqft": {
                 "terrace_area_sqft": terrace_area_sqft,
+                "solar_area_sqft": usable_area_sqft,
                 "usable_area_sqft": usable_area_sqft,
                 "city": city,
                 "floors": num_floors_int,
@@ -5188,7 +5365,7 @@ KEY ANSWERS:
 
 BUILDING DETAILS:
 - Terrace / rooftop area: {int(terrace_area_sqft) if terrace_area_sqft else 'Not provided'} sq ft
-- Usable area (70% of total): {usable_area_sqft} sq ft
+- Solar usable area: {solar_result['area_low_sqft']:,}–{solar_result['area_high_sqft']:,} sq ft (50-60% of terrace)
 - Building type: {ans('Q1')}
 - Floors: {num_floors_int}
 - Households / families: {families_for_biogas}
@@ -5197,9 +5374,10 @@ CALCULATED SUSTENANCE POTENTIAL
 (Deterministic calculations — use these exact numbers. Do not estimate or recalculate. Your role is to explain what these numbers mean in plain language for this homeowner.)
 
 SOLAR:
-- Installable capacity: {solar_result['installed_capacity_kwp']} kWp
-- Monthly generation: {solar_result['monthly_generation_kwh']} units/month
-- Annual savings: Rs.{solar_result['annual_savings_inr']:,}
+- Panel area: {solar_result['area_low_sqft']:,}–{solar_result['area_high_sqft']:,} sq ft (50-60% of {int(terrace_area_sqft):,} sq ft terrace)
+- Installable capacity: {solar_result['installed_capacity_kwp']} kWp{f" — Note: {solar_result['cap_note']}" if solar_result.get('capped') else ""}
+- Monthly generation: {solar_result['monthly_kwh_low']}–{solar_result['monthly_kwh_high']} units/month (annual avg: {solar_result['monthly_generation_kwh']} units/month)
+- Annual savings: Rs.{solar_result['savings_low_inr']:,}–Rs.{solar_result['savings_high_inr']:,} (avg: Rs.{solar_result['annual_savings_inr']:,})
 - CO2 offset: {solar_result['co2_offset_kg_per_year']:,} kg/year
 - Equivalent to: {_solar_trees} trees planted/year (21 kg CO2/tree/year)
 {_biogas_block}

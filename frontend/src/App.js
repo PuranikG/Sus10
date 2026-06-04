@@ -24,6 +24,7 @@ import AdminWaitlistPage from './pages/AdminWaitlistPage';
 import AdminZohoSurveysPage from './pages/AdminZohoSurveysPage';
 import AdminFeatureFlagsPage from './pages/AdminFeatureFlagsPage';
 import AdminGenericListPage from './pages/AdminGenericListPage';
+import AdminLeadsPage from './pages/AdminLeadsPage';
 import AdminAuditLogPage from './pages/AdminAuditLogPage';
 import AdminSubsidiesPage from './pages/AdminSubsidiesPage';
 import AdminBuildingDiscoveryPage from './pages/AdminBuildingDiscoveryPage';
@@ -233,65 +234,7 @@ function AppRouter() {
         path="/admin/leads"
         element={
           <ProtectedRoute>
-            <AdminGenericListPage
-              title="Leads"
-              subtitle="Calculator assessment submissions"
-              endpoint="/admin/leads"
-              columns={[
-                {
-                  key: 'created_at', label: 'Date',
-                  render: (r) => r.created_at
-                    ? new Date(r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-                    : '—',
-                },
-                {
-                  key: 'name', label: 'Name',
-                  render: (r) => [r.first_name, r.last_name].filter(Boolean).join(' ') || '—',
-                },
-                { key: 'email', label: 'Email' },
-                {
-                  key: 'phone', label: 'Phone',
-                  render: (r) => !r.phone ? '—' : (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      {r.phone}
-                      {r.wa_number && (
-                        <a
-                          href={`https://wa.me/${r.wa_number}`}
-                          target="_blank" rel="noopener noreferrer"
-                          title="Open in WhatsApp"
-                          style={{ color: '#22c55e', lineHeight: 0 }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <MessageCircle size={13} />
-                        </a>
-                      )}
-                    </span>
-                  ),
-                },
-                { key: 'city', label: 'City' },
-                { key: 'building_type', label: 'Building Type' },
-                {
-                  key: 'overall_score', label: 'Score',
-                  render: (r) => r.overall_score != null ? r.overall_score : '—',
-                },
-                { key: 'readiness_tier', label: 'Tier' },
-                {
-                  key: 'report', label: 'View Report',
-                  render: (r) => r.assessment_id ? (
-                    <a
-                      href={`/report/${r.assessment_id}`}
-                      target="_blank" rel="noopener noreferrer"
-                      style={{ color: '#22c55e', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      Report <ExternalLink size={11} />
-                    </a>
-                  ) : '—',
-                },
-              ]}
-              getId={(r) => r.assessment_id}
-              emptyHint="No assessments yet."
-            />
+            <AdminLeadsPage />
           </ProtectedRoute>
         }
       />

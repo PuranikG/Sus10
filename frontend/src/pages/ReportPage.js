@@ -275,6 +275,138 @@ function CtaBlock({ tier, firstName, email, overallScore }) {
   );
 }
 
+// ── B5: Share bar ─────────────────────────────────────────────────────────────
+function ShareBar({ firstName, totalSavings, trees }) {
+  const [copied, setCopied] = useState(false);
+
+  const waMsg = encodeURIComponent(
+    `I just got my Sus10 rooftop sustainability report!\n` +
+    `My roof could potentially save Rs.${new Intl.NumberFormat('en-IN').format(Math.round(totalSavings))}/year ` +
+    `and offset the equivalent of ${trees} trees of CO2 annually.\n` +
+    `Get yours free at sus10.ai 🌿`
+  );
+  const waUrl = `https://wa.me/?text=${waMsg}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
+
+  const handleNativeShare = () => {
+    navigator.share({
+      title: 'My Sus10 Rooftop Report',
+      text: decodeURIComponent(waMsg),
+      url: window.location.href,
+    }).catch(() => {});
+  };
+
+  const btnBase = {
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    padding: '7px 14px', borderRadius: 16, fontSize: 12,
+    cursor: 'pointer', background: 'transparent', fontFamily: 'inherit',
+  };
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 8, padding: '8px 24px', margin: '12px 0 0' }}>
+      {typeof navigator !== 'undefined' && navigator.share ? (
+        <button onClick={handleNativeShare} style={{ ...btnBase, border: '0.5px solid rgba(37,211,102,0.4)', color: '#25d366' }}>
+          Share →
+        </button>
+      ) : (
+        <a href={waUrl} target="_blank" rel="noopener noreferrer" style={{ ...btnBase, border: '0.5px solid rgba(37,211,102,0.4)', color: '#25d366', textDecoration: 'none' }}>
+          📲 Share on WhatsApp
+        </a>
+      )}
+      <button onClick={handleCopy} style={{ ...btnBase, border: '0.5px solid rgba(255,255,255,0.15)', color: copied ? GREEN : 'rgba(240,240,232,0.6)' }}>
+        {copied ? 'Copied! ✓' : 'Copy link'}
+      </button>
+    </div>
+  );
+}
+
+// ── B4: Vendor category cards ─────────────────────────────────────────────────
+const VENDOR_CATEGORIES = [
+  {
+    key: 'solar',
+    icon: '☀️',
+    name: 'Solar Installation',
+    desc: 'MNRE-empanelled solar vendors, net-metering support',
+    subjectFn: (city, name) => `Vendor referral — Solar — ${city} — ${name}`,
+  },
+  {
+    key: 'rainwater',
+    icon: '💧',
+    name: 'Rainwater Harvesting',
+    desc: 'RWH design, tank sizing, plumbing integration',
+    subjectFn: (city, name) => `Vendor referral — RWH — ${city} — ${name}`,
+  },
+  {
+    key: 'greening',
+    icon: '🌿',
+    name: 'Rooftop Farming',
+    desc: 'Expert guidance on terrace gardens and container farms',
+    subjectFn: (city, name) => `Vendor referral — Rooftop Farming — ${city} — ${name}`,
+  },
+  {
+    key: 'biogas',
+    icon: '♻️',
+    name: 'Biogas System',
+    desc: 'Small-scale biogas for households with organic waste',
+    subjectFn: (city, name) => `Vendor referral — Biogas — ${city} — ${name}`,
+  },
+];
+
+function VendorCards({ solar, rainwater, biogas, city, firstName }) {
+  const toShow = VENDOR_CATEGORIES.filter(c => {
+    if (c.key === 'biogas') return !!biogas;
+    return true; // always show solar, rainwater, greening
+  }).slice(0, 3);
+
+  if (!toShow.length) return null;
+
+  const cardStyle = {
+    background: CARD, border: '0.5px solid ' + BORDER,
+    borderRadius: 8, padding: 14,
+  };
+
+  return (
+    <div style={{ padding: '0 24px', marginBottom: 16 }}>
+      <SecLabel>Find Help Near You</SecLabel>
+      <div className="rp-grid-3">
+        {toShow.map(cat => {
+          const subject = encodeURIComponent(cat.subjectFn(city || 'your city', firstName || 'homeowner'));
+          const body    = encodeURIComponent(`Hi, I just received my Sus10 sustainability report and I'm interested in ${cat.name}. Please connect me with a verified vendor.`);
+          return (
+            <div key={cat.key} style={cardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 18 }}>{cat.icon}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>{cat.name}</span>
+              </div>
+              <div style={{ fontSize: 12, color: MUTED, marginBottom: 10, lineHeight: 1.55 }}>{cat.desc}</div>
+              <a
+                href={`mailto:gp@sus10.ai?subject=${subject}&body=${body}`}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'center',
+                  padding: '8px', fontSize: 12, color: GREEN,
+                  border: '0.5px solid ' + GREEN, borderRadius: 16,
+                  textDecoration: 'none', boxSizing: 'border-box',
+                }}
+              >
+                Connect me →
+              </a>
+            </div>
+          );
+        })}
+      </div>
+      <p style={{ fontSize: 11, color: 'rgba(240,240,232,0.35)', fontStyle: 'italic', textAlign: 'center', marginTop: 10, lineHeight: 1.6 }}>
+        Sus10 will personally connect you with verified installers. No spam, no sales calls — just the right people.
+      </p>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function ReportPage() {
   const { assessmentId } = useParams();
@@ -333,6 +465,11 @@ export default function ReportPage() {
   const solarSavings = solar.annual_savings_inr     || 0;
   const solarKwp     = solar.installed_capacity_kwp || 0;
   const solarCO2     = solar.co2_offset_kg_per_year || 0;
+  // Solar range (50-60% of terrace) — from B1d sprint
+  const solarKwhLow     = solar.kwh_low         || Math.round(solarKwh * 0.909);
+  const solarKwhHigh    = solar.kwh_high        || Math.round(solarKwh * 1.091);
+  const solarSavLow     = solar.savings_low_inr || Math.round(solarSavings * 0.909);
+  const solarSavHigh    = solar.savings_high_inr|| Math.round(solarSavings * 1.091);
 
   const rainKl       = rainwater.annual_yield_kiloliters || 0;
   const rainSavings  = rainwater.annual_savings_inr      || 0;
@@ -466,7 +603,7 @@ export default function ReportPage() {
         {/* Chips */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {[
-            { label: 'Solar',      value: fmtNum(solarKwh) + ' kWh/yr' },
+            { label: 'Solar',      value: fmtNum(solarKwhLow) + '–' + fmtNum(solarKwhHigh) + ' kWh/yr' },
             { label: 'Rainwater',  value: fmtNum(rainKl)   + ' kL/yr'  },
             plantFood ? { label: 'Food', value: fmtNum(plantFood) + ' kg/yr' } : null,
             { label: 'CO₂ offset', value: (co2Total / 1000).toFixed(1) + ' t/yr' },
@@ -489,6 +626,9 @@ export default function ReportPage() {
           <CtaBlock tier={tier} firstName={firstName} email={email} overallScore={overallScore} />
         </div>
       )}
+
+      {/* ── B5. SHARE BAR ────────────────────────────────────────────────────── */}
+      <ShareBar firstName={firstName} totalSavings={totalSavings} trees={trees} />
 
       {/* ── 4. SCORE STRIP ───────────────────────────────────────────────────── */}
       <div className="rp-grid-4 rp-page" style={{ margin: '16px 24px 0' }}>
@@ -522,9 +662,10 @@ export default function ReportPage() {
             </div>
             <span style={{ fontSize: 11, color: MUTED }}>Solar</span>
           </div>
-          <span style={{ fontSize: 22, fontWeight: 500, color: AMBER }}>{fmtNum(solarKwh)}</span>
+          <span style={{ fontSize: 22, fontWeight: 500, color: AMBER }}>{fmtNum(solarKwhLow)}–{fmtNum(solarKwhHigh)}</span>
           <span style={{ fontSize: 10, color: DIM, marginLeft: 4 }}>kWh / year</span>
-          <div style={{ fontSize: 11, color: GREEN, marginTop: 4 }}>~Rs.{fmtRs(solarSavings)} saved/yr</div>
+          <div style={{ fontSize: 11, color: GREEN, marginTop: 4 }}>Rs.{fmtRs(solarSavLow)} – Rs.{fmtRs(solarSavHigh)} / year</div>
+          <div style={{ fontSize: 10, color: 'rgba(240,240,232,0.35)', marginTop: 2 }}>avg ~Rs.{fmtRs(solarSavings)} · seasonal range</div>
           <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0 0', fontSize: 11, color: 'rgba(240,240,232,0.55)' }}>
             <li>{fmtNum(solarKwp)} kWp installable</li>
             <li>{fmtNum(solarCO2)} kg CO₂ offset/yr</li>
@@ -708,6 +849,9 @@ export default function ReportPage() {
           </div>
         </div>
       )}
+
+      {/* ── B4. VENDOR CARDS ─────────────────────────────────────────────────── */}
+      <VendorCards solar={solar} rainwater={rainwater} biogas={biogas} city={city} firstName={firstName} />
 
       {/* ── 13. DISCLAIMER ───────────────────────────────────────────────────── */}
       <div style={{ margin: '0 24px', marginBottom: 16, background: 'rgba(251,191,36,0.06)', borderLeft: '3px solid #d97706', borderRadius: '0 6px 6px 0', padding: '10px 12px' }}>
