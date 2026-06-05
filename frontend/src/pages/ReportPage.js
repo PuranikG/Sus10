@@ -443,6 +443,8 @@ export default function ReportPage() {
   const email        = answers.email      || '';
   const city         = inputsSqft.city    || answers.city  || '';
   const state        = answers.state      || '';
+  // city is stored lowercase after backend normalisation — re-capitalise for display
+  const displayCity  = city ? city.charAt(0).toUpperCase() + city.slice(1) : city;
   const terraceSqft  = Math.round(inputsSqft.terrace_area_sqft || answers.terrace_area_sqft || 0);
   const buildingType = answers.Q1         || '';
   const q6Answer     = answers.Q6         || '';
@@ -454,6 +456,11 @@ export default function ReportPage() {
     (rainwater.annual_savings_inr || 0) +
     ((biogas && biogas.annual_savings_inr) || 0)
   );
+  // Savings range for impact hero (solar low/high + fixed rain + fixed biogas)
+  const rainSavBase  = rainwater.annual_savings_inr || 0;
+  const biogasBase   = (biogas && biogas.annual_savings_inr) || 0;
+  const totalSavLow  = Math.round((solar.savings_low_inr  || Math.round((solar.annual_savings_inr || 0) * 0.909)) + rainSavBase + biogasBase);
+  const totalSavHigh = Math.round((solar.savings_high_inr || Math.round((solar.annual_savings_inr || 0) * 1.091)) + rainSavBase + biogasBase);
   const co2Total = Math.round(
     (solar.co2_offset_kg_per_year              || 0) +
     ((biogas && biogas.co2_offset_kg_per_year) || 0) +
@@ -495,7 +502,7 @@ export default function ReportPage() {
   const wh            = wasteHabit(q6Answer);
 
   const metaParts = [
-    city && state ? city + ', ' + state : (city || state),
+    displayCity && state ? displayCity + ', ' + state : (displayCity || state),
     terraceSqft ? fmtNum(terraceSqft) + ' sq ft terrace' : null,
     buildingType || null,
   ].filter(Boolean);
@@ -594,7 +601,7 @@ export default function ReportPage() {
         {/* Headline */}
         <p style={{ fontSize: 14, lineHeight: 1.65, color: TEXT, margin: '0 0 12px' }}>
           If {firstName} activated their rooftop fully, it could save{' '}
-          <span style={{ color: GREEN, fontWeight: 500 }}>Rs.{fmtRs(totalSavings)}/year</span>
+          <span style={{ color: GREEN, fontWeight: 500 }}>Rs.{fmtRs(totalSavLow)} – Rs.{fmtRs(totalSavHigh)} per year</span>
           {' '}— while offsetting{' '}
           <span style={{ color: GREEN, fontWeight: 500 }}>{fmtNum(co2Total)} kg of CO₂</span>
           , the same as planting{' '}
@@ -853,7 +860,7 @@ export default function ReportPage() {
       )}
 
       {/* ── B4. VENDOR CARDS ─────────────────────────────────────────────────── */}
-      <VendorCards solar={solar} rainwater={rainwater} biogas={biogas} city={city} firstName={firstName} />
+      <VendorCards solar={solar} rainwater={rainwater} biogas={biogas} city={displayCity} firstName={firstName} />
 
       {/* ── 13. DISCLAIMER ───────────────────────────────────────────────────── */}
       <div style={{ margin: '0 24px', marginBottom: 16, background: 'rgba(251,191,36,0.06)', borderLeft: '3px solid #d97706', borderRadius: '0 6px 6px 0', padding: '10px 12px' }}>

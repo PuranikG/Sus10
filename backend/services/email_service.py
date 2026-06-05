@@ -159,7 +159,7 @@ def send_report_email(
         </td></tr>
 
         <!-- CTA button -->
-        <tr><td style="padding:8px 32px 32px;text-align:center">
+        <tr><td style="padding:8px 32px 16px;text-align:center">
           <a href="{report_url}"
              style="display:inline-block;background:#4ade80;color:#0a1a0e;font-size:15px;font-weight:700;padding:14px 36px;border-radius:100px;text-decoration:none;letter-spacing:-0.2px">
             View Your Full Report →
@@ -167,6 +167,11 @@ def send_report_email(
           <p style="margin:16px 0 0;font-size:12px;color:#aaa">
             Or copy this link: <a href="{report_url}" style="color:#4ade80">{report_url}</a>
           </p>
+        </td></tr>
+
+        <!-- Divider before footer -->
+        <tr><td style="padding:0 32px">
+          <hr style="border:none;border-top:1px solid #eee;margin:16px 0">
         </td></tr>
 
         <!-- Footer -->
@@ -230,7 +235,7 @@ def send_admin_notification(
     )
 
     html = f"""
-<div style="font-family:sans-serif;max-width:480px;padding:20px">
+<div style="font-family:sans-serif;max-width:480px;padding:20px 20px 24px">
   <h2 style="color:#1a3a0a">New Assessment Submitted</h2>
   <table style="border-collapse:collapse;width:100%">
     <tr><td style="padding:6px;color:#666">Name</td>
@@ -246,16 +251,16 @@ def send_admin_notification(
           <b>{overall_score}/100 — {readiness_tier}</b>
         </td></tr>
   </table>
-  <div style="margin-top:20px;display:flex;gap:12px">
+  <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap">
     <a href="{report_link}"
-       style="background:#22c55e;color:#fff;padding:10px 18px;
+       style="display:inline-block;background:#22c55e;color:#fff;padding:10px 18px;
               border-radius:6px;text-decoration:none;font-size:14px">
-      View Report
+      View Report ↗
     </a>
     <a href="https://wa.me/91{phone_digits}"
-       style="background:#25d366;color:#fff;padding:10px 18px;
+       style="display:inline-block;background:#25d366;color:#fff;padding:10px 18px;
               border-radius:6px;text-decoration:none;font-size:14px">
-      WhatsApp
+      WhatsApp ↗
     </a>
   </div>
 </div>

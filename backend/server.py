@@ -5073,6 +5073,9 @@ GUARDRAILS (non-negotiable):
 - Do not generate generic advice
 - Always end with: 'Every roof has the potential to become a climate solution. Your journey toward a Self-Sustaining Roof starts with one small step.'
 
+HOUSEHOLD INFERENCE RULE:
+NEVER infer or estimate the number of people in the household. Use ONLY the household_size value provided in HOUSEHOLD DETAILS. Do not multiply num_apartments by any assumed family size to derive occupant count.
+
 SOLAR ACCURACY RULES:
 - Solar panels realistically cover 50-60% of total terrace area due to water tanks, stairwells, AC units, parapet walls, and shade from adjacent structures. Never assume the full terrace is available for panels.
 - Residential solar in India is sized by household load: Independent house 3-7 kWp practical maximum, Row house 2-5 kWp, Apartment per-flat share 1-3 kWp.
@@ -5421,6 +5424,11 @@ BUILDING DETAILS:
 - Building type: {ans('Q1')}
 - Floors: {num_floors_int}
 - Households / families: {families_for_biogas}
+
+HOUSEHOLD DETAILS:
+- Household size (people in flat/house): {household_size_int}
+- Number of apartments in building: {num_apartments_int if track == 'B' else 'N/A'}
+- Building track: {'Apartment (Track B)' if track == 'B' else 'Independent / Row House (Track A)'}
 
 CALCULATED SUSTENANCE POTENTIAL
 (Deterministic calculations — use these exact numbers. Do not estimate or recalculate. Your role is to explain what these numbers mean in plain language for this homeowner.)
