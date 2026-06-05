@@ -190,58 +190,133 @@ function TextGroupQuestion({ question, answers, onFieldChange, dialCode, onDialC
 }
 
 // ─── Google Places Autocomplete address field ─────────────────────────────────
-function PlacesAddressField({ question, mapsLoaded, addressData, onPlaceSelected, onNotIndia }) {
-  const inputRef  = useRef(null);
-  const acRef     = useRef(null);
-  const [inputVal, setInputVal]     = useState(addressData?.display_address || '');
-  const [error, setError]           = useState('');
+// Shared place-data extractor — works with both new and legacy API
+function _extractStructured(comps, display, lat, lng, placeId, isNew) {
+  const getComp = (type, short = false) => {
+    const c = (comps || []).find(x => x.types.includes(type));
+    if (!c) return '';
+    return short ? (isNew ? c.shortText : c.short_name) : (isNew ? c.longText : c.long_name);
+  };
+  return {
+    display_address: display,
+    city:    getComp('locality') || getComp('administrative_area_level_2'),
+    state:   getComp('administrative_area_level_1'),
+    pincode: getComp('postal_code'),
+    lat, lng,
+    place_id: placeId,
+    _country_code: getComp('country', true),
+    _country_name: getComp('country'),
+  };
+}
+
+function PlacesAddressField({ question, mapsLoaded, addressData, onPlaceSelected }) {
+  const containerRef = useRef(null);  // hosts PlaceAutocompleteElement (new API)
+  const inputRef     = useRef(null);  // legacy <input> fallback
+  const widgetRef    = useRef(null);  // holds the active widget instance
+  const [inputVal, setInputVal]         = useState(addressData?.display_address || '');
+  const [error, setError]               = useState('');
   const [showNotIndia, setShowNotIndia] = useState(false);
-  const [intlEmail, setIntlEmail]   = useState('');
-  const [intlSaved, setIntlSaved]   = useState(false);
+  const [intlEmail, setIntlEmail]       = useState('');
+  const [intlSaved, setIntlSaved]       = useState(false);
   const [notIndiaData, setNotIndiaData] = useState(null);
+  const [usingNewApi, setUsingNewApi]   = useState(false);
+
+  const handleStructured = (structured) => {
+    if (structured._country_code && structured._country_code !== 'IN') {
+      setShowNotIndia(true);
+      setNotIndiaData({ display_address: structured.display_address, country: structured._country_name });
+      onPlaceSelected(null);
+      return;
+    }
+    setShowNotIndia(false);
+    setError('');
+    const { _country_code: _cc, _country_name: _cn, ...clean } = structured;
+    setInputVal(structured.display_address);
+    onPlaceSelected(clean);
+  };
 
   useEffect(() => {
-    if (!mapsLoaded || !inputRef.current || acRef.current) return;
-    const ac = new window.google.maps.places.Autocomplete(inputRef.current, {
-      componentRestrictions: { country: 'in' },
-      types: ['geocode'],
-      fields: ['formatted_address', 'address_components', 'geometry', 'place_id'],
-    });
-    acRef.current = ac;
-    ac.addListener('place_changed', () => {
-      const place = ac.getPlace();
-      if (!place.geometry) {
-        setError('Please select an address from the suggestions');
-        onPlaceSelected(null);
+    if (!mapsLoaded || widgetRef.current) return;
+    const places = window.google?.maps?.places;
+    if (!places) return;
+
+    // ── Try new PlaceAutocompleteElement first ───────────────────────────────
+    if (places.PlaceAutocompleteElement && containerRef.current) {
+      try {
+        const el = new places.PlaceAutocompleteElement({
+          includedRegionCodes: ['in'],
+          types: ['geocode'],
+        });
+        widgetRef.current = el;
+        setUsingNewApi(true);
+
+        // Inject dark-theme CSS custom properties
+        el.style.cssText = [
+          '--gmpx-color-surface:#0d1710',
+          '--gmpx-color-on-surface:#f8fdf8',
+          '--gmpx-color-on-surface-variant:#7aaa8a',
+          '--gmpx-color-outline:#1e3024',
+          '--gmpx-color-primary:#22c55e',
+          '--gmpx-font-family-base:DM Sans,sans-serif',
+          '--gmpx-font-size-base:14px',
+          'width:100%',
+        ].join(';');
+
+        containerRef.current.innerHTML = '';
+        containerRef.current.appendChild(el);
+
+        el.addEventListener('gmp-placeselect', async ({ place }) => {
+          try {
+            await place.fetchFields({
+              fields: ['displayName', 'formattedAddress', 'addressComponents', 'location', 'id'],
+            });
+          } catch (_) { /* fetchFields may fail silently */ }
+          const lat = place.location?.lat?.() ?? null;
+          const lng = place.location?.lng?.() ?? null;
+          handleStructured(_extractStructured(
+            place.addressComponents, place.formattedAddress, lat, lng, place.id, true
+          ));
+        });
         return;
+      } catch (err) {
+        console.warn('PlaceAutocompleteElement unavailable, using legacy Autocomplete:', err.message);
+        widgetRef.current = null;
       }
-      const getComp = (type, short = false) => {
-        const c = (place.address_components || []).find(x => x.types.includes(type));
-        return c ? (short ? c.short_name : c.long_name) : '';
-      };
-      const countryCode = getComp('country', true);
-      if (countryCode && countryCode !== 'IN') {
-        setShowNotIndia(true);
-        setNotIndiaData({ display_address: place.formatted_address, country: getComp('country') });
-        onPlaceSelected(null);
-        return;
-      }
-      setShowNotIndia(false);
-      setError('');
-      const structured = {
-        display_address: place.formatted_address,
-        city:     getComp('locality') || getComp('administrative_area_level_2'),
-        state:    getComp('administrative_area_level_1'),
-        pincode:  getComp('postal_code'),
-        lat:      place.geometry.location.lat(),
-        lng:      place.geometry.location.lng(),
-        place_id: place.place_id,
-      };
-      setInputVal(place.formatted_address);
-      onPlaceSelected(structured);
-    });
+    }
+
+    // ── Legacy Autocomplete fallback ─────────────────────────────────────────
+    if (places.Autocomplete && inputRef.current) {
+      const ac = new places.Autocomplete(inputRef.current, {
+        componentRestrictions: { country: 'in' },
+        types: ['geocode'],
+        fields: ['formatted_address', 'address_components', 'geometry', 'place_id'],
+      });
+      widgetRef.current = ac;
+      ac.addListener('place_changed', () => {
+        const place = ac.getPlace();
+        if (!place.geometry) {
+          setError('Please select an address from the suggestions');
+          onPlaceSelected(null);
+          return;
+        }
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+        handleStructured(_extractStructured(
+          place.address_components, place.formatted_address, lat, lng, place.place_id, false
+        ));
+      });
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapsLoaded]);
+
+  useEffect(() => {
+    return () => {
+      // Cleanup: remove web component from DOM on unmount
+      if (usingNewApi && containerRef.current) containerRef.current.innerHTML = '';
+      widgetRef.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleIntlSubmit = async () => {
     if (!intlEmail || !intlEmail.includes('@')) return;
@@ -272,15 +347,22 @@ function PlacesAddressField({ question, mapsLoaded, addressData, onPlaceSelected
       {question.helper_text && (
         <div style={{ fontSize: '12px', color: '#7aaa8a', marginBottom: '10px', lineHeight: 1.5 }}>{question.helper_text}</div>
       )}
-      <input
-        ref={inputRef}
-        type="text"
-        value={inputVal}
-        onChange={e => { setInputVal(e.target.value); if (addressData) onPlaceSelected(null); setError(''); setShowNotIndia(false); }}
-        placeholder="Start typing your address..."
-        style={inputStyle}
-        autoComplete="off"
-      />
+      {/* New API: PlaceAutocompleteElement mounts itself into containerRef */}
+      {mapsLoaded && (
+        <div ref={containerRef} style={{ width: '100%' }} />
+      )}
+      {/* Legacy fallback input — shown when Maps not loaded OR new API unavailable */}
+      {(!mapsLoaded || !usingNewApi) && (
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputVal}
+          onChange={e => { setInputVal(e.target.value); if (addressData) onPlaceSelected(null); setError(''); setShowNotIndia(false); }}
+          placeholder="Start typing your address..."
+          style={inputStyle}
+          autoComplete="off"
+        />
+      )}
       {!mapsLoaded && (
         <div style={{ fontSize: '11px', color: '#7aaa8a', marginTop: '4px' }}>Loading address suggestions…</div>
       )}

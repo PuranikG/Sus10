@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query, UploadFile, File
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query, UploadFile, File, BackgroundTasks
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -5113,7 +5113,7 @@ The emotional hook is always food, green space, and wellbeing first."""
 
 
 @api_router.post("/report/generate")
-async def report_generate(request: Request):
+async def report_generate(request: Request, background_tasks: BackgroundTasks):
     """Run deterministic calculations, then call LLM to generate personalised report."""
     logger.error("REPORT ENDPOINT HIT — assessment_id incoming")
 
@@ -5497,9 +5497,22 @@ End with: 'Every roof has the potential to become a climate solution. Your journ
 
         logger.info("LlmChat created — calling claude-sonnet-4-5 via Emergent")
         msg = LlmUserMessage(text=user_prompt)
-        report_text = await chat.send_message(msg)
+        # 25-second hard timeout — prevents 520 Cloudflare errors on slow LLM calls
+        try:
+            report_text = await asyncio.wait_for(
+                chat.send_message(msg),
+                timeout=25.0,
+            )
+        except asyncio.TimeoutError:
+            logger.error("LLM call timed out after 25 seconds")
+            raise HTTPException(
+                status_code=504,
+                detail="Report generation timed out. Please try again.",
+            )
         tokens_used = 0  # emergentintegrations does not expose token counts
         logger.info("LLM call success")
+    except HTTPException:
+        raise  # re-raise 504 timeout unchanged
     except Exception as e:
         error_type = type(e).__name__
         error_msg = str(e)
@@ -5526,55 +5539,63 @@ End with: 'Every roof has the potential to become a climate solution. Your journ
         }},
     )
 
-    # ── STEP J: Send transactional emails ─────────────────────────────────────
+    # ── STEP J: Queue transactional emails in background ─────────────────────
+    # Emails are dispatched AFTER the response is returned so they never add
+    # to the user-visible latency. The background task runs in the same
+    # event loop after FastAPI sends the HTTP response.
     _overall_score  = scores.get("overall", 0)
     _readiness_tier = assessment.get("readiness_tier") or ""
+    _phone_raw      = str(answers.get("phone") or "").strip()
+    _phone_digits   = re.sub(r"[^0-9]", "", _phone_raw).lstrip("91")
 
-    # User report email
-    try:
-        email_sent = await asyncio.to_thread(
-            send_report_email,
-            to_email=answers.get("email"),
-            first_name=answers.get("first_name"),
-            assessment_id=str(assessment_id),
-            overall_score=_overall_score,
-            readiness_tier=_readiness_tier,
-            solar_kwh=solar_result.get("annual_generation_kwh", 0),
-            rainwater_kl=rainwater_result.get("annual_yield_kiloliters", 0),
-            food_kg=plantation_result.get("annual_food_yield_kg", 0),
-            co2_tonnes=round(total_co2_kg / 1000, 1),
+    async def _bg_send_emails() -> None:
+        """Background: send report email to user + admin notification."""
+        # User report email
+        try:
+            email_sent = await asyncio.to_thread(
+                send_report_email,
+                to_email=answers.get("email"),
+                first_name=answers.get("first_name"),
+                assessment_id=str(assessment_id),
+                overall_score=_overall_score,
+                readiness_tier=_readiness_tier,
+                solar_kwh=solar_result.get("annual_generation_kwh", 0),
+                rainwater_kl=rainwater_result.get("annual_yield_kiloliters", 0),
+                food_kg=plantation_result.get("annual_food_yield_kg", 0),
+                co2_tonnes=round(total_co2_kg / 1000, 1),
+            )
+        except Exception as _email_exc:
+            logger.error(f"send_report_email raised unexpectedly: {_email_exc}", exc_info=True)
+            email_sent = False
+
+        await db.assessments.update_one(
+            {"assessment_id": assessment_id},
+            {"$set": {
+                "email_sent":    email_sent,
+                "email_sent_at": datetime.now(timezone.utc) if email_sent else None,
+            }},
         )
-    except Exception as _email_exc:
-        logger.error(f"send_report_email raised unexpectedly: {_email_exc}", exc_info=True)
-        email_sent = False
 
-    await db.assessments.update_one(
-        {"assessment_id": assessment_id},
-        {"$set": {
-            "email_sent":    email_sent,
-            "email_sent_at": datetime.now(timezone.utc) if email_sent else None,
-        }},
-    )
+        # Admin notification
+        try:
+            await asyncio.to_thread(
+                send_admin_notification,
+                first_name=answers.get("first_name"),
+                last_name=answers.get("last_name"),
+                email=answers.get("email"),
+                phone=_phone_raw,
+                phone_digits=_phone_digits,
+                city=answers.get("city"),
+                overall_score=_overall_score,
+                readiness_tier=_readiness_tier,
+                assessment_id=str(assessment_id),
+            )
+        except Exception as _notif_exc:
+            logger.error(f"send_admin_notification raised unexpectedly: {_notif_exc}", exc_info=True)
 
-    # Admin notification
-    try:
-        _phone_raw    = str(answers.get("phone") or "").strip()
-        _phone_digits = re.sub(r"[^0-9]", "", _phone_raw).lstrip("91")
-        await asyncio.to_thread(
-            send_admin_notification,
-            first_name=answers.get("first_name"),
-            last_name=answers.get("last_name"),
-            email=answers.get("email"),
-            phone=_phone_raw,
-            phone_digits=_phone_digits,
-            city=answers.get("city"),
-            overall_score=_overall_score,
-            readiness_tier=_readiness_tier,
-            assessment_id=str(assessment_id),
-        )
-    except Exception as _notif_exc:
-        logger.error(f"send_admin_notification raised unexpectedly: {_notif_exc}", exc_info=True)
+    background_tasks.add_task(_bg_send_emails)
 
+    # Return response immediately — emails fire in background
     return {
         "assessment_id": assessment_id,
         "report_text": report_text,
