@@ -327,13 +327,14 @@ function ShareBar({ firstName, totalSavings, trees }) {
 }
 
 // ── B4: Vendor category cards ─────────────────────────────────────────────────
+// Order: Greening first (lowest barrier), then Rainwater, then Solar (aspiration), Biogas last
 const VENDOR_CATEGORIES = [
   {
-    key: 'solar',
-    icon: '☀️',
-    name: 'Solar Installation',
-    desc: 'MNRE-empanelled solar vendors, net-metering support',
-    subjectFn: (city, name) => `Vendor referral — Solar — ${city} — ${name}`,
+    key: 'greening',
+    icon: '🌿',
+    name: 'Rooftop Farming',
+    desc: 'Expert guidance on terrace gardens and container farms',
+    subjectFn: (city, name) => `Vendor referral — Rooftop Farming — ${city} — ${name}`,
   },
   {
     key: 'rainwater',
@@ -343,11 +344,11 @@ const VENDOR_CATEGORIES = [
     subjectFn: (city, name) => `Vendor referral — RWH — ${city} — ${name}`,
   },
   {
-    key: 'greening',
-    icon: '🌿',
-    name: 'Rooftop Farming',
-    desc: 'Expert guidance on terrace gardens and container farms',
-    subjectFn: (city, name) => `Vendor referral — Rooftop Farming — ${city} — ${name}`,
+    key: 'solar',
+    icon: '☀️',
+    name: 'Solar Installation',
+    desc: 'MNRE-empanelled solar vendors, net-metering support',
+    subjectFn: (city, name) => `Vendor referral — Solar — ${city} — ${name}`,
   },
   {
     key: 'biogas',
@@ -603,10 +604,10 @@ export default function ReportPage() {
         {/* Chips */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {[
-            { label: 'Solar',      value: fmtNum(solarKwhLow) + '–' + fmtNum(solarKwhHigh) + ' kWh/yr' },
-            { label: 'Rainwater',  value: fmtNum(rainKl)   + ' kL/yr'  },
-            plantFood ? { label: 'Food', value: fmtNum(plantFood) + ' kg/yr' } : null,
-            { label: 'CO₂ offset', value: (co2Total / 1000).toFixed(1) + ' t/yr' },
+            plantFood ? { label: '🌿 Food',      value: fmtNum(plantFood) + ' kg/yr' } : null,
+            { label: '💧 Rainwater', value: fmtNum(rainKl) + ' kL/yr' },
+            { label: '☀️ Solar',     value: fmtNum(solarKwhLow) + '–' + fmtNum(solarKwhHigh) + ' kWh/yr' },
+            { label: '🌍 CO₂ offset', value: (co2Total / 1000).toFixed(1) + ' t/yr' },
           ].filter(Boolean).map(chip => (
             <span key={chip.label} style={{
               background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.1)',
@@ -652,23 +653,23 @@ export default function ReportPage() {
       </div>
 
       {/* ── 5. PILLAR CARDS ──────────────────────────────────────────────────── */}
+      {/* Greening first — lowest barrier, emotional hook. Then Rainwater, Solar, Biogas last. */}
       <div className={'rp-page ' + (biogas ? 'rp-grid-2' : 'rp-grid-3')} style={{ margin: '12px 24px 0' }}>
 
-        {/* Solar */}
+        {/* Greening — always first (top-left) */}
         <div style={{ background: CARD, borderRadius: 8, padding: 12, border: '0.5px solid ' + BORDER }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(251,191,36,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Sun style={{ width: 14, height: 14, color: AMBER }} />
+            <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(163,230,53,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Sprout style={{ width: 14, height: 14, color: LIME }} />
             </div>
-            <span style={{ fontSize: 11, color: MUTED }}>Solar</span>
+            <span style={{ fontSize: 11, color: MUTED }}>Greening</span>
           </div>
-          <span style={{ fontSize: 22, fontWeight: 500, color: AMBER }}>{fmtNum(solarKwhLow)}–{fmtNum(solarKwhHigh)}</span>
-          <span style={{ fontSize: 10, color: DIM, marginLeft: 4 }}>kWh / year</span>
-          <div style={{ fontSize: 11, color: GREEN, marginTop: 4 }}>Rs.{fmtRs(solarSavLow)} – Rs.{fmtRs(solarSavHigh)} / year</div>
-          <div style={{ fontSize: 10, color: 'rgba(240,240,232,0.35)', marginTop: 2 }}>avg ~Rs.{fmtRs(solarSavings)} · seasonal range</div>
+          <span style={{ fontSize: 22, fontWeight: 500, color: LIME }}>{fmtNum(plantCount)}</span>
+          <span style={{ fontSize: 10, color: DIM, marginLeft: 4 }}>plants</span>
+          <div style={{ fontSize: 11, color: GREEN, marginTop: 4 }}>{fmtNum(plantFood)} kg food/yr</div>
           <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0 0', fontSize: 11, color: 'rgba(240,240,232,0.55)' }}>
-            <li>{fmtNum(solarKwp)} kWp installable</li>
-            <li>{fmtNum(solarCO2)} kg CO₂ offset/yr</li>
+            <li>{fmtNum(plantAreaSqft)} sq ft plantable</li>
+            <li>{fmtNum(plantCO2)} kg CO₂/yr</li>
           </ul>
         </div>
 
@@ -689,7 +690,25 @@ export default function ReportPage() {
           </ul>
         </div>
 
-        {/* Biogas — only when not null */}
+        {/* Solar — aspirational, shown third */}
+        <div style={{ background: CARD, borderRadius: 8, padding: 12, border: '0.5px solid ' + BORDER }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(251,191,36,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Sun style={{ width: 14, height: 14, color: AMBER }} />
+            </div>
+            <span style={{ fontSize: 11, color: MUTED }}>Solar</span>
+          </div>
+          <span style={{ fontSize: 22, fontWeight: 500, color: AMBER }}>{fmtNum(solarKwhLow)}–{fmtNum(solarKwhHigh)}</span>
+          <span style={{ fontSize: 10, color: DIM, marginLeft: 4 }}>kWh / year</span>
+          <div style={{ fontSize: 11, color: GREEN, marginTop: 4 }}>Rs.{fmtRs(solarSavLow)} – Rs.{fmtRs(solarSavHigh)} / year</div>
+          <div style={{ fontSize: 10, color: 'rgba(240,240,232,0.35)', marginTop: 2 }}>avg ~Rs.{fmtRs(solarSavings)} · seasonal range</div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0 0', fontSize: 11, color: 'rgba(240,240,232,0.55)' }}>
+            <li>{fmtNum(solarKwp)} kWp installable</li>
+            <li>{fmtNum(solarCO2)} kg CO₂ offset/yr</li>
+          </ul>
+        </div>
+
+        {/* Biogas — last, only when not null */}
         {biogas && (
           <div style={{ background: CARD, borderRadius: 8, padding: 12, border: '0.5px solid ' + BORDER }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -707,23 +726,6 @@ export default function ReportPage() {
             </ul>
           </div>
         )}
-
-        {/* Greening — always shown */}
-        <div style={{ background: CARD, borderRadius: 8, padding: 12, border: '0.5px solid ' + BORDER }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(163,230,53,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Sprout style={{ width: 14, height: 14, color: LIME }} />
-            </div>
-            <span style={{ fontSize: 11, color: MUTED }}>Greening</span>
-          </div>
-          <span style={{ fontSize: 22, fontWeight: 500, color: LIME }}>{fmtNum(plantCount)}</span>
-          <span style={{ fontSize: 10, color: DIM, marginLeft: 4 }}>plants</span>
-          <div style={{ fontSize: 11, color: GREEN, marginTop: 4 }}>{fmtNum(plantFood)} kg food/yr</div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0 0', fontSize: 11, color: 'rgba(240,240,232,0.55)' }}>
-            <li>{fmtNum(plantAreaSqft)} sq ft plantable</li>
-            <li>{fmtNum(plantCO2)} kg CO₂/yr</li>
-          </ul>
-        </div>
       </div>
 
       {/* ── FALLBACK: raw markdown when parsing failed ────────────────────────── */}

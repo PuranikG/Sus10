@@ -5083,7 +5083,30 @@ ROADMAP FORMAT RULES:
 - No bold markers, no 'Action N:' prefixes, no asterisks anywhere.
 - Format each bullet as: '- Short action phrase under 50 characters'
 - WRONG: '**Action 1:** Start daily waste segregation for biogas readiness'
-- RIGHT: '- Start daily wet waste segregation'"""
+- RIGHT: '- Start daily wet waste segregation'
+
+RECOMMENDATION PRIORITY ORDER (always follow this sequence):
+1. Greening and terrace gardening — ALWAYS recommend first.
+   Lowest barrier to entry. No approvals, no large investment,
+   immediate visible results. This is the gateway to sustainability.
+   Frame as: personal, emotional, food security, wellbeing.
+
+2. Rainwater Harvesting — recommend second.
+   One-time investment, high impact in Indian climate,
+   no ongoing complexity after installation.
+
+3. Solar — mention but do not strongly push.
+   High impact but high complexity — significant investment,
+   installer dependency, net metering approvals, society
+   permissions for apartments. Present as a future aspiration
+   or Phase 2 action, not an immediate recommendation.
+   Frame as: 'When you are ready to invest further...'
+
+4. Biogas — only when relevant (show_biogas flag is true).
+   Present as complementary to greening, not standalone.
+
+Never lead with solar savings as the primary hook.
+The emotional hook is always food, green space, and wellbeing first."""
 
 
 @api_router.post("/report/generate")
