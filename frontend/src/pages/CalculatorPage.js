@@ -542,7 +542,11 @@ export default function CalculatorPage() {
         // Phone
         if (fields.includes('phone') && !isValidPhone(dialCode, answers['_phone_number'] || '')) return false;
       } else if (q.type === 'address_autocomplete') {
-        if (!answers.address_data?.city) return false;
+        // Only enforce address selection when Maps API key is configured.
+        // If the key is absent the autocomplete never loads and the Next
+        // button would be permanently disabled — allow manual progression.
+        const mapsKeyConfigured = !!process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+        if (mapsKeyConfigured && !answers.address_data?.city) return false;
       } else if (q.type === 'numeric_input') {
         const raw = answers[q.id];
         const v   = parseFloat(raw);
@@ -712,6 +716,8 @@ export default function CalculatorPage() {
                 />
               );
             }
+            // Unknown type — warn and skip rather than crashing the render
+            console.warn(`Sus10 calculator: unknown question type "${q.type}" (id=${q.id}) — skipping`);
             return null;
           })}
 
