@@ -5199,7 +5199,9 @@ async def report_generate(request: Request):
     _track_a = {"Independent House", "Row House"}
     _track_b = {"Mid/low-rise Apartment (1-4 floors)", "High-rise apartment (5+ floors)"}
     track = "A" if q1_value in _track_a else ("B" if q1_value in _track_b else "A")
-    city = str(answers.get("city") or "").strip() or "default"
+    # Normalise city: lowercase + strip so it matches calculator lookup keys
+    # (Google Places returns e.g. "Mumbai" with capitals; keys are lowercase)
+    city = (str(answers.get("city") or "").strip().lower()) or "default"
     building_type = "residential"
 
     # ── STEP C: Map select answers to integers ────────────────────────────────
@@ -5248,37 +5250,64 @@ async def report_generate(request: Request):
     plantation_result = calculate_plantation_potential(usable_area_sqm=plantation_usable_sqm)
 
     # ── Solar kWp cap by building type ────────────────────────────────────────
+    # PENDING-010: Migrate PlacesAddressField from deprecated
+    # google.maps.places.Autocomplete to new
+    # google.maps.places.PlaceAutocompleteElement
+    # (Not breaking yet — at least 12 months notice given. Sprint B+2.)
     _SOLAR_KWP_CAPS = {
         "Independent House": 7.0,
         "Row House": 5.0,
         "Mid/low-rise Apartment (1-4 floors)": 3.0,
         "High-rise apartment (5+ floors)": 2.0,
     }
-    _kwp_cap = _SOLAR_KWP_CAPS.get(q1_value, 5.0)
-    if solar_result.get("installed_capacity_kwp", 0) > _kwp_cap:
-        _scale = _kwp_cap / solar_result["installed_capacity_kwp"]
-        solar_result["installed_capacity_kwp"] = round(_kwp_cap, 2)
-        for _k in ["annual_generation_kwh", "monthly_generation_kwh",
-                   "annual_savings_inr", "co2_offset_kg_per_year"]:
-            if _k in solar_result:
-                solar_result[_k] = round(solar_result[_k] * _scale)
-        solar_result["capped"] = True
-        solar_result["cap_note"] = (
-            f"Sized to {_kwp_cap} kWp — practical for "
-            f"typical {q1_value} household load"
+    try:
+        _installed_kwp = float(solar_result.get("installed_capacity_kwp") or 0)
+        _kwp_cap = _SOLAR_KWP_CAPS.get(q1_value, 5.0)
+        # Guard: only cap when installed > 0 (avoids ZeroDivisionError)
+        if _installed_kwp > 0 and _installed_kwp > _kwp_cap:
+            _scale = _kwp_cap / _installed_kwp
+            solar_result["installed_capacity_kwp"] = round(_kwp_cap, 2)
+            for _k in ["annual_generation_kwh", "monthly_generation_kwh",
+                       "annual_savings_inr", "co2_offset_kg_per_year"]:
+                if _k in solar_result and solar_result[_k] is not None:
+                    solar_result[_k] = round(float(solar_result[_k]) * _scale)
+            solar_result["capped"] = True
+            solar_result["cap_note"] = (
+                f"Sized to {_kwp_cap} kWp — practical for "
+                f"typical {q1_value} household load"
+            )
+    except Exception as _cap_exc:
+        logger.error(
+            f"Solar kWp cap failed — type={type(_cap_exc).__name__} err={_cap_exc}",
+            exc_info=True,
         )
 
     # ── Solar low/high range (50–60% of terrace) ─────────────────────────────
-    _scale_low  = 50.0 / 55.0   # ~0.909
-    _scale_high = 60.0 / 55.0   # ~1.091
-    solar_result["kwh_low"]          = round(solar_result.get("annual_generation_kwh",  0) * _scale_low)
-    solar_result["kwh_high"]         = round(solar_result.get("annual_generation_kwh",  0) * _scale_high)
-    solar_result["monthly_kwh_low"]  = round(solar_result.get("monthly_generation_kwh", 0) * _scale_low)
-    solar_result["monthly_kwh_high"] = round(solar_result.get("monthly_generation_kwh", 0) * _scale_high)
-    solar_result["savings_low_inr"]  = round(solar_result.get("annual_savings_inr",     0) * _scale_low)
-    solar_result["savings_high_inr"] = round(solar_result.get("annual_savings_inr",     0) * _scale_high)
-    solar_result["area_low_sqft"]    = round(area_sqm * 0.50 * 10.764)
-    solar_result["area_high_sqft"]   = round(area_sqm * 0.60 * 10.764)
+    # These keys MUST be set before STEP G builds the f-string prompt.
+    # Wrap in try/except with safe defaults so a crash here never causes 502.
+    try:
+        _scale_low  = 50.0 / 55.0   # ~0.909
+        _scale_high = 60.0 / 55.0   # ~1.091
+        _ann_kwh  = float(solar_result.get("annual_generation_kwh",  0) or 0)
+        _mon_kwh  = float(solar_result.get("monthly_generation_kwh", 0) or 0)
+        _ann_sav  = float(solar_result.get("annual_savings_inr",     0) or 0)
+        solar_result["kwh_low"]          = round(_ann_kwh * _scale_low)
+        solar_result["kwh_high"]         = round(_ann_kwh * _scale_high)
+        solar_result["monthly_kwh_low"]  = round(_mon_kwh * _scale_low)
+        solar_result["monthly_kwh_high"] = round(_mon_kwh * _scale_high)
+        solar_result["savings_low_inr"]  = round(_ann_sav * _scale_low)
+        solar_result["savings_high_inr"] = round(_ann_sav * _scale_high)
+        solar_result["area_low_sqft"]    = round(area_sqm * 0.50 * 10.764)
+        solar_result["area_high_sqft"]   = round(area_sqm * 0.60 * 10.764)
+    except Exception as _range_exc:
+        logger.error(
+            f"Solar range calc failed — type={type(_range_exc).__name__} err={_range_exc}",
+            exc_info=True,
+        )
+        # Safe defaults — prevent KeyError in STEP G f-string
+        for _k in ["kwh_low", "kwh_high", "monthly_kwh_low", "monthly_kwh_high",
+                   "savings_low_inr", "savings_high_inr", "area_low_sqft", "area_high_sqft"]:
+            solar_result.setdefault(_k, 0)
 
     # Biogas suppression — suppress if flagged off or monthly output < 1 m³
     biogas_monthly_m3 = biogas_result["biogas_m3_per_day"] * 30
