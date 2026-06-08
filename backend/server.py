@@ -5131,19 +5131,576 @@ Never lead with solar savings as the primary hook.
 The emotional hook is always food, green space, and wellbeing first."""
 
 
+# ── Template engine ───────────────────────────────────────────────────────────
+def generate_report_from_templates(assessment: dict) -> str:
+    """
+    Generate a complete report from COM-B scores and answers.
+    Returns a markdown string matching the existing report_text format.
+    No external API calls. Instant. Deterministic.
+
+    Key mappings (actual DB keys → template labels):
+      scores.capacity   → capability_score
+      scores.interest   → opportunity_score (closest COM-B proxy)
+      scores.motivation → motivation_score
+    """
+    answers = assessment.get("answers", {})
+    scores  = assessment.get("scores", {})
+
+    # Extract scores (actual DB keys: capacity / interest / motivation / overall)
+    capability_score  = scores.get("capacity",   0)
+    opportunity_score = scores.get("interest",   0)
+    motivation_score  = scores.get("motivation", 0)
+    overall_score     = scores.get("overall",    0)
+    readiness_tier    = assessment.get("readiness_tier", "Explorer")
+
+    # Extract key answers
+    first_name     = answers.get("first_name", "You")
+    city           = answers.get("city", "your city")
+    city           = city[0].upper() + city[1:] if city else city
+    state          = answers.get("state", "")
+    building_type  = answers.get("Q1", "Independent House")
+    ownership      = answers.get("Q3", "Owner")
+    terrace_sqft   = float(answers.get("terrace_area_sqft") or 0)
+    elec_bill      = answers.get("Q4b", "")
+    waste_habit    = answers.get("Q6", "")
+    health_belief  = answers.get("Q7", "")
+    env_belief     = answers.get("Q8", "")
+    interest       = answers.get("Q9", "")
+    vendor_access  = answers.get("Q10", "")
+    water          = answers.get("Q13", "")
+    affordability  = answers.get("Q14", "")
+    support_needed = answers.get("Q16", [])
+    if isinstance(support_needed, str):
+        support_needed = [support_needed]
+
+    # Extract calculated potential (keys from sustenance_calculator.py)
+    solar      = assessment.get("calculated_solar",      {}) or {}
+    rainwater  = assessment.get("calculated_rainwater",  {}) or {}
+    plantation = assessment.get("calculated_plantation", {}) or {}
+    biogas     = assessment.get("calculated_biogas")
+    show_biogas = assessment.get("show_biogas", False)
+
+    solar_kwp        = solar.get("installed_capacity_kwp", 0) or 0
+    solar_savings_low  = int(solar.get("savings_low_inr",        0) or 0)
+    solar_savings_high = int(solar.get("savings_high_inr",       0) or 0)
+    solar_co2        = int(solar.get("co2_offset_kg_per_year",   0) or 0)
+    rwh_kl           = float(rainwater.get("annual_yield_kiloliters", 0) or 0)
+    rwh_savings      = int(rainwater.get("annual_savings_inr",   0) or 0)
+    plant_count      = int(plantation.get("total_plants_count",  0) or 0)
+    food_kg          = float(plantation.get("annual_food_yield_kg") or 0)
+    plant_co2        = int(plantation.get("co2_sequestered_kg_per_year", 0) or 0)
+    plant_water_lpd  = int(plantation.get("water_required_lpd",  0) or 0)
+
+    # ── CAPABILITY MESSAGING ─────────────────────────────────
+    if capability_score <= 25:
+        cap_msg = (
+            f"Your building currently has some physical or knowledge "
+            f"gaps before going green. This is completely normal — "
+            f"most homes start here. We can help identify the easiest "
+            f"first step for your specific building type and location."
+        )
+    elif capability_score <= 50:
+        cap_msg = (
+            f"You have a reasonable starting point. Your building has "
+            f"real potential. With the right guidance and a phased "
+            f"approach, you can build capability step by step."
+        )
+    elif capability_score <= 75:
+        cap_msg = (
+            f"Your building is well-suited for green infrastructure. "
+            f"The physical foundation is there — a phased plan could "
+            f"unlock significant savings across solar, water, and "
+            f"food systems."
+        )
+    else:
+        cap_msg = (
+            f"Your rooftop is physically ready. You have the building, "
+            f"the access, and the knowledge to start immediately. "
+            f"The question is simply where to start first."
+        )
+
+    # ── OPPORTUNITY MESSAGING ────────────────────────────────
+    if opportunity_score <= 25:
+        opp_msg = (
+            f"Your biggest gap right now is access — to vendors, "
+            f"financing, and community support. This is where Sus10 "
+            f"can help most. We connect you to verified vendors and "
+            f"navigate subsidies so you do not have to do it alone."
+        )
+    elif opportunity_score <= 50:
+        opp_msg = (
+            f"Some resources are available but not fully aligned. "
+            f"A targeted introduction to local vendors and available "
+            f"financing could unlock the opportunity that is "
+            f"already close."
+        )
+    elif opportunity_score <= 75:
+        opp_msg = (
+            f"You have good access to resources and infrastructure. "
+            f"The external environment supports your decision. Now it "
+            f"is about making the right connections and taking "
+            f"the first step."
+        )
+    else:
+        opp_msg = (
+            f"You have excellent access to everything you need — "
+            f"vendors, finance, water, and infrastructure. "
+            f"The opportunity is fully available. Time to act."
+        )
+
+    # ── MOTIVATION MESSAGING ─────────────────────────────────
+    if motivation_score <= 25:
+        mot_msg = (
+            f"Green rooftops may still feel distant or uncertain. "
+            f"Let us show you what similar homes in {city} have "
+            f"achieved — and what it meant for their monthly bills "
+            f"and daily life."
+        )
+    elif motivation_score <= 50:
+        mot_msg = (
+            f"You are curious and beginning to see the value. "
+            f"A free estimate with real numbers — in rupees, specific "
+            f"to your building — could turn curiosity into conviction."
+        )
+    elif motivation_score <= 75:
+        mot_msg = (
+            f"You clearly see the value and want to move forward. "
+            f"Here is exactly what your rooftop could generate — "
+            f"in savings, in food, and in quality of life."
+        )
+    else:
+        mot_msg = (
+            f"You are ready to act and your motivation is clear. "
+            f"Let us match you with the right partner and make it "
+            f"happen — quickly and with confidence."
+        )
+
+    # ── OVERALL TIER MESSAGING ───────────────────────────────
+    tier_messages = {
+        "Explorer": (
+            f"Based on your assessment, all three elements — "
+            f"capability, opportunity, and motivation — need some "
+            f"building up. The good news: every element is addressable. "
+            f"Your journey starts with awareness and one small, "
+            f"low-cost first step."
+        ),
+        "Getting Ready": (
+            f"Based on your assessment, you have some strong elements "
+            f"but one or two gaps are holding you back. Identifying "
+            f"and addressing your specific weakest link — whether it "
+            f"is access, affordability, or awareness — is the next step."
+        ),
+        "Action Ready": (
+            f"Based on your assessment, you are motivated, your "
+            f"building is capable, and the opportunity exists. One "
+            f"final gap — likely vendor access or financing — stands "
+            f"between you and action. Let us bridge it."
+        ),
+        "Sustainability Champion": (
+            f"Based on your assessment, you have everything you need "
+            f"— capability, opportunity, and motivation. You are fully "
+            f"ready to implement. Join our Sus10 pilot programme and "
+            f"let your rooftop become a model for your neighbourhood."
+        ),
+    }
+    tier_msg = tier_messages.get(readiness_tier, tier_messages["Explorer"])
+
+    # ── CONDITIONAL RULE MESSAGES ────────────────────────────
+    affordability_note = ""
+    if affordability == "Unaffordable":
+        affordability_note = (
+            f"\n\nGiven your current affordability assessment, we "
+            f"recommend starting with greening and composting — "
+            f"investments under Rs.10,000 that show results within "
+            f"weeks. EMI options and government subsidies are available "
+            f"for solar (PM Surya Ghar) and rainwater harvesting "
+            f"(state-level schemes). We can guide you through these."
+        )
+
+    water_note = ""
+    if water == "Inadequate - need external supply":
+        water_note = (
+            f"\n\nRainwater harvesting is your most urgent "
+            f"recommendation. Your current water availability is "
+            f"limited — a properly designed RWH system on your "
+            f"{int(terrace_sqft)} sq ft roof could capture approximately "
+            f"{int(rwh_kl)} kL per year, significantly reducing "
+            f"your dependence on external supply."
+        )
+
+    renter_note = ""
+    if ownership == "Renter":
+        renter_note = (
+            f"\n\nAs a renter, you may not have direct authority "
+            f"to install infrastructure. However, you can still "
+            f"drive change — share this report with your building "
+            f"owner or Society committee. Start with a community "
+            f"garden proposal, which requires minimal structural "
+            f"changes and benefits all residents."
+        )
+
+    solar_hook = ""
+    if elec_bill in ["Rs.3,000-Rs.7,000", "Above Rs.7,000"] and solar_savings_high > 0:
+        solar_hook = (
+            f" Your monthly electricity bill of {elec_bill} means "
+            f"solar has a strong financial case — potential savings "
+            f"of Rs.{solar_savings_low:,}–Rs.{solar_savings_high:,} "
+            f"per year at {solar_kwp} kWp."
+        )
+
+    awareness_note = ""
+    q5_answers = answers.get("Q5", [])
+    if isinstance(q5_answers, list) and "None of these" in q5_answers:
+        awareness_note = (
+            f"\n\n**Starting Point:** You indicated limited awareness "
+            f"of rooftop technologies. That is completely fine — "
+            f"most homeowners start here. This report introduces "
+            f"the four pillars: Solar PV, Rainwater Harvesting, "
+            f"Rooftop Greening, and Biogas. Each is explained in "
+            f"plain terms below."
+        )
+
+    env_note = ""
+    if env_belief == "Yes, it's a strong solution" and (solar_co2 + plant_co2) > 0:
+        env_note = (
+            f" You believe green roofs are a strong environmental "
+            f"solution — your {int(terrace_sqft)} sq ft rooftop could "
+            f"offset approximately {solar_co2 + plant_co2:,} kg "
+            f"of CO2 per year, equivalent to planting "
+            f"{max(1, (solar_co2 + plant_co2) // 21):,} trees annually."
+        )
+
+    weakest_link = ""
+    min_score = min(capability_score, opportunity_score, motivation_score)
+    if min_score == capability_score and capability_score < 25:
+        weakest_link = (
+            f"Your biggest opportunity is building physical readiness "
+            f"first — starting with low-infrastructure solutions like "
+            f"container gardening before moving to solar or RWH."
+        )
+    elif min_score == opportunity_score and opportunity_score < 25:
+        weakest_link = (
+            f"Your biggest gap is access — to vendors, finance, and "
+            f"community support. Sus10's vendor network and subsidy "
+            f"guidance are designed specifically for this situation."
+        )
+    elif min_score == motivation_score and motivation_score < 25:
+        weakest_link = (
+            f"Let us show you what this could mean for your monthly "
+            f"bills and daily life. Real numbers from your specific "
+            f"building make the abstract concrete."
+        )
+
+    # ── STRENGTHS ────────────────────────────────────────────
+    strengths = []
+    if capability_score >= 60:
+        strengths.append((
+            "Strong Physical Foundation",
+            f"Your {building_type} in {city} provides good physical "
+            f"access for rooftop projects. With {int(terrace_sqft)} sq ft "
+            f"of terrace space, you have room to implement all four "
+            f"pillars of a self-sustaining roof."
+        ))
+    if waste_habit == "Regularly":
+        strengths.append((
+            "Waste Segregation Champion",
+            f"You already segregate waste regularly — a habit most "
+            f"households struggle to maintain. This directly supports "
+            f"composting and biogas, making you operationally ready "
+            f"for organic waste solutions."
+        ))
+    if env_belief == "Yes, it's a strong solution":
+        strengths.append((
+            "Belief in Solutions",
+            f"You believe green roofs can reduce urban heat and "
+            f"improve air quality. This conviction will sustain your "
+            f"commitment through implementation challenges."
+        ))
+    if health_belief == "I'd believe this":
+        strengths.append((
+            "Wellness Motivation",
+            f"You believe a terrace garden would make you healthier "
+            f"or happier. This personal stake in wellbeing is a "
+            f"powerful driver that goes beyond financial returns."
+        ))
+    if water == "Adequate - need minor top-up":
+        strengths.append((
+            "Water Availability",
+            f"Your water supply is adequate with only minor top-up "
+            f"needed — a meaningful advantage in {city} where water "
+            f"stress is increasing. Terrace gardening is immediately "
+            f"feasible without adding burden to your water system."
+        ))
+    if vendor_access == "Good access":
+        strengths.append((
+            "Vendor Ecosystem Access",
+            f"You have good access to vendors and materials. "
+            f"{city} has a growing market for solar installers, "
+            f"organic farming consultants, and rainwater harvesting "
+            f"specialists — this removes a major barrier."
+        ))
+    if motivation_score >= 60:
+        strengths.append((
+            "Clear Motivation",
+            f"Your motivation score of {motivation_score}/100 shows "
+            f"you have concrete reasons to act. Whether financial "
+            f"savings, food security, or environmental impact — "
+            f"your drivers are real and sustainable."
+        ))
+    strengths = strengths[:3]
+    if not strengths:
+        strengths = [(
+            "Rooftop Potential",
+            f"Your {int(terrace_sqft)} sq ft terrace in {city} has "
+            f"measurable potential across solar, rainwater, greening, "
+            f"and organic food production."
+        )]
+
+    # ── RECOMMENDATIONS ──────────────────────────────────────
+    recs = []
+    recs.append((
+        "Start with Rooftop Greening",
+        f"Your {int(terrace_sqft)} sq ft terrace could support "
+        f"approximately {plant_count} plants across food and wellness "
+        f"categories — potentially yielding around {int(food_kg)} kg "
+        f"of organic produce annually while sequestering approximately "
+        f"{plant_co2:,} kg of CO2. Start with 10–15 containers "
+        f"in one corner. Cost: Rs.2,000–5,000. Results visible "
+        f"in 30–45 days.",
+        "Lowest barrier · Start this week"
+    ))
+    recs.append((
+        "Rainwater Harvesting",
+        f"Your building's {int(terrace_sqft)} sq ft roof could capture "
+        f"approximately {int(rwh_kl * 1000):,} litres "
+        f"({int(rwh_kl)} kL) of water per year — "
+        f"potentially saving Rs.{rwh_savings:,} annually. "
+        f"Install before the monsoon season for maximum benefit. "
+        f"{city} rainfall data confirms strong viability.",
+        "One-time install · High impact"
+    ))
+    is_apartment = building_type in [
+        "Mid/low-rise Apartment (1-4 floors)",
+        "High-rise apartment (5+ floors)"
+    ]
+    if is_apartment:
+        recs.append((
+            "Explore Community Solar (Phase 2)",
+            f"Your building's rooftop could support a "
+            f"{solar_kwp} kWp system, potentially saving "
+            f"Rs.{solar_savings_low:,}–"
+            f"Rs.{solar_savings_high:,} per year on common area "
+            f"electricity. This requires Society approval — frame it "
+            f"at your next AGM after establishing greening and RWH "
+            f"wins first.{solar_hook}",
+            "Society decision · Phase 2"
+        ))
+    else:
+        recs.append((
+            "Solar PV Installation",
+            f"Your rooftop could support a {solar_kwp} kWp system "
+            f"generating potential savings of "
+            f"Rs.{solar_savings_low:,}–"
+            f"Rs.{solar_savings_high:,} per year. "
+            f"Get 3 vendor quotes with site assessments — this costs "
+            f"nothing and gives you real numbers to decide with. "
+            f"PM Surya Ghar subsidy available up to 3 kWp.{solar_hook}",
+            "Highest savings · Needs planning"
+        ))
+    if show_biogas and biogas:
+        biogas_savings = int(biogas.get("annual_savings_inr", 0) or 0)
+        recs.append((
+            "Biogas from Organic Waste",
+            f"Your waste segregation habit makes you an ideal "
+            f"candidate for a small biogas system. Potential annual "
+            f"LPG savings: Rs.{biogas_savings:,}. This closes "
+            f"your waste loop and reduces cylinder dependency.",
+            "Habit-ready · Low cost"
+        ))
+    if affordability in ["Unaffordable", "Somewhat affordable"]:
+        recs.append((
+            "Explore Subsidies and EMI Options",
+            f"PM Surya Ghar offers up to 40% subsidy on solar "
+            f"systems up to 3 kWp. Many installers offer zero "
+            f"down-payment options. For RWH, state-level schemes "
+            f"in {state or city} may provide rebates. Sus10 can guide you "
+            f"through available options specific to {city}.",
+            "Financial access · Sus10 guided"
+        ))
+    if ownership == "Renter":
+        recs.append((
+            "Form a Green Society Group",
+            f"As a renter, your influence multiplies when you are "
+            f"part of a group. Share this report with your Society "
+            f"committee or building owner. Start with a community "
+            f"garden proposal — it requires no structural changes "
+            f"and benefits all residents.",
+            "Community action · No cost"
+        ))
+    recs = recs[:3]
+
+    # ── ROADMAP ──────────────────────────────────────────────
+    phase1_items = [
+        "Set up 10–15 container plants on your terrace",
+        "Start wet and dry waste segregation daily",
+        "Get 3 solar vendor quotes with site assessments",
+        "Research RWH system design for your roof",
+    ]
+    phase2_items = [
+        "Expand container garden to 200–300 sq ft",
+        "Install rainwater harvesting before monsoon",
+        "Finalise solar vendor and apply for net metering",
+        "Add compost bin or biogas unit if waste habit is consistent",
+    ]
+    phase3_items = [
+        "Scale terrace garden to full plantable area",
+        "Integrate garden water needs with RWH system",
+        "Complete solar installation and monitor savings",
+        "Explore battery storage or EV charging if relevant",
+    ]
+
+    # ── FINAL ASSESSMENT ─────────────────────────────────────
+    if overall_score >= 51:
+        biggest_opp = (
+            f"Your rooftop has strong potential across all four "
+            f"pillars. Solar at {solar_kwp} kWp, rainwater at "
+            f"{int(rwh_kl)} kL/year, and {plant_count} plants for "
+            f"food and greening represent a combined annual impact "
+            f"of Rs.{solar_savings_low + rwh_savings:,}+ in "
+            f"savings and {max(1, (solar_co2 + plant_co2) // 21):,} "
+            f"tree-equivalents of CO2 offset."
+        )
+    else:
+        biggest_opp = (
+            f"Rooftop greening is your clearest immediate opportunity "
+            f"— low cost, visible results, and a gateway to bigger "
+            f"investments once you see what your roof can do."
+        )
+
+    if interest == "Very interested":
+        one_action = (
+            f"Book a free 1:1 consultation with Sus10 this week. "
+            f"You are ready to move — let us match you with the "
+            f"right vendor and create a phased plan for your "
+            f"specific building."
+        )
+    elif ownership == "Renter":
+        one_action = (
+            f"Share this report with your Society secretary or "
+            f"building owner this week. Request permission to set "
+            f"up a small pilot garden in one corner of the terrace."
+        )
+    elif capability_score < 40:
+        one_action = (
+            f"Set up 10 grow bags with spinach or coriander on "
+            f"your terrace this weekend. Total cost: Rs.500–1,000. "
+            f"This one step makes everything else real."
+        )
+    else:
+        one_action = (
+            f"Get three solar quotations with site assessments "
+            f"this week — it costs nothing and gives you the real "
+            f"numbers to make a confident decision."
+        )
+
+    # ── ASSEMBLE MARKDOWN ────────────────────────────────────
+    strengths_md = "\n\n".join([f"**{s[0]}**\n{s[1]}" for s in strengths])
+    recs_md = "\n\n".join([
+        f"**Recommendation {i+1}: {r[0]}**\n{r[1]}\n*{r[2]}*"
+        for i, r in enumerate(recs)
+    ])
+    phase1_md = "\n".join([f"- {item}" for item in phase1_items])
+    phase2_md = "\n".join([f"- {item}" for item in phase2_items])
+    phase3_md = "\n".join([f"- {item}" for item in phase3_items])
+
+    biogas_line = ""
+    if show_biogas and biogas:
+        _bg_sav = int(biogas.get("annual_savings_inr", 0) or 0)
+        _bg_m3  = round(float(biogas.get("biogas_m3_per_day", 0) or 0) * 30, 1)
+        biogas_line = f"\n**Biogas:** Rs.{_bg_sav:,}/year LPG saved · {_bg_m3} m³/month"
+
+    support_text = (
+        f"You have indicated needing: {', '.join(support_needed)}. "
+        f"Sus10 can guide you through each of these — from subsidy "
+        f"navigation to vendor matching and step-by-step "
+        f"implementation support."
+        if support_needed else
+        "Connect with Sus10 for a free 1:1 consultation to identify "
+        "the right support for your specific situation."
+    )
+
+    report = f"""## 1. Respondent Profile
+
+{first_name}, you own a {building_type} in {city}{', ' + state if state else ''} with a {int(terrace_sqft)} sq ft rooftop. Your Sus10 Readiness Score is **{overall_score}/100 — {readiness_tier}**.{awareness_note}
+
+{weakest_link}
+
+## 2. Sus10 Readiness Score: {overall_score}/100
+
+Tier: **{readiness_tier.upper()}**
+
+{tier_msg}
+
+Your three COM-B components:
+
+**Capability ({capability_score}/100):** {cap_msg}
+
+**Opportunity ({opportunity_score}/100):** {opp_msg}
+
+**Motivation ({motivation_score}/100):** {mot_msg}{affordability_note}{water_note}{renter_note}
+
+## 3. Strengths Identified
+
+{strengths_md}
+
+## 4. Gap Analysis
+
+Your lowest scoring dimension is your biggest lever for improvement. Address it first and your overall readiness will compound quickly.
+
+## 5. Personalised Recommendations
+
+{recs_md}
+
+## 6. Potential Savings and Benefits
+
+**Solar PV:** {solar_kwp} kWp installable · Rs.{solar_savings_low:,}–Rs.{solar_savings_high:,}/year · {solar_co2:,} kg CO2/year
+
+**Rainwater Harvesting:** {int(rwh_kl)} kL/year · Rs.{rwh_savings:,}/year{env_note}
+
+**Rooftop Greening:** {plant_count} plants · {int(food_kg)} kg food/year · {plant_co2:,} kg CO2/year · Daily water need: {plant_water_lpd} litres{biogas_line}
+
+## 7. Suggested Sus10 Roadmap
+
+**Phase 1: Foundation (0–3 months)**
+{phase1_md}
+
+**Phase 2: Install (3–12 months)**
+{phase2_md}
+
+**Phase 3: Optimise (1–3 years)**
+{phase3_md}
+
+## 8. Support Needed
+
+{support_text}
+
+## 9. Final Assessment
+
+**Your Readiness Level:** {readiness_tier} ({overall_score}/100)
+
+**Biggest Opportunity:** {biggest_opp}
+
+**One Action This Month:** {one_action}
+
+Every roof has the potential to become a climate solution. Your journey toward a Self-Sustaining Roof starts with one small step."""
+
+    return report
+
+
 @api_router.post("/report/generate")
 async def report_generate(request: Request, background_tasks: BackgroundTasks):
-    """Run deterministic calculations, then call LLM to generate personalised report."""
+    """Run deterministic calculations then generate personalised report via template engine."""
     logger.error("REPORT ENDPOINT HIT — assessment_id incoming")
-
-    # Guard: fail fast with a clear 500 if the Emergent LLM key is missing.
-    _llm_key = os.environ.get("EMERGENT_LLM_KEY")
-    if not _llm_key:
-        logger.error("EMERGENT_LLM_KEY is not set — cannot generate report")
-        raise HTTPException(
-            status_code=500,
-            detail="LLM service not configured on this server. Contact support.",
-        )
 
     try:
         payload = await request.json()
@@ -5383,194 +5940,20 @@ async def report_generate(request: Request, background_tasks: BackgroundTasks):
         }},
     )
 
-    # ── STEP G: Build Claude prompt with real computed numbers ────────────────
-    _solar_trees = round(solar_result["co2_offset_kg_per_year"] / 21)
-    _trees_total = round(total_co2_kg / 21)
-
-    _biogas_block = ""
-    if biogas_result:
-        _biogas_block = (
-            f"\nBIOGAS:\n"
-            f"- Daily organic waste input: {biogas_result['daily_organic_waste_kg']} kg/day\n"
-            f"- Monthly biogas output: {round(biogas_result['biogas_m3_per_day'] * 30, 1)} m³/month\n"
-            f"- Annual LPG savings: Rs.{biogas_result['annual_savings_inr']:,}/year\n"
-            f"- CO2 offset: {biogas_result['co2_offset_kg_per_year']:,} kg/year\n"
-        )
-    else:
-        _biogas_block = "\nBIOGAS: Not applicable — waste volume insufficient for a viable plant.\n"
-
-    _savings_label = "solar + rainwater" + (" + biogas" if biogas_result else "")
-
-    if track == "A":
-        _track_note = (
-            "FRAMING: Track A (independent house / row house). "
-            "Frame all recommendations as personal decisions this homeowner can take themselves."
-        )
-    else:
-        _per_flat_kwp = round(solar_result["installed_capacity_kwp"] / max(num_apartments_int, 1), 2)
-        _track_note = (
-            f"FRAMING: Track B (apartment). Frame solar, biogas, and rainwater as building-level "
-            f"projects requiring Society approval. Where relevant, state the per-flat share: "
-            f"'Your building could install {solar_result['installed_capacity_kwp']} kWp — roughly "
-            f"{_per_flat_kwp} kWp per flat.' "
-            f"For greening, use community garden language: 'your building's shared terrace'."
-        )
-
-    user_prompt = f"""Generate a Sus10 AI Home Sustainability Readiness Report for:
-
-NAME: {ans('first_name')} {ans('last_name')}
-CITY: {ans('city')}, {ans('state')}
-BUILDING TYPE: {ans('Q1')}
-BUILDING AGE: {ans('Q2')}
-OWNERSHIP: {ans('Q3')}
-MONTHLY ELECTRICITY BILL: {ans('Q4b')}
-MONTHLY GAS BILL: {ans('Q4c')}
-
-SCORES:
-- Capacity Score: {scores.get('capacity', 0)}/100
-- Motivation Score: {scores.get('motivation', 0)}/100
-- Interest Score: {scores.get('interest', 0)}/100
-- Barriers Score: {scores.get('barriers', 0)}/100
-- OVERALL READINESS: {scores.get('overall', 0)}/100
-- READINESS TIER: {assessment.get('readiness_tier', '')}
-
-KEY ANSWERS:
-- Technologies aware of: {ans('Q5')}
-- Waste segregation: {ans('Q6')}
-- Believes in green roof health benefits: {ans('Q7')}
-- Believes in environmental impact: {ans('Q8')}
-- Interest level: {ans('Q9')}
-- Vendor access: {ans('Q10')}
-- Top motivators: {ans('Q12')}
-- Water availability: {ans('Q13')}
-- Affordability: {ans('Q14')}
-- Support needed (Q15): {ans('Q15')}
-- Support needed (Q16): {ans('Q16')}
-
-BUILDING DETAILS:
-- Terrace / rooftop area: {int(terrace_area_sqft) if terrace_area_sqft else 'Not provided'} sq ft
-- Solar usable area: {solar_result['area_low_sqft']:,}–{solar_result['area_high_sqft']:,} sq ft (50-60% of terrace)
-- Building type: {ans('Q1')}
-- Floors: {num_floors_int}
-- Households / families: {families_for_biogas}
-
-HOUSEHOLD DETAILS:
-- Household size (people in flat/house): {household_size_int}
-- Number of apartments in building: {num_apartments_int if track == 'B' else 'N/A'}
-- Building track: {'Apartment (Track B)' if track == 'B' else 'Independent / Row House (Track A)'}
-
-CALCULATED SUSTENANCE POTENTIAL
-(Deterministic calculations — use these exact numbers. Do not estimate or recalculate. Your role is to explain what these numbers mean in plain language for this homeowner.)
-
-SOLAR:
-- Panel area: {solar_result['area_low_sqft']:,}–{solar_result['area_high_sqft']:,} sq ft (50-60% of {int(terrace_area_sqft):,} sq ft terrace)
-- Installable capacity: {solar_result['installed_capacity_kwp']} kWp{f" — Note: {solar_result['cap_note']}" if solar_result.get('capped') else ""}
-- Monthly generation: {solar_result['monthly_kwh_low']}–{solar_result['monthly_kwh_high']} units/month (annual avg: {solar_result['monthly_generation_kwh']} units/month)
-- Annual savings: Rs.{solar_result['savings_low_inr']:,}–Rs.{solar_result['savings_high_inr']:,} (avg: Rs.{solar_result['annual_savings_inr']:,})
-- CO2 offset: {solar_result['co2_offset_kg_per_year']:,} kg/year
-- Equivalent to: {_solar_trees} trees planted/year (21 kg CO2/tree/year)
-{_biogas_block}
-RAINWATER HARVESTING:
-- Catchment area: {catchment_area_sqft:,} sq ft
-- Water captured/year: {rainwater_result['annual_yield_kiloliters']} kL ({rainwater_result['annual_yield_liters']:,} litres)
-- Annual savings: Rs.{rainwater_result['annual_savings_inr']:,}
-- Household consumption basis: {families_for_biogas * 150} litres/day
-
-PLANTATION / GREENING:
-- Plantable area: {plantation_area_sqft:,} sq ft
-- Approximate plant count: {plantation_result['total_plants_count']} plants
-- Estimated food yield: {plantation_result['annual_food_yield_kg'] or 0} kg/year
-- CO2 sequestered: {plantation_result['co2_sequestered_kg_per_year']:,} kg/year
-- Water needed: {plantation_result['water_required_lpd']} litres/day
-
-GREENING SECTION INSTRUCTIONS — READ CAREFULLY:
-Do NOT recommend specific plants or suggest a planting plan. The platform does not yet have city-validated species data.
-Write the greening section as follows:
-1. State the approximate number of plants the terrace could support based on the calculated plantable area.
-2. Mention 2-3 generic plant categories as illustrations only (e.g. "food plants such as leafy vegetables, herbs, or dwarf fruit trees"; "wellness plants such as medicinal herbs"). Do NOT name specific varieties.
-3. State the aggregate numbers: {plantation_result['annual_food_yield_kg'] or 0} kg/year food yield, {plantation_result['co2_sequestered_kg_per_year']:,} kg/year CO2 sequestered.
-4. Tell the user: "The right plant selection for your specific terrace depends on your city's climate, sun exposure, shade patterns, and structural loading. We recommend a site assessment or consultation with a qualified horticulturist before finalising your planting plan."
-5. Keep this section to 3-4 sentences only.
-
-TOTAL ANNUAL IMPACT SUMMARY:
-- Total estimated savings: Rs.{total_savings_inr:,}/year ({_savings_label})
-- Total CO2 offset: {total_co2_kg:,} kg/year
-- Equivalent to approximately {_trees_total} trees planted/year
-
-{_track_note}
-
-Generate the report following this structure:
-1. Respondent Profile (with sustainability opportunity interpretation)
-2. Sus10 Readiness Score (tier: Explorer / Getting Ready / Action Ready / Sustainability Champion)
-3. Strengths Identified (3-5 strengths with explanation)
-4. Gap Analysis Matrix (6 dimensions: Motivation, Affordability, Technology Access, Waste Readiness, Water Availability, Community Readiness)
-5. Personalized Recommendations (max 7, based on actual answers, suppress irrelevant solutions)
-6. Potential Savings and Benefits — USE THE EXACT CALCULATED FIGURES ABOVE. Do not invent alternative numbers.
-7. Suggested Sus10 Roadmap (Phase 1: 0-3 months / Phase 2: 3-12 months / Phase 3: 1-3 years)
-8. Support Needed (based on Q15/Q16 answers)
-9. Final Assessment (readiness level + biggest opportunity + biggest barrier + one action this month)
-
-End with: 'Every roof has the potential to become a climate solution. Your journey toward a Self-Sustaining Roof starts with one small step.'"""
-
-    # ── STEP H: Call LLM via Emergent integration ────────────────────────────
-    from emergentintegrations.llm.chat import LlmChat, UserMessage as LlmUserMessage
-
-    report_text: str = ""
-    tokens_used: int = 0
-    try:
-        chat = LlmChat(
-            api_key=_llm_key,
-            session_id=f"sus10-report-{assessment_id}",
-            system_message=CLAUDE_SYSTEM_PROMPT,
-        ).with_model("claude", "claude-sonnet-4-5")
-
-        logger.info("LlmChat created — calling claude-sonnet-4-5 via Emergent")
-        msg = LlmUserMessage(text=user_prompt)
-
-        # chat.send_message() is async, so calling it bare inside a thread
-        # returns a coroutine object — not the result.  Fix: spin up a fresh
-        # event loop *inside* the thread and drive the coroutine to completion
-        # there.  The main event loop is never blocked; wait_for() can still
-        # cancel the executor future at the 20s timeout.
-        def _call_llm_sync():
-            import asyncio as _asyncio
-            _loop = _asyncio.new_event_loop()
-            _asyncio.set_event_loop(_loop)
-            try:
-                return _loop.run_until_complete(chat.send_message(msg))
-            finally:
-                _loop.close()
-
-        try:
-            report_text = await asyncio.wait_for(
-                loop.run_in_executor(None, _call_llm_sync),
-                timeout=20.0,
-            )
-        except asyncio.TimeoutError:
-            logger.error("LLM call timed out after 20s")
-            raise HTTPException(
-                status_code=504,
-                detail="Report generation timed out. Please try again.",
-            )
-        except Exception as e:
-            logger.error(f"LLM call failed: {type(e).__name__} {e}")
-            raise HTTPException(status_code=502, detail=str(e))
-
-        tokens_used = 0  # emergentintegrations does not expose token counts
-        logger.info("LLM call success")
-    except HTTPException:
-        raise  # re-raise 504/502 unchanged
-    except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e)
-        logger.error(
-            f"LLM error — type={error_type}, message={error_msg}",
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=502,
-            detail=f"{error_type}: {error_msg}",
-        )
+    # ── STEP H: Generate report via template engine ──────────────────────────
+    # No LLM call — deterministic, instant, zero cost.
+    # Build a combined doc so the template can access both answers/scores
+    # (from the fetched assessment) and the freshly computed calculator results.
+    assessment_doc = {
+        **assessment,
+        "calculated_solar":      solar_result,
+        "calculated_rainwater":  rainwater_result,
+        "calculated_plantation": plantation_result,
+        "calculated_biogas":     biogas_result,
+    }
+    report_text  = generate_report_from_templates(assessment_doc)
+    tokens_used  = 0
+    logger.info("Template report generated successfully")
 
     # Record rate-limit entry
     await db.rate_limits.insert_one({"ip_hash": ip_hash, "created_at": now_utc})
