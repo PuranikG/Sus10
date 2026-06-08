@@ -680,7 +680,10 @@ export default function CalculatorPage() {
 
       navigate(`/report/${assessmentId}`);
     } catch (err) {
-      setSubmitError(err.detail || err.message || 'Something went wrong. Please try again.');
+      const errorMsg = err.status === 429
+        ? "You've submitted several reports recently. Please wait an hour and try again, or write to gp@sus10.ai"
+        : (err.detail || err.message || 'Something went wrong. Please try again.');
+      setSubmitError(errorMsg);
       setSubmitting(false);
     }
   };

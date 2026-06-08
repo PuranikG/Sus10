@@ -4416,6 +4416,11 @@ async def ensure_critical_flags():
     The map UI is hidden from public users by default (P1 May 19, 2026).
     Backend curation, OSM discovery and polygon edit endpoints remain live for admins.
     """
+    # ONE-TIME: clear rate_limits so testing can resume immediately.
+    # REMOVE THIS BLOCK after the 2026-06-08 deploy.
+    await db.rate_limits.delete_many({})
+    logger.info("Startup: rate_limits collection cleared (one-time cleanup)")
+
     now = datetime.now(timezone.utc).isoformat()
     await db.feature_flags.update_one(
         {"name": "show_user_map"},
@@ -5156,10 +5161,10 @@ async def report_generate(request: Request, background_tasks: BackgroundTasks):
     recent_count = await db.rate_limits.count_documents(
         {"ip_hash": ip_hash, "created_at": {"$gte": one_hour_ago}}
     )
-    if recent_count >= 3:
+    if recent_count >= 10:
         raise HTTPException(
             status_code=429,
-            detail="Too many requests. Please try again in an hour.",
+            detail="You've submitted several reports recently. Please wait an hour and try again, or write to gp@sus10.ai",
         )
 
     # GUARDRAIL 4 — Daily hard cap (100/day IST)
