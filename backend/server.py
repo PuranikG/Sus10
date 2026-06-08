@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query, UploadFile, File, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -5748,6 +5748,127 @@ async def test_email_send():
 # All routes must be registered on api_router BEFORE this call.
 # Moving this line earlier will silently drop all routes defined after it.
 app.include_router(api_router)
+
+# ── Crawler meta-proxy endpoints ─────────────────────────────────────────────
+# The Emergent platform injects its own meta tags into the built index.html and
+# they cannot be overridden via public/index.html.  Social crawlers (WhatsApp,
+# Facebook, Twitter…) read raw HTML *before* JavaScript runs, so they always
+# see Emergent's defaults unless the server intercepts them first.
+#
+# These two @app.get routes sit *outside* api_router so they match bare paths.
+# For real browsers they return 404, which causes the platform's static-file
+# handler to serve the React app as normal.  For crawlers they return a minimal
+# HTML page with correct Sus10 OG/Twitter tags, then a <script> redirect.
+
+_CRAWLERS = [
+    "whatsapp", "facebookexternalhit", "twitterbot",
+    "linkedinbot", "telegrambot", "slackbot", "discordbot",
+]
+
+_OG_BASE_HTML = """<!DOCTYPE html>
+<html>
+<head>
+  <title>Sus10 AI — Imagine a Rooftop That Pays You Back</title>
+  <meta property="og:title"
+        content="Imagine a Rooftop That Pays You Back">
+  <meta property="og:description"
+        content="Lower bills, fresh food, cleaner air and water. Discover your building's integrated 4-pillar rooftop potential. Free personalised report in 60 seconds.">
+  <meta property="og:image"
+        content="https://sus10.ai/hero_rooftop.png">
+  <meta property="og:url" content="https://sus10.ai">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Sus10 AI">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title"
+        content="Imagine a Rooftop That Pays You Back">
+  <meta name="twitter:description"
+        content="Lower bills, fresh food, cleaner air and water. Free rooftop sustainability report in 60 seconds.">
+  <meta name="twitter:image"
+        content="https://sus10.ai/hero_rooftop.png">
+  <meta name="description"
+        content="Lower bills, fresh food, cleaner air and water. Discover your building's integrated 4-pillar rooftop potential. Free personalised report in 60 seconds.">
+</head>
+<body>
+  <script>window.location.href = '/';</script>
+</body>
+</html>"""
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def root_meta(request: Request):
+    """Return Sus10 OG meta tags to social crawlers; 404 for real browsers."""
+    ua = request.headers.get("user-agent", "").lower()
+    if any(bot in ua for bot in _CRAWLERS):
+        return HTMLResponse(content=_OG_BASE_HTML)
+    # Not a crawler — let Emergent's static-file handler serve the React app.
+    raise HTTPException(status_code=404)
+
+
+@app.get("/report/{assessment_id}", response_class=HTMLResponse, include_in_schema=False)
+async def report_meta(request: Request, assessment_id: str):
+    """Return personalised OG meta tags for report pages to social crawlers."""
+    ua = request.headers.get("user-agent", "").lower()
+    if not any(bot in ua for bot in _CRAWLERS):
+        raise HTTPException(status_code=404)
+
+    # Attempt to personalise the preview with stored assessment data.
+    og_title = "Sus10 AI Rooftop Potential Report"
+    og_desc  = ("Discover your rooftop's potential for solar, greening, "
+                "and rainwater harvesting. Free report at sus10.ai")
+    try:
+        assessment = await db.assessments.find_one({"assessment_id": assessment_id})
+        if assessment:
+            answers      = assessment.get("answers", {})
+            first_name   = (answers.get("first_name") or "Your").strip()
+            city_raw     = (answers.get("city") or "").strip()
+            city         = (city_raw[0].upper() + city_raw[1:]) if city_raw else ""
+            score        = assessment.get("scores", {}).get("overall", 0)
+            tier         = assessment.get("readiness_tier", "")
+            solar        = assessment.get("calculated_solar", {})
+            savings_low  = int(solar.get("savings_low_inr",  0) or 0)
+            savings_high = int(solar.get("savings_high_inr", 0) or 0)
+
+            og_title = f"{first_name}'s Sus10 Rooftop Report"
+            if city:
+                og_title += f" — {city}"
+            og_desc_parts = [f"Sustainability score: {score}/100"]
+            if tier:
+                og_desc_parts.append(tier)
+            if savings_high > 0:
+                og_desc_parts.append(
+                    f"Potential savings: Rs.​{savings_low:,}–Rs.​{savings_high:,}/year"
+                )
+            og_desc_parts.append("See the full rooftop potential report.")
+            og_desc = " — ".join(og_desc_parts)
+    except Exception as _meta_exc:
+        logger.warning(f"report_meta DB lookup failed: {_meta_exc}")
+
+    # Escape for safe HTML attribute embedding
+    def _esc(s: str) -> str:
+        return s.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;")
+
+    report_url = f"https://sus10.ai/report/{assessment_id}"
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+  <title>{_esc(og_title)}</title>
+  <meta property="og:title"       content="{_esc(og_title)}">
+  <meta property="og:description" content="{_esc(og_desc)}">
+  <meta property="og:image"       content="https://sus10.ai/hero_rooftop.png">
+  <meta property="og:url"         content="{_esc(report_url)}">
+  <meta property="og:type"        content="website">
+  <meta property="og:site_name"   content="Sus10 AI">
+  <meta name="twitter:card"        content="summary_large_image">
+  <meta name="twitter:title"       content="{_esc(og_title)}">
+  <meta name="twitter:description" content="{_esc(og_desc)}">
+  <meta name="twitter:image"       content="https://sus10.ai/hero_rooftop.png">
+  <meta name="description"         content="{_esc(og_desc)}">
+</head>
+<body>
+  <script>window.location.href = '/report/{assessment_id}';</script>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
 
 
 @app.on_event("shutdown")
