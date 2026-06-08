@@ -572,7 +572,7 @@ export default function CalculatorPage() {
     window.__gmapsCallback = () => setMapsLoaded(true);
     const script = document.createElement('script');
     script.id   = 'gmaps-script';
-    script.src  = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=__gmapsCallback`;
+    script.src  = `https://maps.googleapis.com/maps/api/js?loading=async&key=${apiKey}&libraries=places&callback=__gmapsCallback`;
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);

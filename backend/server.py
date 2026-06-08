@@ -1007,6 +1007,17 @@ async def admin_delete_subsidy(subsidy_id: str, request: Request):
     )
     return {"subsidy_id": subsidy_id, "deleted": True}
 
+
+@api_router.delete("/admin/rate-limits/clear")
+async def clear_rate_limits(request: Request):
+    """Admin-only: flush the rate_limits collection immediately."""
+    user = await get_current_user(request)
+    if not user or not user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    result = await db.rate_limits.delete_many({})
+    return {"deleted": result.deleted_count}
+
+
 @api_router.post("/admin/buildings")
 async def admin_create_building(request: Request, building: BuildingCreate):
     """Admin: Create a new building"""
@@ -4416,11 +4427,6 @@ async def ensure_critical_flags():
     The map UI is hidden from public users by default (P1 May 19, 2026).
     Backend curation, OSM discovery and polygon edit endpoints remain live for admins.
     """
-    # ONE-TIME: clear rate_limits so testing can resume immediately.
-    # REMOVE THIS BLOCK after the 2026-06-08 deploy.
-    await db.rate_limits.delete_many({})
-    logger.info("Startup: rate_limits collection cleared (one-time cleanup)")
-
     now = datetime.now(timezone.utc).isoformat()
     await db.feature_flags.update_one(
         {"name": "show_user_map"},
@@ -4719,7 +4725,7 @@ CALCULATOR_CONFIG_V1 = {
                         {"label": "Environmental concern", "score": 3},
                         {"label": "Saving electricity costs", "score": 2},
                         {"label": "Reducing waste sustainably", "score": 2},
-                        {"label": "Reduce bills / back to home", "score": 2},
+                        {"label": "Reduce monthly household bills", "score": 2},
                         {"label": "Growing organic pesticide-free food", "score": 1},
                         {"label": "Reduce cost of LPG/piped gas", "score": 1},
                         {"label": "Increasing property value", "score": 1},
@@ -5039,6 +5045,7 @@ async def calculator_score(request: Request):
         "conditional_flags": flags,
         "ip_hash": ip_hash,
         "honeypot_triggered": honeypot_triggered,
+        "is_test": answers.get("email", "").lower().strip() in RATE_LIMIT_BYPASS_EMAILS,
         "created_at": now,
         "report_text": None,
         "report_generated_at": None,
@@ -5063,6 +5070,13 @@ async def calculator_score(request: Request):
 BLOCKED_EMAIL_DOMAINS = {
     "mailinator.com", "guerrillamail.com", "tempmail.com",
     "throwaway.email", "yopmail.com",
+}
+
+# Emails that bypass the per-IP rate limit (used for testing / admin demos).
+# Assessments from these addresses are also tagged is_test=True.
+RATE_LIMIT_BYPASS_EMAILS = {
+    "gp@sus10.ai",
+    "vgpuranik@gmail.com",
 }
 
 CLAUDE_SYSTEM_PROMPT = """You are Sus10 AI, an expert in climate-resilient homes, green roofs, rooftop farming, solar energy, rainwater harvesting, composting, and sustainable living in the Indian context.
@@ -5150,22 +5164,24 @@ async def report_generate(request: Request, background_tasks: BackgroundTasks):
     if email_domain in BLOCKED_EMAIL_DOMAINS:
         raise HTTPException(status_code=400, detail="Please use a valid email address.")
 
-    # GUARDRAIL 2 — Rate limit (3/IP/hour)
+    # GUARDRAIL 2 — Rate limit (10/IP/hour), bypassed for allowlist emails
+    submitted_email = email.lower().strip()
     client_ip = request.client.host if request.client else "unknown"
     ip_hash = hashlib.sha256(client_ip.encode()).hexdigest()
     one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
 
-    # Ensure TTL index exists (idempotent)
-    await db.rate_limits.create_index("created_at", expireAfterSeconds=3600, background=True)
+    if submitted_email not in RATE_LIMIT_BYPASS_EMAILS:
+        # Ensure TTL index exists (idempotent)
+        await db.rate_limits.create_index("created_at", expireAfterSeconds=3600, background=True)
 
-    recent_count = await db.rate_limits.count_documents(
-        {"ip_hash": ip_hash, "created_at": {"$gte": one_hour_ago}}
-    )
-    if recent_count >= 10:
-        raise HTTPException(
-            status_code=429,
-            detail="You've submitted several reports recently. Please wait an hour and try again, or write to gp@sus10.ai",
+        recent_count = await db.rate_limits.count_documents(
+            {"ip_hash": ip_hash, "created_at": {"$gte": one_hour_ago}}
         )
+        if recent_count >= 10:
+            raise HTTPException(
+                status_code=429,
+                detail="You've submitted several reports recently. Please wait an hour and try again, or write to gp@sus10.ai",
+            )
 
     # GUARDRAIL 4 — Daily hard cap (100/day IST)
     # IST = UTC+5:30
