@@ -532,12 +532,20 @@ export default function ReportPage() {
           .rp-cta{display:none!important}
           body{background:#0d1710!important;color:#f0f0e8!important}
           .rp-page{break-inside:avoid}
+          .rp-md p{font-size:13px!important;line-height:1.7!important}
+          .rp-md ul,.rp-md ol{font-size:13px!important;line-height:1.7!important}
+          .rp-md li{font-size:13px!important;line-height:1.7!important}
+          .rp-md h2,.rp-md h3{page-break-after:avoid}
+          .rp-md p,.rp-md li{orphans:3;widows:3}
         }
-        .rp-md p{color:rgba(240,240,232,0.7);font-size:14px;line-height:1.75;margin-bottom:.9em}
-        .rp-md h1,.rp-md h2,.rp-md h3{color:#f0f0e8;font-family:'Playfair Display',Georgia,serif;margin-top:1.4em;margin-bottom:.4em}
-        .rp-md ul,.rp-md ol{color:rgba(240,240,232,0.7);font-size:14px;line-height:1.75;padding-left:1.4em;margin-bottom:.9em}
-        .rp-md li{margin-bottom:.25em}
-        .rp-md strong{color:#f0f0e8}
+        .rp-md p{color:rgba(240,240,232,0.7);font-size:15px;line-height:1.8;margin-bottom:16px}
+        .rp-md h2{color:#f0f0e8;font-size:18px;font-weight:600;margin-top:28px;margin-bottom:12px}
+        .rp-md h3{color:#4ade80;font-size:15px;font-weight:500;margin-top:20px;margin-bottom:8px}
+        .rp-md h1{color:#f0f0e8;font-size:20px;font-weight:600;margin-top:28px;margin-bottom:12px}
+        .rp-md ul,.rp-md ol{color:rgba(240,240,232,0.7);font-size:15px;line-height:1.7;padding-left:1.4em;margin-bottom:16px}
+        .rp-md li{margin-bottom:6px;font-size:15px;line-height:1.7}
+        .rp-md strong{color:#f0f0e8;font-weight:600}
+        .rp-md em{color:rgba(240,240,232,0.7)}
         .rp-md hr{border:none;border-top:1px solid rgba(255,255,255,0.07);margin:1.2em 0}
         .rp-md blockquote{border-left:3px solid #4ade80;padding-left:12px;color:rgba(240,240,232,0.5);margin:1em 0;font-style:italic}
       `}</style>
@@ -637,27 +645,6 @@ export default function ReportPage() {
 
       {/* ── B5. SHARE BAR ────────────────────────────────────────────────────── */}
       <ShareBar firstName={firstName} totalSavings={totalSavings} trees={trees} />
-
-      {/* ── 4. SCORE STRIP ───────────────────────────────────────────────────── */}
-      <div className="rp-grid-4 rp-page" style={{ margin: '16px 24px 0' }}>
-        {[
-          { label: 'CAPACITY',   score: scores.capacity   != null ? scores.capacity   : 0, inv: false },
-          { label: 'MOTIVATION', score: scores.motivation != null ? scores.motivation : 0, inv: false },
-          { label: 'INTEREST',   score: scores.interest   != null ? scores.interest   : 0, inv: false },
-          { label: 'BARRIERS',   score: scores.barriers   != null ? scores.barriers   : 0, inv: true  },
-        ].map(({ label, score, inv }) => {
-          const c = scoreColor(score, inv);
-          return (
-            <div key={label} style={{ background: CARD, borderRadius: 8, padding: '10px 8px', textAlign: 'center', border: '0.5px solid ' + BORDER }}>
-              <div style={{ fontSize: 10, color: DIM, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{label}</div>
-              <div style={{ fontSize: 22, fontWeight: 500, color: c, margin: '4px 0 2px', lineHeight: 1 }}>{score}</div>
-              <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, marginTop: 6 }}>
-                <div style={{ height: 3, width: score + '%', background: c, borderRadius: 2 }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
 
       {/* ── 5. PILLAR CARDS ──────────────────────────────────────────────────── */}
       {/* Greening first — lowest barrier, emotional hook. Then Rainwater, Solar, Biogas last. */}
