@@ -5506,11 +5506,19 @@ End with: 'Every roof has the potential to become a climate solution. Your journ
         logger.info("LlmChat created — calling claude-sonnet-4-5 via Emergent")
         msg = LlmUserMessage(text=user_prompt)
 
-        # chat.send_message() uses synchronous HTTP internally — asyncio.wait_for()
-        # cannot cancel a blocking call. Running it in a thread pool means the
-        # event loop stays free and wait_for() CAN actually interrupt it.
+        # chat.send_message() is async, so calling it bare inside a thread
+        # returns a coroutine object — not the result.  Fix: spin up a fresh
+        # event loop *inside* the thread and drive the coroutine to completion
+        # there.  The main event loop is never blocked; wait_for() can still
+        # cancel the executor future at the 20s timeout.
         def _call_llm_sync():
-            return chat.send_message(msg)
+            import asyncio as _asyncio
+            _loop = _asyncio.new_event_loop()
+            _asyncio.set_event_loop(_loop)
+            try:
+                return _loop.run_until_complete(chat.send_message(msg))
+            finally:
+                _loop.close()
 
         try:
             report_text = await asyncio.wait_for(
