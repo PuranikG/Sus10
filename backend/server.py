@@ -5240,17 +5240,25 @@ async def report_generate(request: Request, background_tasks: BackgroundTasks):
     usable_area_sqm = solar_usable_sqm   # used only for solar calc below
     usable_area_sqft = round(solar_usable_sqm * 10.764)
 
-    # ── STEP E: Call calculator functions ────────────────────────────────────
-    solar_result = calculate_solar_potential(usable_area_sqm=solar_usable_sqm, city=city)
-    rainwater_result = calculate_rainwater_potential(catchment_area_sqm=area_sqm, city=city)
-    biogas_result = calculate_biogas_potential(
-        building_footprint_sqm=area_sqm,
-        building_type=building_type,
-        floors=num_floors_int,
-        families=families_for_biogas,
-        waste_kg_per_family_per_day=0.5,
-    )
-    plantation_result = calculate_plantation_potential(usable_area_sqm=plantation_usable_sqm)
+    # ── STEP E: Call calculator functions (thread pool) ──────────────────────
+    # Calculator functions are pure-Python sync. Running them via
+    # run_in_executor frees the event loop so other requests are not blocked.
+    def _run_calculations():
+        solar = calculate_solar_potential(usable_area_sqm=solar_usable_sqm, city=city)
+        rainwater = calculate_rainwater_potential(catchment_area_sqm=area_sqm, city=city)
+        biogas = calculate_biogas_potential(
+            building_footprint_sqm=area_sqm,
+            building_type=building_type,
+            floors=num_floors_int,
+            families=families_for_biogas,
+            waste_kg_per_family_per_day=0.5,
+        )
+        plantation = calculate_plantation_potential(usable_area_sqm=plantation_usable_sqm)
+        return solar, rainwater, biogas, plantation
+
+    loop = asyncio.get_event_loop()
+    solar_result, rainwater_result, biogas_result, plantation_result = \
+        await loop.run_in_executor(None, _run_calculations)
 
     # ── Solar kWp cap by building type ────────────────────────────────────────
     # PENDING-010: Migrate PlacesAddressField from deprecated
@@ -5497,22 +5505,32 @@ End with: 'Every roof has the potential to become a climate solution. Your journ
 
         logger.info("LlmChat created — calling claude-sonnet-4-5 via Emergent")
         msg = LlmUserMessage(text=user_prompt)
-        # 25-second hard timeout — prevents 520 Cloudflare errors on slow LLM calls
+
+        # chat.send_message() uses synchronous HTTP internally — asyncio.wait_for()
+        # cannot cancel a blocking call. Running it in a thread pool means the
+        # event loop stays free and wait_for() CAN actually interrupt it.
+        def _call_llm_sync():
+            return chat.send_message(msg)
+
         try:
             report_text = await asyncio.wait_for(
-                chat.send_message(msg),
-                timeout=25.0,
+                loop.run_in_executor(None, _call_llm_sync),
+                timeout=20.0,
             )
         except asyncio.TimeoutError:
-            logger.error("LLM call timed out after 25 seconds")
+            logger.error("LLM call timed out after 20s")
             raise HTTPException(
                 status_code=504,
                 detail="Report generation timed out. Please try again.",
             )
+        except Exception as e:
+            logger.error(f"LLM call failed: {type(e).__name__} {e}")
+            raise HTTPException(status_code=502, detail=str(e))
+
         tokens_used = 0  # emergentintegrations does not expose token counts
         logger.info("LLM call success")
     except HTTPException:
-        raise  # re-raise 504 timeout unchanged
+        raise  # re-raise 504/502 unchanged
     except Exception as e:
         error_type = type(e).__name__
         error_msg = str(e)
