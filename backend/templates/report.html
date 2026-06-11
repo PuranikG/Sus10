@@ -4,18 +4,26 @@
   <meta charset="UTF-8" />
   <title>{{ building.name or building.address }} — Sustenance Report</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@700;900&display=swap');
+
     @page {
       size: A4;
       margin: 18mm 16mm 22mm 16mm;
       @bottom-left {
         content: "Sus10 AI · Sustenance Feasibility Report";
-        font-family: 'Helvetica', sans-serif;
+        font-family: 'DM Sans', 'Helvetica', sans-serif;
+        font-size: 8pt;
+        color: #6b7280;
+      }
+      @bottom-center {
+        content: "sus10.ai";
+        font-family: 'DM Sans', 'Helvetica', sans-serif;
         font-size: 8pt;
         color: #6b7280;
       }
       @bottom-right {
         content: "Page " counter(page) " of " counter(pages);
-        font-family: 'Helvetica', sans-serif;
+        font-family: 'DM Sans', 'Helvetica', sans-serif;
         font-size: 8pt;
         color: #6b7280;
       }
@@ -23,7 +31,7 @@
     @page :first { margin: 0; }
 
     * { box-sizing: border-box; }
-    body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1f2937; font-size: 10pt; line-height: 1.55; margin: 0; }
+    body { font-family: 'DM Sans', 'Helvetica', 'Arial', sans-serif; color: #1f2937; font-size: 10pt; line-height: 1.6; margin: 0; -webkit-font-smoothing: antialiased; }
 
     /* === COVER === */
     .cover {
@@ -34,7 +42,7 @@
       color: #fff;
       position: relative;
     }
-    .cover .logo { font-size: 14pt; font-weight: 700; letter-spacing: 0.5px; opacity: 0.9; }
+    .cover .logo { font-family: 'Playfair Display', Georgia, serif; font-size: 14pt; font-weight: 700; letter-spacing: 0.5px; opacity: 0.9; }
     .cover .persona-pill {
       display: inline-block; margin-top: 14mm;
       padding: 4pt 10pt; border-radius: 999px;
@@ -50,8 +58,8 @@
     .cover .meta .v { font-size: 11pt; font-weight: 600; }
 
     /* === CONTENT === */
-    h2 { color: {{ accent }}; font-size: 16pt; margin: 12mm 0 4mm; padding-bottom: 2mm; border-bottom: 2px solid {{ accent }}; }
-    h3 { color: #111827; font-size: 12pt; margin: 6mm 0 2mm; }
+    h2 { font-family: 'Playfair Display', Georgia, serif; color: {{ accent }}; font-size: 16pt; font-weight: 700; margin: 12mm 0 4mm; padding-bottom: 2mm; border-bottom: 2px solid {{ accent }}; }
+    h3 { font-family: 'DM Sans', 'Helvetica', sans-serif; color: #111827; font-size: 12pt; font-weight: 600; margin: 6mm 0 2mm; }
     p { margin: 0 0 3mm; }
 
     .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; margin: 4mm 0 6mm; }

@@ -3823,7 +3823,8 @@ async def admin_list_beta_waitlist(
 @api_router.get("/admin/leads")
 async def admin_list_assessment_leads(
     request: Request,
-    limit: int = Query(default=1000, le=5000),
+    limit: int = Query(default=50, le=5000),
+    page: int = Query(default=1, ge=1),
     tier: Optional[str] = None,
     city: Optional[str] = None,
     building_type: Optional[str] = None,
@@ -3831,7 +3832,8 @@ async def admin_list_assessment_leads(
     date_to: Optional[str] = None,
 ):
     """Return calculator assessment submissions for the admin Leads table.
-    Supports optional filters: tier, city, building_type, date_from, date_to."""
+    Supports optional filters: tier, city, building_type, date_from, date_to.
+    Paginated: page + limit params. Returns full answers + COM-B dimension scores."""
     await require_admin(request)
 
     query: Dict[str, Any] = {}
@@ -3857,13 +3859,18 @@ async def admin_list_assessment_leads(
             query["created_at"] = dt_filter
 
     total = await db.assessments.count_documents(query)
+    skip  = (page - 1) * limit
 
-    # Counts for summary strip
+    # Counts for summary strip (always global — not filtered)
     now_utc = datetime.now(timezone.utc)
     today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
     week_start  = today_start - timedelta(days=today_start.weekday())
-    today_count = await db.assessments.count_documents({"created_at": {"$gte": today_start}})
-    week_count  = await db.assessments.count_documents({"created_at": {"$gte": week_start}})
+    today_count    = await db.assessments.count_documents({"created_at": {"$gte": today_start}})
+    week_count     = await db.assessments.count_documents({"created_at": {"$gte": week_start}})
+    explorer_count = await db.assessments.count_documents({"readiness_tier": "Explorer"})
+    action_ready_count = await db.assessments.count_documents(
+        {"readiness_tier": {"$in": ["Action Ready", "Sustainability Champion"]}}
+    )
 
     docs = await (
         db.assessments.find(
@@ -3872,6 +3879,7 @@ async def admin_list_assessment_leads(
              "readiness_tier": 1, "created_at": 1, "email_sent": 1},
         )
         .sort("created_at", -1)
+        .skip(skip)
         .limit(limit)
         .to_list(limit)
     )
@@ -3905,9 +3913,24 @@ async def admin_list_assessment_leads(
             "overall_score": scores.get("overall"),
             "readiness_tier": doc.get("readiness_tier") or "",
             "email_sent":    bool(doc.get("email_sent")),
+            # Full answers for admin detail view
+            "answers_raw":        {k: v for k, v in answers.items() if k not in ("first_name", "last_name", "email", "phone", "city", "state")},
+            # COM-B dimension scores
+            "scores_capacity":    scores.get("capacity"),
+            "scores_motivation":  scores.get("motivation"),
+            "scores_interest":    scores.get("interest"),
+            "scores_barriers":    scores.get("barriers"),
         })
-    return {"leads": rows, "total": total,
-            "today": today_count, "this_week": week_count}
+    return {
+        "leads": rows,
+        "total": total,
+        "today": today_count,
+        "this_week": week_count,
+        "explorer_count": explorer_count,
+        "action_ready_count": action_ready_count,
+        "page": page,
+        "limit": limit,
+    }
 
 
 @api_router.post("/webhooks/zoho-survey")
@@ -4717,6 +4740,7 @@ CALCULATOR_CONFIG_V1 = {
                 {
                     "id": "Q12",
                     "type": "multi_select",
+                    # PENDING-018 verified ✓ — Q12 option "Reduce monthly household bills" present with score 2
                     "label": "What are your top motivators? (Pick up to 3)",
                     "dimension": "Motivation",
                     "scored": True,

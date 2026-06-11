@@ -234,6 +234,26 @@
 .stagger-children > *:nth-child(5) { animation-delay: 0.5s; }
 .stagger-children > *:nth-child(6) { animation-delay: 0.6s; }
 
+/* ── Report on-screen typography helpers (T1) ───────────────────────────── */
+.report-body-text {
+  color: #D1D5DB;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.report-label {
+  color: #9CA3AF;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Light mode overrides */
+html:not(.dark) .report-body-text { color: #1F2937; }
+html:not(.dark) .report-label     { color: #6B7280; }
+
 /* Debug wrapper fix */
 [data-debug-wrapper="true"] {
   display: contents !important;

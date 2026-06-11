@@ -538,6 +538,7 @@ export default function ReportPage() {
           .rp-md h2,.rp-md h3{page-break-after:avoid}
           .rp-md p,.rp-md li{orphans:3;widows:3}
         }
+        .rp-md{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
         .rp-md p{color:rgba(240,240,232,0.7);font-size:15px;line-height:1.8;margin-bottom:16px}
         .rp-md h2{color:#f0f0e8;font-size:18px;font-weight:600;margin-top:28px;margin-bottom:12px}
         .rp-md h3{color:#4ade80;font-size:15px;font-weight:500;margin-top:20px;margin-bottom:8px}
