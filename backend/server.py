@@ -2875,7 +2875,84 @@ async def get_building_report_pdf(
     return FastAPIResponse(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"inline; filename=\"{filename}\""},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@api_router.get("/assessments/{assessment_id}/report.pdf")
+async def get_assessment_report_pdf(
+    assessment_id: str,
+    persona: str = Query(default="citizen_owner"),
+):
+    """PDF report for a homeowner calculator assessment (S2-T1).
+    Uses pre-computed calculator results stored during /report/generate."""
+    doc = await db.assessments.find_one({"assessment_id": assessment_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    answers      = doc.get("answers") or {}
+    terrace_sqft = float(answers.get("terrace_area_sqft") or 0)
+    area_sqm     = round(terrace_sqft * 0.0929, 2)
+    city_raw     = (answers.get("city") or "").strip()
+    city_display = (city_raw[0].upper() + city_raw[1:]) if city_raw else "Your City"
+
+    building = {
+        "name": " ".join(filter(None, [answers.get("first_name"), answers.get("last_name")])).strip() or city_display,
+        "address": answers.get("display_address") or "",
+        "city": city_display,
+        "building_type": answers.get("Q1") or "Residential",
+        "usable_terrace_area": area_sqm,
+        "building_footprint_area": area_sqm,
+    }
+
+    solar      = doc.get("calculated_solar")      or {}
+    rainwater  = doc.get("calculated_rainwater")  or {}
+    plantation = doc.get("calculated_plantation") or {}
+    biogas     = doc.get("calculated_biogas")     or {}
+
+    # Re-compute if pre-computed results are missing (older assessments)
+    if not solar and area_sqm > 0:
+        city_key   = city_raw.lower() or "default"
+        solar      = await asyncio.to_thread(calculate_solar_potential,      usable_area_sqm=area_sqm * 0.55, city=city_key)
+        rainwater  = await asyncio.to_thread(calculate_rainwater_potential,  catchment_area_sqm=area_sqm, city=city_key)
+        plantation = await asyncio.to_thread(calculate_plantation_potential, usable_area_sqm=area_sqm * 0.70)
+        biogas     = await asyncio.to_thread(calculate_biogas_potential,
+                                             building_footprint_sqm=area_sqm,
+                                             building_type="residential", floors=2, families=4)
+
+    sustenance = {
+        "pillars": {"solar": solar, "plantation": plantation, "biogas": biogas, "rainwater": rainwater},
+        "summary": {
+            "total_annual_savings_inr": (
+                solar.get("annual_savings_inr", 0)
+                + rainwater.get("annual_savings_inr", 0)
+                + (biogas.get("annual_savings_inr", 0) if biogas else 0)
+            ),
+            "total_co2_offset_tonnes_per_year": round(
+                (
+                    solar.get("co2_offset_kg_per_year", 0)
+                    + plantation.get("co2_sequestered_kg_per_year", 0)
+                    + (biogas.get("co2_offset_kg_per_year", 0) if biogas else 0)
+                ) / 1000, 2,
+            ),
+            "solar_kwh_per_year":      solar.get("annual_generation_kwh", 0),
+            "rainwater_kl_per_year":   rainwater.get("annual_yield_kiloliters", 0),
+        },
+    }
+
+    persona_key = persona if persona in PDF_PERSONAS else "citizen_owner"
+    p_meta      = PDF_PERSONAS[persona_key]
+    ctx         = build_report_context(
+        building=building, sustenance=sustenance,
+        persona=persona_key, sections=set(p_meta["default_sections"]),
+    )
+
+    pdf_bytes = await asyncio.to_thread(render_report_pdf, ctx)
+    filename  = f"Sus10_Report_{assessment_id}.pdf"
+    return FastAPIResponse(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -3906,8 +3983,8 @@ async def admin_list_assessment_leads(
             "email":         answers.get("email")      or "",
             "phone":         raw_phone,
             "wa_number":     wa_number,
-            "city":          answers.get("city")       or "",
-            "state":         answers.get("state")      or "",
+            "city":          answers.get("city") or (answers.get("address_data") or {}).get("city") or "",
+            "state":         answers.get("state") or (answers.get("address_data") or {}).get("state") or "",
             "building_type": answers.get("Q1")         or "",
             "terrace_sqft":  answers.get("terrace_area_sqft") or "",
             "overall_score": scores.get("overall"),
@@ -3930,6 +4007,70 @@ async def admin_list_assessment_leads(
         "action_ready_count": action_ready_count,
         "page": page,
         "limit": limit,
+    }
+
+
+@api_router.post("/session/event")
+async def record_session_event(request: Request):
+    """Record a calculator funnel event (session_start / session_complete / session_abandon).
+    Fire-and-forget — always returns {ok: true}, never blocks the caller."""
+    try:
+        body = await request.json()
+    except Exception:
+        return {"ok": True}
+    now = datetime.now(timezone.utc)
+    try:
+        await db.session_events.insert_one({
+            "event":        str(body.get("event") or "")[:50],
+            "assessment_id": body.get("assessment_id"),
+            "page":         body.get("page"),
+            "user_agent":   (body.get("user_agent") or "")[:200],
+            "referrer":     body.get("referrer"),
+            "utm_source":   body.get("utm_source"),
+            "utm_medium":   body.get("utm_medium"),
+            "utm_campaign": body.get("utm_campaign"),
+            "created_at":   now,
+        })
+    except Exception as _e:
+        logger.warning(f"session_event insert failed: {_e}")
+    return {"ok": True}
+
+
+@api_router.get("/admin/session-stats")
+async def admin_session_stats(request: Request, days: int = Query(default=7)):
+    """Funnel statistics for the calculator flow over the last N days."""
+    await require_admin(request)
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    pipeline = [
+        {"$match": {"created_at": {"$gte": since}}},
+        {"$group": {"_id": "$event", "count": {"$sum": 1}}},
+    ]
+    event_counts: Dict[str, int] = {}
+    async for r in db.session_events.aggregate(pipeline):
+        event_counts[r["_id"]] = r["count"]
+
+    starts    = event_counts.get("session_start", 0)
+    completes = event_counts.get("session_complete", 0)
+    abandons  = event_counts.get("session_abandon", 0)
+
+    pipeline_abandon = [
+        {"$match": {"created_at": {"$gte": since}, "event": "session_abandon"}},
+        {"$group": {"_id": "$page", "count": {"$sum": 1}}},
+        {"$sort": {"_id": 1}},
+    ]
+    abandon_by_page = [
+        {"page": r["_id"], "count": r["count"]}
+        async for r in db.session_events.aggregate(pipeline_abandon)
+    ]
+
+    return {
+        "days":             days,
+        "starts":           starts,
+        "completes":        completes,
+        "abandons":         abandons,
+        "completion_rate":  round(completes / starts * 100, 1) if starts > 0 else 0,
+        "abandon_rate":     round(abandons  / starts * 100, 1) if starts > 0 else 0,
+        "abandon_by_page":  abandon_by_page,
     }
 
 
@@ -6032,6 +6173,12 @@ async def report_generate(request: Request, background_tasks: BackgroundTasks):
 
         # Admin notification
         try:
+            # Robust city: direct field first, then nested address_data (older submissions)
+            _city = (answers.get("city") or "").strip()
+            if not _city:
+                _addr_data = answers.get("address_data") or {}
+                if isinstance(_addr_data, dict):
+                    _city = (_addr_data.get("city") or "").strip()
             await asyncio.to_thread(
                 send_admin_notification,
                 first_name=answers.get("first_name"),
@@ -6039,7 +6186,7 @@ async def report_generate(request: Request, background_tasks: BackgroundTasks):
                 email=answers.get("email"),
                 phone=_phone_raw,
                 phone_digits=_phone_digits,
-                city=answers.get("city"),
+                city=_city or "—",
                 overall_score=_overall_score,
                 readiness_tier=_readiness_tier,
                 assessment_id=str(assessment_id),

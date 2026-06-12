@@ -3,6 +3,28 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, ChevronRight, ChevronLeft, Leaf } from 'lucide-react';
 import { apiRequest } from '../lib/utils';
 
+// ─── Session event helpers (fire-and-forget, never block the UI) ─────────────
+
+function _getUtmParams() {
+  const sp = new URLSearchParams(window.location.search);
+  return {
+    utm_source:   sp.get('utm_source'),
+    utm_medium:   sp.get('utm_medium'),
+    utm_campaign: sp.get('utm_campaign'),
+  };
+}
+
+function fireSessionEvent(payload) {
+  try {
+    fetch('/api/session/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (_) {}
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function isValidEmail(v) {
@@ -199,7 +221,7 @@ function _extractStructured(comps, display, lat, lng, placeId, isNew) {
   };
   return {
     display_address: display,
-    city:    getComp('locality') || getComp('administrative_area_level_2'),
+    city:    getComp('locality') || getComp('postal_town') || getComp('administrative_area_level_3') || getComp('administrative_area_level_2'),
     state:   getComp('administrative_area_level_1'),
     pincode: getComp('postal_code'),
     lat, lng,
@@ -551,6 +573,27 @@ export default function CalculatorPage() {
   const [mapsLoaded, setMapsLoaded]     = useState(false);
   const [dialCode, setDialCode]         = useState('+91');
 
+  // Session tracking: start event on mount + abandon on unload
+  const currentPageRef = useRef(0);
+  useEffect(() => {
+    fireSessionEvent({
+      event: 'session_start',
+      page: 1,
+      user_agent: navigator.userAgent,
+      referrer: document.referrer || null,
+      ..._getUtmParams(),
+    });
+    const handleUnload = () => {
+      const payload = JSON.stringify({ event: 'session_abandon', page: currentPageRef.current + 1 });
+      try { navigator.sendBeacon('/api/session/event', payload); } catch (_) {}
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep page ref in sync so beforeunload sends the correct page number
+  useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
+
   // Load config
   useEffect(() => {
     apiRequest('/calculator/config')
@@ -678,6 +721,7 @@ export default function CalculatorPage() {
         body: JSON.stringify({ assessment_id: assessmentId, email: mergedAnswers.email || '', website: honeypot }),
       });
 
+      fireSessionEvent({ event: 'session_complete', assessment_id: assessmentId });
       navigate(`/report/${assessmentId}`);
     } catch (err) {
       const errorMsg = err.status === 429

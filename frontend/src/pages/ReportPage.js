@@ -414,6 +414,32 @@ export default function ReportPage() {
   const [assessment, setAssessment] = useState(null);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState(null);
+  const [pdfState, setPdfState]     = useState('idle'); // idle | loading | error
+
+  const handleDownloadPDF = async () => {
+    setPdfState('loading');
+    try {
+      const response = await fetch(
+        `/api/assessments/${assessmentId}/report.pdf?persona=citizen_owner`,
+        { method: 'GET', headers: { 'Accept': 'application/pdf' } }
+      );
+      if (!response.ok) throw new Error('PDF generation failed');
+      const blob = await response.blob();
+      const url  = window.URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `Sus10_Report_${assessmentId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setPdfState('idle');
+    } catch (err) {
+      console.error('PDF download failed:', err);
+      setPdfState('error');
+      setTimeout(() => setPdfState('idle'), 3000);
+    }
+  };
 
   useEffect(() => {
     if (!assessmentId) return;
@@ -565,14 +591,19 @@ export default function ReportPage() {
           </span>
         </div>
         <button
-          onClick={() => window.print()}
+          onClick={handleDownloadPDF}
+          disabled={pdfState === 'loading'}
           style={{
-            background: 'transparent', border: '1px solid ' + GREEN, color: GREEN,
-            fontSize: 12, padding: '6px 14px', borderRadius: 16, cursor: 'pointer',
+            background: 'transparent',
+            border: '1px solid ' + (pdfState === 'error' ? '#f87171' : GREEN),
+            color: pdfState === 'error' ? '#f87171' : GREEN,
+            fontSize: 12, padding: '6px 14px', borderRadius: 16,
+            cursor: pdfState === 'loading' ? 'not-allowed' : 'pointer',
+            opacity: pdfState === 'loading' ? 0.6 : 1,
             fontFamily: 'inherit',
           }}
         >
-          ↓ Download PDF
+          {pdfState === 'loading' ? 'Generating PDF…' : pdfState === 'error' ? 'Download failed — try again' : '↓ Download Report'}
         </button>
       </div>
 

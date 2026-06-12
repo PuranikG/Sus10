@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Mail, Inbox, Layers, Megaphone, Telescope, Users, FileText, Sparkles, Loader2, TrendingUp } from 'lucide-react';
+import { Building2, Mail, Inbox, Megaphone, Telescope, FileText, Sparkles, Loader2, TrendingUp, Activity } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { apiRequest } from '../lib/utils';
@@ -35,12 +35,14 @@ export default function AdminOverviewPage() {
   const [seedingPersonas, setSeedingPersonas] = useState(false);
   const [seedingSubsidies, setSeedingSubsidies] = useState(false);
   const [pdfStats, setPdfStats] = useState(null);
+  const [sessionStats, setSessionStats] = useState(null);
 
   useEffect(() => {
     apiRequest('/admin/buildings?limit=1').then(r => setCounts(r?.counts || {})).catch(() => {});
     apiRequest('/admin/beta-waitlist?limit=1').then(r => setWaitlist(r || { total: 0, by_persona: {} })).catch(() => {});
     apiRequest('/admin/zoho-survey-responses?limit=1').then(r => setSurveysTotal(r?.total || 0)).catch(() => {});
     apiRequest('/admin/pdf-funnel-stats?days=30').then(r => setPdfStats(r)).catch(() => {});
+    apiRequest('/admin/session-stats?days=7').then(r => setSessionStats(r)).catch(() => {});
   }, []);
 
   const handleSeedPersonas = async () => {
@@ -186,6 +188,48 @@ export default function AdminOverviewPage() {
                 )}
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Calculator funnel sessions — last 7 days */}
+      {sessionStats !== null && (
+        <Card className="mb-8">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Activity className="h-4 w-4 text-primary" />
+              <div className="text-sm font-medium">Calculator sessions · last {sessionStats.days} days</div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="rounded-lg border p-3 bg-muted/30">
+                <div className="text-2xl font-bold">{sessionStats.starts}</div>
+                <div className="text-xs text-muted-foreground">Sessions started</div>
+              </div>
+              <div className="rounded-lg border p-3 bg-muted/30">
+                <div className="text-2xl font-bold text-emerald-500">{sessionStats.completes}</div>
+                <div className="text-xs text-muted-foreground">Completed</div>
+              </div>
+              <div className="rounded-lg border p-3 bg-muted/30">
+                <div className="text-2xl font-bold text-emerald-400">{sessionStats.completion_rate}%</div>
+                <div className="text-xs text-muted-foreground">Completion rate</div>
+              </div>
+              <div className="rounded-lg border p-3 bg-muted/30">
+                <div className="text-2xl font-bold text-amber-400">{sessionStats.abandon_rate}%</div>
+                <div className="text-xs text-muted-foreground">Abandon rate</div>
+              </div>
+            </div>
+            {sessionStats.abandon_by_page?.length > 0 && (
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Drop-off by page</div>
+                <div className="flex flex-wrap gap-2">
+                  {sessionStats.abandon_by_page.map(({ page, count }) => (
+                    <span key={page} className="text-xs rounded bg-muted px-2 py-1">
+                      Page {page ?? '?'}: <span className="font-semibold">{count}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
