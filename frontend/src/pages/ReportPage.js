@@ -484,28 +484,14 @@ export default function ReportPage() {
       <div className="rp-nav" style={{
         position: 'sticky', top: 0, zIndex: 100,
         background: NAV_BG, height: 44, padding: '0 20px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        display: 'flex', alignItems: 'center',
         borderBottom: '0.5px solid ' + BORDER,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <Leaf style={{ color: GREEN, width: 17, height: 17 }} />
           <span style={{ fontSize: 14, fontFamily: "'Playfair Display', serif", fontWeight: 700, color: TEXT }}>Sus10 AI</span>
         </div>
-        <button
-          onClick={handleDownloadPDF}
-          disabled={pdfState === 'loading'}
-          style={{
-            background: 'transparent',
-            border: '1px solid ' + (pdfState === 'error' ? RED : GREEN),
-            color: pdfState === 'error' ? RED : GREEN,
-            fontSize: 12, padding: '6px 14px', borderRadius: 16,
-            cursor: pdfState === 'loading' ? 'not-allowed' : 'pointer',
-            opacity: pdfState === 'loading' ? 0.6 : 1,
-            fontFamily: 'inherit',
-          }}
-        >
-          {pdfState === 'loading' ? 'Generating PDF…' : pdfState === 'error' ? 'Download failed — try again' : '↓ Download Report'}
-        </button>
+        {/* PDF_HIDDEN — monetisation pending; handleDownloadPDF stays in file for re-enable */}
       </div>
 
       {/* ── B: HERO ─────────────────────────────────────────────────────────── */}
