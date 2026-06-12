@@ -6211,10 +6211,36 @@ async def get_report(assessment_id: str):
     doc = await db.assessments.find_one({"assessment_id": assessment_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Report not found")
-    # Convert datetime objects to ISO strings for JSON serialisation
-    for k, v in doc.items():
+    for k, v in list(doc.items()):
         if isinstance(v, datetime):
             doc[k] = v.isoformat()
+    # Build sustenance_potential summary from already-stored calculator fields
+    _solar = doc.get("calculated_solar") or {}
+    _rain  = doc.get("calculated_rainwater") or {}
+    _plant = doc.get("calculated_plantation") or {}
+    _bg    = doc.get("calculated_biogas")
+    _lpg   = (_bg or {}).get("lpg_equivalent_kg_per_year")
+    doc["sustenance_potential"] = {
+        "solar": {
+            "kwh_per_year":           _solar.get("annual_generation_kwh"),
+            "annual_savings_inr":     _solar.get("annual_savings_inr"),
+            "co2_offset_kg_per_year": _solar.get("co2_offset_kg_per_year"),
+        },
+        "plantation": {
+            "plant_count":                   _plant.get("total_plants_count"),
+            "food_yield_kg_per_year":        _plant.get("annual_food_yield_kg"),
+            "co2_sequestration_kg_per_year": _plant.get("co2_sequestered_kg_per_year"),
+        },
+        "rainwater": {
+            "kl_per_year":        _rain.get("annual_yield_kiloliters"),
+            "annual_savings_inr": _rain.get("annual_savings_inr"),
+        },
+        "biogas": {
+            "m3_per_year":            _bg.get("biogas_m3_per_year"),
+            "lpg_cylinders_per_year": round(_lpg / 14.2, 1) if _lpg else None,
+            "annual_savings_inr":     _bg.get("annual_savings_inr"),
+        } if _bg else None,
+    }
     return doc
 
 
