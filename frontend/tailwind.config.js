@@ -5,12 +5,29 @@ module.exports = {
     "./src/**/*.{js,jsx,ts,tsx}",
     "./public/index.html",
   ],
+  safelist: [
+    'bg-[#080d0a]', 'bg-[#0c1a10]', 'bg-[#0c140f]',
+    'bg-[#0c0800]', 'bg-[#1a0f00]', 'bg-[#0d0a00]',
+    'border-emerald-950/40', 'border-emerald-950/50',
+    'border-emerald-950/60', 'border-emerald-950/80',
+    'border-amber-950/50', 'border-amber-950/60',
+    'border-amber-950/30', 'bg-emerald-950/20',
+    'bg-emerald-950/40', 'bg-emerald-950/60',
+    'bg-emerald-950/80', 'bg-amber-950/20',
+    'text-[10px]', 'text-[11px]', 'text-[13px]',
+    'text-[14px]', 'text-[15px]', 'text-[17px]',
+    'tracking-widest', 'tracking-[0.08em]',
+    'font-extrabold', 'font-mono',
+    'from-[#0a1f15]', 'to-[#070f0a]',
+    'from-[#1a0f00]', 'to-[#0d0a00]',
+  ],
   theme: {
     extend: {
       fontFamily: {
+        sans:    ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
         heading: ['Playfair Display', 'Georgia', 'serif'],
-        body: ['DM Sans', 'Manrope', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        body:    ['DM Sans', 'Manrope', 'sans-serif'],
+        mono:    ['JetBrains Mono', 'monospace'],
       },
       colors: {
         border: "hsl(var(--border))",

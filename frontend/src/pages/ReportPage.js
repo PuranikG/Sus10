@@ -10,7 +10,7 @@ import {
 import { apiRequest } from '../lib/utils';
 import { parseReportSections, extractBullets, extractPhases } from '../utils/reportParser';
 
-// JS tokens — used for dynamic style values; static theming via .rp-root CSS vars
+// JS tokens — kept for loading/error states and fallback components
 const GREEN  = '#4ade80';
 const TEXT   = '#f0f0e8';
 const MUTED  = 'rgba(240,240,232,0.5)';
@@ -113,49 +113,16 @@ function recIcon(text) {
   return ArrowRight;
 }
 
-// ── Section C: SVG circle score gauge ────────────────────────────────────────
-function ScoreGauge({ score, tierColor, tier }) {
-  const r    = 44;
-  const circ = 2 * Math.PI * r;
-  const off  = circ * (1 - Math.min(score, 100) / 100);
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-      <svg width="116" height="116" viewBox="0 0 120 120" style={{ overflow: 'visible' }}>
-        <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="9" />
-        <circle
-          cx="60" cy="60" r={r} fill="none"
-          stroke={tierColor} strokeWidth="9"
-          strokeDasharray={circ} strokeDashoffset={off}
-          strokeLinecap="round" transform="rotate(-90 60 60)"
-          style={{ transition: 'stroke-dashoffset 1s ease' }}
-        />
-        <text x="60" y="56" textAnchor="middle" fontSize="24" fontWeight="600"
-          fill={TEXT} fontFamily="DM Sans, sans-serif">{score}</text>
-        <text x="60" y="73" textAnchor="middle" fontSize="11"
-          fill={MUTED} fontFamily="DM Sans, sans-serif">/ 100</text>
-      </svg>
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        background: tierColor + '1a', border: '0.5px solid ' + tierColor + '55',
-        borderRadius: 20, padding: '4px 12px',
-      }}>
-        <div style={{ width: 7, height: 7, borderRadius: '50%', background: tierColor }} />
-        <span style={{ fontSize: 12, color: tierColor, fontWeight: 500 }}>{tier}</span>
-      </div>
-    </div>
-  );
-}
-
-// ── Loading / Error — wrapped in .rp-root ─────────────────────────────────────
+// ── Loading / Error ───────────────────────────────────────────────────────────
 function LoadingState() {
   return (
-    <div className="rp-root" style={{ minHeight: '100vh', background: BG, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+    <div style={{ minHeight: '100vh', background: '#080d0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
       <div style={{ display: 'flex', gap: 8 }}>
         {[0, 1, 2].map(i => (
           <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: GREEN, animation: 'rp-bounce 1.2s ease-in-out ' + (i * 0.2) + 's infinite' }} />
         ))}
       </div>
-      <div style={{ color: MUTED, fontSize: 13 }}>Loading your report…</div>
+      <div style={{ color: MUTED, fontSize: 13, fontFamily: 'Inter, sans-serif' }}>Loading your report…</div>
       <style>{`@keyframes rp-bounce{0%,80%,100%{transform:scale(0.8);opacity:.4}40%{transform:scale(1.2);opacity:1}}`}</style>
     </div>
   );
@@ -163,135 +130,12 @@ function LoadingState() {
 
 function ErrorState({ error }) {
   return (
-    <div className="rp-root" style={{ minHeight: '100vh', background: BG, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center' }}>
-      <div style={{ fontSize: 16, color: TEXT }}>
+    <div style={{ minHeight: '100vh', background: '#080d0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center' }}>
+      <div style={{ fontSize: 16, color: TEXT, fontFamily: 'Inter, sans-serif' }}>
         Report not found. Please check your link or write to{' '}
         <a href="mailto:gp@sus10.ai" style={{ color: GREEN }}>gp@sus10.ai</a>
       </div>
       {error && <div style={{ fontSize: 13, color: MUTED }}>{typeof error === 'string' ? error : JSON.stringify(error)}</div>}
-    </div>
-  );
-}
-
-// ── CTA Block ─────────────────────────────────────────────────────────────────
-function CtaBlock({ tier, firstName, email, overallScore }) {
-  const mailto = buildMailto(firstName, overallScore, tier);
-  return (
-    <div className="rp-cta" style={{ margin: '14px 24px 0', background: CARD, border: '0.5px solid rgba(74,222,128,0.2)', borderRadius: 10, padding: 16, textAlign: 'center' }}>
-      <div style={{ fontSize: 13, color: MUTED, marginBottom: 12 }}>Ready to turn your rooftop into a climate solution?</div>
-      <a
-        href={mailto}
-        style={{ display: 'inline-block', background: GREEN, color: NAV_BG, fontSize: 13, fontWeight: 500, padding: '10px 28px', borderRadius: 20, textDecoration: 'none' }}
-      >
-        {UNIVERSAL_CTA_TEXT}
-      </a>
-      {email && (
-        <div style={{ fontSize: 11, color: 'rgba(240,240,232,0.25)', marginTop: 8 }}>
-          A copy of this report has been sent to {email}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Share Bar ─────────────────────────────────────────────────────────────────
-function ShareBar({ firstName, totalSavings, trees }) {
-  const [copied, setCopied] = useState(false);
-  const waMsg = encodeURIComponent(
-    `I just got my Sus10 rooftop sustainability report!\n` +
-    `My roof could potentially save Rs.${new Intl.NumberFormat('en-IN').format(Math.round(totalSavings))}/year ` +
-    `and offset the equivalent of ${trees} trees of CO2 annually.\n` +
-    `Get yours free at sus10.ai 🌿`
-  );
-  const waUrl = `https://wa.me/?text=${waMsg}`;
-  const handleCopy = () => {
-    navigator.clipboard.writeText(window.location.href).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {});
-  };
-  const handleNativeShare = () => {
-    navigator.share({ title: 'My Sus10 Rooftop Report', text: decodeURIComponent(waMsg), url: window.location.href }).catch(() => {});
-  };
-  const btnBase = {
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    padding: '7px 14px', borderRadius: 16, fontSize: 12,
-    cursor: 'pointer', background: 'transparent', fontFamily: 'inherit',
-  };
-  return (
-    <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 8, padding: '8px 24px', margin: '12px 0 0' }}>
-      {typeof navigator !== 'undefined' && navigator.share ? (
-        <button onClick={handleNativeShare} style={{ ...btnBase, border: '0.5px solid rgba(37,211,102,0.4)', color: '#25d366' }}>Share →</button>
-      ) : (
-        <a href={waUrl} target="_blank" rel="noopener noreferrer" style={{ ...btnBase, border: '0.5px solid rgba(37,211,102,0.4)', color: '#25d366', textDecoration: 'none' }}>📲 Share on WhatsApp</a>
-      )}
-      <button onClick={handleCopy} style={{ ...btnBase, border: '0.5px solid rgba(255,255,255,0.15)', color: copied ? GREEN : 'rgba(240,240,232,0.6)' }}>
-        {copied ? 'Copied! ✓' : 'Copy link'}
-      </button>
-    </div>
-  );
-}
-
-// ── J: Solution Partners / Vendor Cards ──────────────────────────────────────
-const VENDOR_CATEGORIES = [
-  { key: 'greening',  icon: '🌿', name: 'Rooftop Farming',       desc: 'Expert guidance on terrace gardens and container farms',    subjectFn: (city, name) => `Vendor referral — Rooftop Farming — ${city} — ${name}` },
-  { key: 'rainwater', icon: '💧', name: 'Rainwater Harvesting',   desc: 'RWH design, tank sizing, plumbing integration',             subjectFn: (city, name) => `Vendor referral — RWH — ${city} — ${name}` },
-  { key: 'solar',     icon: '☀️', name: 'Solar Installation',     desc: 'MNRE-empanelled solar vendors, net-metering support',       subjectFn: (city, name) => `Vendor referral — Solar — ${city} — ${name}` },
-  { key: 'biogas',    icon: '♻️', name: 'Biogas System',          desc: 'Small-scale biogas for households with organic waste',      subjectFn: (city, name) => `Vendor referral — Biogas — ${city} — ${name}` },
-];
-
-function VendorCards({ solar, rainwater, biogas, city, firstName }) {
-  const toShow = VENDOR_CATEGORIES.filter(c => c.key !== 'biogas' || !!biogas).slice(0, 3);
-  if (!toShow.length) return null;
-  return (
-    <div style={{ padding: '0 24px', marginBottom: 16 }}>
-      <div style={{ fontSize: 10, color: GREEN, letterSpacing: '0.1em', opacity: 0.8, marginBottom: 10, textTransform: 'uppercase' }}>Solution Partners</div>
-      <div className="rp-grid-3">
-        {toShow.map(cat => {
-          const subject = encodeURIComponent(cat.subjectFn(city || 'your city', firstName || 'homeowner'));
-          const body    = encodeURIComponent(`Hi, I just received my Sus10 sustainability report and I'm interested in ${cat.name}. Please connect me with a verified vendor.`);
-          return (
-            <div key={cat.key} style={{ background: CARD, border: '0.5px solid ' + BORDER, borderRadius: 8, padding: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <span style={{ fontSize: 18 }}>{cat.icon}</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>{cat.name}</span>
-              </div>
-              <div style={{ fontSize: 12, color: MUTED, marginBottom: 10, lineHeight: 1.55 }}>{cat.desc}</div>
-              <a
-                href={`mailto:gp@sus10.ai?subject=${subject}&body=${body}`}
-                style={{ display: 'block', width: '100%', textAlign: 'center', padding: '8px', fontSize: 12, color: GREEN, border: '0.5px solid ' + GREEN, borderRadius: 16, textDecoration: 'none', boxSizing: 'border-box' }}
-              >
-                Connect me →
-              </a>
-            </div>
-          );
-        })}
-      </div>
-      <p style={{ fontSize: 11, color: 'rgba(240,240,232,0.35)', fontStyle: 'italic', textAlign: 'center', marginTop: 10, lineHeight: 1.6 }}>
-        Sus10 will personally connect you with verified installers. No spam, no sales calls — just the right people.
-      </p>
-    </div>
-  );
-}
-
-// ── Markdown fallback ─────────────────────────────────────────────────────────
-function SectionFallback({ text }) {
-  if (!text) return null;
-  return (
-    <div style={{ background: CARD, border: '0.5px solid ' + BORDER, borderRadius: 8, padding: '12px 16px' }}>
-      <div className="rp-md">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
-      </div>
-    </div>
-  );
-}
-
-// ── Page divider ──────────────────────────────────────────────────────────────
-function PageDivider({ label }) {
-  return (
-    <div style={{ margin: '20px 24px 16px' }}>
-      <div style={{ borderTop: '0.5px solid ' + BORDER }} />
-      <div style={{ fontSize: 10, color: 'rgba(240,240,232,0.2)', letterSpacing: '0.06em', textAlign: 'center', marginTop: 8, textTransform: 'uppercase' }}>{label}</div>
     </div>
   );
 }
@@ -407,7 +251,7 @@ export default function ReportPage() {
 
   // ── Parse report text ───────────────────────────────────────────────────────
   const parsed        = parseReportSections(reportText);
-  const strengthItems = extractBullets(parsed.strengths, 3);
+  const strengthItems = extractBullets(parsed.strengths, 5);
   const recItems      = extractBullets(parsed.recommendations, 3);
   const phases        = extractPhases(parsed.roadmap);
   const finalCards    = extractFinalCards(parsed.finalAssessment, tier, overallScore);
@@ -420,375 +264,657 @@ export default function ReportPage() {
   ].filter(Boolean);
   const metaLine = metaParts.join(' · ');
 
+  // ── New helpers for Tailwind redesign ────────────────────────────────────────
+  const safeFmt = (val, suffix = '') =>
+    (val !== null && val !== undefined && !isNaN(Number(val)))
+      ? `${Number(val).toLocaleString('en-IN')}${suffix}`
+      : '—';
+
+  const treesEq    = trees > 0 ? trees : null;
+  const ctaText    = flags.R09
+    ? 'Talk to your RWA or building owner'
+    : tier === 'Explorer'
+      ? 'Join our awareness session'
+      : tier === 'Getting Ready'
+        ? 'Get a free feasibility estimate'
+        : tier === 'Sustainability Champion'
+          ? 'Join the Sus10 pilot programme'
+          : 'Connect with us for a 1:1 Consultation';
+  const ctaHref = `mailto:gp@sus10.ai?subject=${encodeURIComponent('Sus10 Enquiry — ' + firstName + ', ' + tier)}`;
+
+  // Final assessment text extraction
+  const faText = parsed.finalAssessment || '';
+  const faOppMatch    = faText.match(/[Bb]iggest [Oo]pportunity[:\s]+([^.]+\.)/);
+  const faActionMatch = faText.match(/[Oo]ne [Aa]ction[^:]*[:\s]+([^.]+\.)/);
+  const faTriptych = [
+    { label: 'READINESS',
+      text: `Your Readiness Level: ${tier} (${overallScore}/100)` },
+    { label: 'BIGGEST OPPORTUNITY',
+      text: faOppMatch ? faOppMatch[1].trim() : finalCards.opportunity },
+    { label: 'ONE ACTION THIS MONTH',
+      text: faActionMatch ? faActionMatch[1].trim() : finalCards.action },
+  ];
+
   return (
-    <div className="rp-root" style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: 'DM Sans, sans-serif' }}>
+    <div className="min-h-screen bg-[#080d0a] text-slate-100 font-sans pb-20 [--accent:#34d399] [--accent-dim:#059669]">
 
-      {/* ── Global styles & .rp-root design tokens ──────────────────────────── */}
-      <style>{`
-        .rp-root {
-          --rp-bg:     #0d1710;
-          --rp-card:   #0f1f11;
-          --rp-border: rgba(255,255,255,0.07);
-          --rp-green:  #4ade80;
-          --rp-text:   #f0f0e8;
-          --rp-muted:  rgba(240,240,232,0.5);
-          --rp-dim:    rgba(240,240,232,0.35);
-          --rp-amber:  #fbbf24;
-          --rp-blue:   #60a5fa;
-          --rp-teal:   #34d399;
-          --rp-lime:   #a3e635;
-          --rp-red:    #f87171;
-          --rp-nav:    #0a1209;
-        }
-        html:not(.dark) .rp-root {
-          --rp-bg:     #f5f7f4;
-          --rp-card:   #ffffff;
-          --rp-border: rgba(0,0,0,0.08);
-          --rp-green:  #16a34a;
-          --rp-text:   #1a2018;
-          --rp-muted:  rgba(26,32,24,0.65);
-          --rp-dim:    rgba(26,32,24,0.4);
-          --rp-nav:    #eef2ec;
-        }
-        .rp-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-        .rp-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-items:start}
-        .rp-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;align-items:start}
-        @media(max-width:640px){
-          .rp-grid-4{grid-template-columns:repeat(2,1fr)}
-          .rp-grid-3{grid-template-columns:1fr}
-          .rp-grid-2{grid-template-columns:1fr}
-          .rp-hero-split{flex-direction:column!important}
-          .rp-gauge-wrap{align-self:center}
-          .rp-strengths-split{grid-template-columns:1fr!important}
-        }
-        @media print{
-          .rp-nav{display:none!important}
-          .rp-cta{display:none!important}
-          .rp-page{break-inside:avoid}
-        }
-        .rp-md{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
-        .rp-md p{color:rgba(240,240,232,0.7);font-size:15px;line-height:1.8;margin-bottom:16px}
-        .rp-md h2{color:#f0f0e8;font-size:18px;font-weight:600;margin-top:28px;margin-bottom:12px}
-        .rp-md h3{color:#4ade80;font-size:15px;font-weight:500;margin-top:20px;margin-bottom:8px}
-        .rp-md h1{color:#f0f0e8;font-size:20px;font-weight:600;margin-top:28px;margin-bottom:12px}
-        .rp-md ul,.rp-md ol{color:rgba(240,240,232,0.7);font-size:15px;line-height:1.7;padding-left:1.4em;margin-bottom:16px}
-        .rp-md li{margin-bottom:6px;font-size:15px;line-height:1.7}
-        .rp-md strong{color:#f0f0e8;font-weight:600}
-        .rp-md em{color:rgba(240,240,232,0.7)}
-        .rp-md hr{border:none;border-top:1px solid rgba(255,255,255,0.07);margin:1.2em 0}
-        .rp-md blockquote{border-left:3px solid #4ade80;padding-left:12px;color:rgba(240,240,232,0.5);margin:1em 0;font-style:italic}
-        @keyframes rp-bounce{0%,80%,100%{transform:scale(0.8);opacity:.4}40%{transform:scale(1.2);opacity:1}}
-      `}</style>
-
-      {/* ── A: TOP NAV ──────────────────────────────────────────────────────── */}
-      <div className="rp-nav" style={{
-        position: 'sticky', top: 0, zIndex: 100,
-        background: NAV_BG, height: 44, padding: '0 20px',
-        display: 'flex', alignItems: 'center',
-        borderBottom: '0.5px solid ' + BORDER,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <Leaf style={{ color: GREEN, width: 17, height: 17 }} />
-          <span style={{ fontSize: 14, fontFamily: "'Playfair Display', serif", fontWeight: 700, color: TEXT }}>Sus10 AI</span>
+      {/* ── STICKY HEADER ── */}
+      <header className="sticky top-0 z-30 backdrop-blur-md bg-[#080d0a]/80 border-b border-emerald-950/40 px-4 py-3.5">
+        <div className="max-w-lg mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-1 px-2.5 rounded-lg bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold tracking-wider">
+              SUS10 • AI
+            </div>
+            <span className="text-sm font-semibold tracking-tight text-emerald-200">
+              Rooftop Audit
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (navigator.share) {
+                  navigator.share({ title: 'Sus10 Report', url: window.location.href }).catch(() => {});
+                } else {
+                  navigator.clipboard?.writeText(window.location.href).catch(() => {});
+                }
+              }}
+              className="p-2 rounded-full hover:bg-emerald-950/40 text-emerald-400 hover:text-emerald-300 transition-colors"
+              aria-label="Share report"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/>
+              </svg>
+            </button>
+            <div className="h-4 w-[1px] bg-emerald-900/40"/>
+            <span className="text-xs text-emerald-500 font-mono">{firstName}'s Report</span>
+            {/* PDF_HIDDEN — monetisation pending; handleDownloadPDF stays in file for re-enable */}
+          </div>
         </div>
-        {/* PDF_HIDDEN — monetisation pending; handleDownloadPDF stays in file for re-enable */}
+      </header>
+
+      {/* ── HERO ── */}
+      <div className="max-w-lg mx-auto px-4 pt-8 pb-2">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-900/40 mb-4">
+          <span className="text-emerald-400 text-[11px] font-mono font-bold tracking-widest">
+            SUS10 AI • HOME SUSTAINABILITY REPORT
+          </span>
+        </div>
+        <h1 className="text-[clamp(32px,8vw,44px)] font-extrabold text-white tracking-tight leading-[1.1] mb-3">
+          {firstName}'s Rooftop<br/>Potential
+        </h1>
+        <div className="flex items-center flex-wrap gap-2 mb-6">
+          <span className="px-2.5 py-1 rounded-md border border-emerald-500/30 text-emerald-400 text-[11px] font-bold tracking-wide">
+            {displayCity ? displayCity.toUpperCase() : 'DEFAULT'}
+          </span>
+          {terraceSqft > 0 && (
+            <span className="text-slate-400 text-sm">
+              • {fmtNum(terraceSqft)} SQ FT Terrace •
+            </span>
+          )}
+          <span className="text-slate-400 text-sm">
+            {buildingType || 'Independent House'}
+          </span>
+        </div>
       </div>
 
-      {/* ── B: HERO ─────────────────────────────────────────────────────────── */}
-      <div style={{ padding: '24px 24px 12px' }}>
-        <div style={{ fontSize: 11, color: GREEN, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-          Sus10 AI · Home Sustainability Report
+      {/* ── SCORE CARD ── */}
+      <div className="max-w-lg mx-auto px-4">
+        <div className="rounded-2xl border border-emerald-950/60 bg-gradient-to-br from-[#0a1f15] to-[#070f0a] p-8 text-center mb-3">
+          <svg viewBox="0 0 160 160" width="148" height="148" className="block mx-auto mb-4">
+            <circle cx="80" cy="80" r="68" fill="none" stroke="rgba(16,64,36,0.4)" strokeWidth="9"/>
+            <circle
+              cx="80" cy="80" r="68" fill="none"
+              stroke={tierColor}
+              strokeWidth="9" strokeLinecap="round"
+              strokeDasharray={`${(overallScore / 100) * 427} 427`}
+              transform="rotate(-90 80 80)"
+              style={{ transition: 'stroke-dasharray 1s ease' }}
+            />
+            <text x="80" y="74" textAnchor="middle" fontSize="38" fontWeight="800" fill="#ffffff" fontFamily="Inter,sans-serif">
+              {overallScore}
+            </text>
+            <text x="80" y="94" textAnchor="middle" fontSize="10" fontWeight="600" fill="#475569" fontFamily="monospace" letterSpacing="2">
+              PREPAREDNESS
+            </text>
+          </svg>
+          <div
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-3"
+            style={{
+              background: `${tierColor}1a`,
+              border: `1px solid ${tierColor}55`,
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: tierColor }}/>
+            <span className="text-[11px] font-bold tracking-[0.08em] uppercase" style={{ color: tierColor }}>
+              {tier}
+            </span>
+          </div>
+          <p className="text-slate-400 text-[13px] max-w-xs mx-auto leading-relaxed">
+            Complete tasks in the interactive checklist below to increase {firstName}'s rooftop score!
+          </p>
         </div>
-        <div style={{ fontSize: 26, fontWeight: 500, color: TEXT, lineHeight: 1.2, marginBottom: 6, fontFamily: "'Playfair Display', serif" }}>
-          {firstName}&apos;s Rooftop Potential
+      </div>
+
+      {/* ── IMPACT HIGHLIGHT BOX ── */}
+      <div className="max-w-lg mx-auto px-4 mb-3">
+        <div className="border-l-[3px] border-emerald-500/50 bg-emerald-950/20 rounded-r-2xl p-5">
+          <p className="text-[14px] sm:text-[15px] text-slate-200 leading-[1.75] mb-5">
+            If {firstName} activated their rooftop fully, it could save{' '}
+            <span className="text-emerald-400 font-bold">
+              {totalSavHigh > 0
+                ? `Rs.${fmtRs(totalSavLow)}–Rs.${fmtRs(totalSavHigh)}/yr`
+                : 'significant savings per year'}
+            </span>{' '}
+            per year — while offsetting{' '}
+            <span className="text-emerald-400 font-bold">
+              {fmtNum(co2Total)} kg CO₂
+            </span>
+            {treesEq && (
+              <>, the same as planting{' '}
+                <span className="text-emerald-400 font-bold">{fmtNum(treesEq)} trees</span>{' '}annually</>
+            )}.
+          </p>
+          <div className="grid grid-cols-2 gap-2.5 pt-4 border-t border-emerald-950/50">
+            <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
+              <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1.5">
+                ANNUAL EST. SAVINGS
+              </p>
+              <p className="text-emerald-400 font-bold text-[15px]">
+                {totalSavHigh > 0 ? `Rs. ${fmtRs(totalSavLow)}+` : '—'}
+              </p>
+            </div>
+            <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
+              <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1.5">
+                CO₂ OFFSET POTENTIAL
+              </p>
+              <p className="text-emerald-400 font-bold text-[15px]">
+                {co2Total > 0 ? `${(co2Total / 1000).toFixed(1)} tons / yr` : '—'}
+              </p>
+            </div>
+          </div>
         </div>
-        {metaLine && (
-          <div style={{ fontSize: 12, color: 'rgba(240,240,232,0.4)' }}>{metaLine}</div>
+      </div>
+
+      {/* R03 fast-track CTA */}
+      {flags.R03 && (
+        <div className="max-w-lg mx-auto px-4 mb-3">
+          <div className="bg-[#0c1a10] border border-emerald-950/50 rounded-2xl p-5 text-center">
+            <p className="text-slate-400 text-[13px] mb-3">
+              Ready to turn your rooftop into a climate solution?
+            </p>
+            <a href={ctaHref} className="block w-full py-3.5 px-6 rounded-xl bg-emerald-400 text-[#020c06] font-bold text-[14px] text-center no-underline">
+              {ctaText}
+            </a>
+            {email && (
+              <p className="text-slate-600 text-[11px] mt-2">
+                A copy of this report has been sent to {email}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══ SECTION 01: CORE ROOFTOP PILLARS ══ */}
+      <div className="max-w-lg mx-auto px-4 mt-8 mb-3.5 flex items-center gap-0">
+        <span className="px-3 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-900/40 text-emerald-400 text-[10px] font-mono font-bold tracking-widest whitespace-nowrap">
+          01 • THE CORE ROOFTOP PILLARS
+        </span>
+        <div className="flex-1 h-[1px] bg-emerald-950/40 ml-3"/>
+      </div>
+
+      <div className="max-w-lg mx-auto px-4 space-y-3">
+
+        {/* GREENING */}
+        <div className="bg-[#0c1a10] border border-emerald-950/50 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-[18px]">
+                🌱
+              </div>
+              <div>
+                <p className="text-[15px] font-semibold text-white">Greening</p>
+                <p className="text-[11px] text-emerald-400">Terrace Organic Bio-forest</p>
+              </div>
+            </div>
+            <span className="text-[28px] opacity-[0.07]">🌿</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 mb-3">
+            <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
+              <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">PLANTS ESTIMATED</p>
+              <p className="text-emerald-400 text-[26px] font-extrabold leading-tight">
+                {safeFmt(sp?.plantation?.plant_count ?? plantCount)}
+              </p>
+              <p className="text-emerald-400 text-[11px] mt-1">plants</p>
+            </div>
+            <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
+              <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">ORGANIC HARVEST</p>
+              <p className="text-white text-[26px] font-extrabold leading-tight">
+                {safeFmt(sp?.plantation?.food_yield_kg_per_year ?? plantFood)}
+              </p>
+              <p className="text-slate-500 text-[11px] mt-1">kg food / year</p>
+            </div>
+          </div>
+          <div className="pt-3 border-t border-emerald-950/40 space-y-2">
+            <div className="flex justify-between text-[12px]">
+              <span className="text-slate-500">Plantable Area Budget:</span>
+              <span className="text-emerald-400 font-semibold">
+                {safeFmt(sp?.plantation?.plantable_area_sqft ?? plantAreaSqft, ' sq ft')}
+              </span>
+            </div>
+            <div className="flex justify-between text-[12px]">
+              <span className="text-slate-500">Annual CO₂ Sequestered:</span>
+              <span className="text-emerald-400 font-semibold">
+                {safeFmt(sp?.plantation?.co2_sequestration_kg_per_year ?? plantCO2, ' kg CO₂')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* RAINWATER */}
+        <div className="bg-[#0c1a10] border border-emerald-950/50 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-[18px]">
+                💧
+              </div>
+              <div>
+                <p className="text-[15px] font-semibold text-white">Rainwater</p>
+                <p className="text-[11px] text-blue-400">Pre-Monsoon Storage &amp; Drainage</p>
+              </div>
+            </div>
+            <span className="text-[28px] opacity-[0.07]">💧</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 mb-3">
+            <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
+              <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">CATCHMENT VOLUME</p>
+              <p className="text-blue-400 text-[26px] font-extrabold leading-tight">
+                {safeFmt(sp?.rainwater?.kl_per_year ?? rainKl, ' kL')}
+              </p>
+              <p className="text-blue-400 text-[11px] mt-1">litres / year</p>
+            </div>
+            <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
+              <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">VALUED SAVINGS</p>
+              <p className="text-white text-[26px] font-extrabold leading-tight">
+                {(sp?.rainwater?.annual_savings_inr ?? rainSavings) > 0
+                  ? `Rs.${fmtRs(sp?.rainwater?.annual_savings_inr ?? rainSavings)}`
+                  : '—'}
+              </p>
+              <p className="text-slate-500 text-[11px] mt-1">saved / year</p>
+            </div>
+          </div>
+          <div className="pt-3 border-t border-emerald-950/40 space-y-2">
+            <div className="flex justify-between text-[12px]">
+              <span className="text-slate-500">Total Catchment Area:</span>
+              <span className="text-blue-400 font-semibold">
+                {terraceSqft > 0 ? fmtNum(terraceSqft) + ' sq ft' : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between text-[12px]">
+              <span className="text-slate-500">Catchment Feasibility:</span>
+              <span className="text-blue-400 font-semibold">Covers household water needs</span>
+            </div>
+          </div>
+        </div>
+
+        {/* SOLAR */}
+        <div className="bg-gradient-to-br from-[#1a0f00] to-[#0d0a00] border border-amber-950/50 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-[18px]">
+                ☀️
+              </div>
+              <div>
+                <p className="text-[15px] font-semibold text-white">Solar Generation (Phase 2)</p>
+                <p className="text-[11px] text-amber-400">Common Area Active Support</p>
+              </div>
+            </div>
+            <span className="text-[28px] opacity-[0.07]">☀️</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 mb-3">
+            <div className="bg-[#0c0800] border border-amber-950/60 rounded-xl p-3.5">
+              <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">ACTIVE GENERATION</p>
+              <p className="text-amber-400 text-[22px] font-extrabold leading-tight">
+                {(sp?.solar?.kwh_per_year ?? solarKwh) > 0
+                  ? `${safeFmt(Math.round((sp?.solar?.kwh_per_year ?? solarKwh) * 0.45))}–${safeFmt(sp?.solar?.kwh_per_year ?? solarKwh)}`
+                  : '—'}
+              </p>
+              <p className="text-amber-400 text-[11px] mt-1">kWh / year</p>
+            </div>
+            <div className="bg-[#0c0800] border border-amber-950/60 rounded-xl p-3.5">
+              <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">SAVINGS ESTIMATE</p>
+              <p className="text-white text-[20px] font-extrabold leading-tight">
+                {(sp?.solar?.annual_savings_inr ?? solarSavings) > 0
+                  ? `Rs.${Math.round((sp?.solar?.annual_savings_inr ?? solarSavings) / 1000 * 0.9)}k–${Math.round((sp?.solar?.annual_savings_inr ?? solarSavings) / 1000)}k`
+                  : '—'}
+              </p>
+              <p className="text-amber-400 text-[11px] mt-1">
+                {solarSavings > 0 ? `Rs.${fmtRs(solarSavings)}+` : ''}
+              </p>
+            </div>
+          </div>
+          <div className="pt-3 border-t border-amber-950/30 space-y-2">
+            <div className="flex justify-between text-[12px]">
+              <span className="text-slate-500">Installable Solar Array Size:</span>
+              <span className="text-amber-400 font-semibold">
+                {safeFmt(sp?.solar?.system_size_kwp ?? solarKwp, ' kWp')}
+              </span>
+            </div>
+            <div className="flex justify-between text-[12px]">
+              <span className="text-slate-500">Total Carbon Offset:</span>
+              <span className="text-amber-400 font-semibold">
+                {safeFmt(sp?.solar?.co2_offset_kg ?? solarCO2, ' kg CO₂ / yr')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* BIOGAS — conditional */}
+        {!!biogas && (
+          <div className="bg-[#0c1a10] border border-emerald-950/50 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-[18px]">
+                  ♻️
+                </div>
+                <div>
+                  <p className="text-[15px] font-semibold text-white">Biogas</p>
+                  <p className="text-[11px] text-emerald-400">Organic Waste Conversion</p>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
+                <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">GAS YIELD</p>
+                <p className="text-emerald-400 text-[26px] font-extrabold leading-tight">
+                  {safeFmt(sp?.biogas?.m3_per_year ?? biogasMonthly)}
+                </p>
+                <p className="text-emerald-400 text-[11px] mt-1">m³ / month</p>
+              </div>
+              <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
+                <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">LPG SAVINGS</p>
+                <p className="text-white text-[26px] font-extrabold leading-tight">
+                  {(sp?.biogas?.annual_savings_inr ?? biogasSavings) > 0
+                    ? `Rs.${fmtRs(sp?.biogas?.annual_savings_inr ?? biogasSavings)}`
+                    : '—'}
+                </p>
+                <p className="text-slate-500 text-[11px] mt-1">saved / yr</p>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* ── C: SCORE GAUGE + D: HIGHLIGHT BOX ──────────────────────────────── */}
-      <div className="rp-hero-split" style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 20, margin: '0 24px 16px',
-        background: CARD, border: '0.5px solid ' + BORDER, borderRadius: 12,
-        padding: '20px 24px',
-      }}>
-        {/* D: Impact summary */}
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.7, marginBottom: 14 }}>
-            If {firstName} activated their rooftop fully, it could save{' '}
-            <span style={{ color: GREEN, fontWeight: 600 }}>Rs.{fmtRs(totalSavLow)}–Rs.{fmtRs(totalSavHigh)}/yr</span>
-            {' '}while offsetting{' '}
-            <span style={{ color: GREEN, fontWeight: 600 }}>{fmtNum(co2Total)} kg CO₂</span>
-            {' '}— equal to planting{' '}
-            <span style={{ color: GREEN, fontWeight: 600 }}>{fmtNum(trees)} trees</span>{' '}annually.
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {[
-              plantFood ? { icon: '🌿', value: fmtNum(plantFood) + ' kg food/yr' } : null,
-              { icon: '💧', value: fmtNum(rainKl) + ' kL/yr' },
-              { icon: '☀️', value: fmtNum(solarKwhLow) + '–' + fmtNum(solarKwhHigh) + ' kWh/yr' },
-              { icon: '🌍', value: (co2Total / 1000).toFixed(1) + ' t CO₂/yr' },
-            ].filter(Boolean).map(chip => (
-              <span key={chip.icon} style={{
-                background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.1)',
-                borderRadius: 14, padding: '3px 10px', fontSize: 11, color: TEXT,
-              }}>
-                {chip.icon} <span style={{ fontWeight: 500 }}>{chip.value}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-        {/* C: Circle gauge */}
-        <div className="rp-gauge-wrap">
-          <ScoreGauge score={overallScore} tierColor={tierColor} tier={tier} />
-        </div>
+      {/* ══ SECTION 02: STRENGTHS & FEASIBILITY ══ */}
+      <div className="max-w-lg mx-auto px-4 mt-8 mb-3.5 flex items-center gap-0">
+        <span className="px-3 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-900/40 text-emerald-400 text-[10px] font-mono font-bold tracking-widest whitespace-nowrap">
+          02 • STRENGTHS &amp; FEASIBILITY
+        </span>
+        <div className="flex-1 h-[1px] bg-emerald-950/40 ml-3"/>
       </div>
 
-      {/* Early CTA for high-intent flag R03 */}
-      {flags.R03 && (
-        <div style={{ marginBottom: 8 }}>
-          <CtaBlock tier={tier} firstName={firstName} email={email} overallScore={overallScore} />
-        </div>
-      )}
+      <div className="max-w-lg mx-auto px-4 space-y-3">
 
-      <ShareBar firstName={firstName} totalSavings={totalSavings} trees={trees} />
-
-      {/* ── E: SUSTENANCE PILLAR CARDS ──────────────────────────────────────── */}
-      <div style={{ margin: '14px 24px 0' }}>
-        <div style={{ fontSize: 10, color: GREEN, letterSpacing: '0.1em', opacity: 0.8, marginBottom: 10, textTransform: 'uppercase' }}>Sustenance Pillars</div>
-        <div className={biogas ? 'rp-grid-2' : 'rp-grid-3'}>
-
-          {/* Greening — lowest barrier, shown first */}
-          <div style={{ background: CARD, borderRadius: 8, padding: 14, border: '0.5px solid ' + BORDER }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 6, background: 'rgba(163,230,53,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Sprout style={{ width: 14, height: 14, color: LIME }} />
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 600, color: TEXT }}>Greening</span>
-            </div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: LIME, lineHeight: 1 }}>{fmtNum(plantCount)}</div>
-            <div style={{ fontSize: 10, color: DIM, marginBottom: 6 }}>plants potential</div>
-            <div style={{ fontSize: 11, color: GREEN, marginBottom: 4 }}>{fmtNum(plantFood)} kg food / yr</div>
-            {plantAreaSqft > 0 && <div style={{ fontSize: 11, color: MUTED }}>{fmtNum(plantAreaSqft)} sq ft plantable</div>}
-            <div style={{ fontSize: 11, color: MUTED }}>{fmtNum(plantCO2)} kg CO₂/yr</div>
-          </div>
-
-          {/* Rainwater */}
-          <div style={{ background: CARD, borderRadius: 8, padding: 14, border: '0.5px solid ' + BORDER }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 6, background: 'rgba(96,165,250,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Droplets style={{ width: 14, height: 14, color: BLUE }} />
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 600, color: TEXT }}>Rainwater</span>
-            </div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: BLUE, lineHeight: 1 }}>{fmtNum(rainKl)}</div>
-            <div style={{ fontSize: 10, color: DIM, marginBottom: 6 }}>kL / year</div>
-            <div style={{ fontSize: 11, color: GREEN, marginBottom: 4 }}>Rs.{fmtRs(rainSavings)} saved/yr</div>
-            <div style={{ fontSize: 11, color: MUTED }}>{fmtNum(rainCatch)} sq ft catchment</div>
-          </div>
-
-          {/* Solar */}
-          <div style={{ background: CARD, borderRadius: 8, padding: 14, border: '0.5px solid ' + BORDER }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 6, background: 'rgba(251,191,36,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Sun style={{ width: 14, height: 14, color: AMBER }} />
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 600, color: TEXT }}>Solar</span>
-            </div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: AMBER, lineHeight: 1 }}>{fmtNum(solarKwhLow)}–{fmtNum(solarKwhHigh)}</div>
-            <div style={{ fontSize: 10, color: DIM, marginBottom: 6 }}>kWh / year</div>
-            <div style={{ fontSize: 11, color: GREEN, marginBottom: 2 }}>Rs.{fmtRs(solarSavLow)}–Rs.{fmtRs(solarSavHigh)}/yr</div>
-            <div style={{ fontSize: 10, color: 'rgba(240,240,232,0.3)', marginBottom: 4 }}>avg Rs.{fmtRs(solarSavings)} · seasonal range</div>
-            <div style={{ fontSize: 11, color: MUTED }}>{fmtNum(solarKwp)} kWp installable</div>
-            <div style={{ fontSize: 11, color: MUTED }}>{fmtNum(solarCO2)} kg CO₂ offset/yr</div>
-          </div>
-
-          {/* Biogas — conditional */}
-          {biogas && (
-            <div style={{ background: CARD, borderRadius: 8, padding: 14, border: '0.5px solid ' + BORDER }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 6, background: 'rgba(52,211,153,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Recycle style={{ width: 14, height: 14, color: TEAL }} />
+        {/* STRENGTHS */}
+        <div className="bg-[#0c140f] border border-emerald-950/80 rounded-2xl p-5 sm:p-6 space-y-4">
+          <h4 className="text-base font-semibold text-white tracking-tight flex items-center gap-2 border-b border-emerald-950 pb-3 mb-1 font-sans">
+            <span className="text-emerald-400 text-[14px]">🏅</span>
+            Identified Bio-Habit Strengths
+          </h4>
+          {strengthItems.length > 0 ? strengthItems.map((s, i) => {
+            const colonIdx = s.indexOf(':');
+            const hasColon = colonIdx > 0 && colonIdx < 40;
+            const title = hasColon ? s.substring(0, colonIdx).replace(/^\d+\.\s*/, '').trim() : '';
+            const body  = hasColon ? s.substring(colonIdx + 1).trim() : stripMd(s);
+            const icons = ['🗑️', '❤️', '🌿', '💡', '🏗️'];
+            return (
+              <div key={i} className="flex gap-3 items-start">
+                <div className="p-1.5 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-900/50 mt-0.5 flex-shrink-0 text-[14px] w-8 h-8 flex items-center justify-center">
+                  {icons[i] || '✓'}
                 </div>
-                <span style={{ fontSize: 12, fontWeight: 600, color: TEXT }}>Biogas</span>
+                <div className="space-y-0.5 flex-1">
+                  {title && <h5 className="text-[14px] font-semibold text-slate-200 font-sans">{title}</h5>}
+                  <p className="text-[13px] sm:text-[14px] text-slate-300 leading-relaxed font-sans">{body}</p>
+                </div>
               </div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: TEAL, lineHeight: 1 }}>{biogasMonthly}</div>
-              <div style={{ fontSize: 10, color: DIM, marginBottom: 6 }}>m³ / month</div>
-              <div style={{ fontSize: 11, color: GREEN, marginBottom: 4 }}>Rs.{fmtRs(biogasSavings)} saved/yr</div>
-              {lpgCylinders && <div style={{ fontSize: 11, color: MUTED }}>{lpgCylinders} LPG cylinders/yr equiv.</div>}
-              <div style={{ fontSize: 11, color: MUTED }}>{biogasWaste} kg waste/day input</div>
-              <div style={{ fontSize: 11, color: MUTED }}>{fmtNum(biogasCO2)} kg CO₂ offset/yr</div>
-            </div>
+            );
+          }) : (
+            <p className="text-[13px] text-slate-500 italic">
+              {parsed.parsedOk ? 'No strengths identified yet.' : 'Full report text below.'}
+            </p>
           )}
         </div>
-      </div>
 
-      {/* Markdown fallback for unparseable reports */}
-      {!parsed.parsedOk && reportText && (
-        <div style={{ margin: '16px 24px 0', background: CARD, border: '0.5px solid ' + BORDER, borderRadius: 16, padding: 28 }}>
-          <div className="rp-md">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{reportText}</ReactMarkdown>
-          </div>
-        </div>
-      )}
-
-      {/* ── F: STRENGTHS + PROGRESS BARS ────────────────────────────────────── */}
-      <PageDivider label="Your Profile & Gaps" />
-      <div className="rp-page" style={{ padding: '0 24px', marginBottom: 16 }}>
-        <div className="rp-strengths-split" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          {/* Strengths */}
-          <div>
-            <div style={{ fontSize: 10, color: GREEN, letterSpacing: '0.1em', opacity: 0.8, marginBottom: 10, textTransform: 'uppercase' }}>Strengths Identified</div>
-            {strengthItems.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {strengthItems.map((raw, i) => {
-                  const { title, body } = parseTitle(raw);
-                  const Icon = strengthIcon(title + ' ' + body);
-                  return (
-                    <div key={i} style={{ background: CARD, border: '0.5px solid ' + BORDER, borderRadius: 8, padding: '10px 12px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                      <Icon style={{ width: 14, height: 14, color: MUTED, marginTop: 2, flexShrink: 0 }} />
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 500, color: TEXT, marginBottom: 2 }}>{title || 'Strength ' + (i + 1)}</div>
-                        {body && <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.5 }}>{body}</div>}
-                      </div>
-                    </div>
-                  );
-                })}
+        {/* FEASIBILITY METRICS */}
+        <div className="bg-[#0c140f] border border-emerald-950/80 rounded-2xl p-5 sm:p-6 space-y-4">
+          <h4 className="text-base font-semibold text-white tracking-tight flex items-center gap-2 border-b border-emerald-950 pb-3 mb-1 font-sans">
+            <span className="text-emerald-400 text-[14px]">📊</span>
+            Rooftop Feasibility Metrics
+          </h4>
+          {[
+            { label: 'Structural Capacity', score: scores.capacity   ?? 0, barColor: '#fbbf24', scoreColor: 'text-amber-400'  },
+            { label: 'Motivation Score',    score: scores.motivation ?? 0, barColor: '#34d399', scoreColor: 'text-emerald-400' },
+            { label: 'Initial Interest',    score: scores.interest   ?? 0, barColor: '#60a5fa', scoreColor: 'text-blue-400'   },
+          ].map((bar, i) => (
+            <div key={i} className="space-y-1.5">
+              <div className="flex justify-between items-center">
+                <span className="text-[13px] text-slate-300">{bar.label}</span>
+                <span className={`text-[13px] font-bold ${bar.scoreColor}`}>{bar.score} / 100</span>
               </div>
-            ) : (
-              <SectionFallback text={parsed.strengths} />
-            )}
-          </div>
-
-          {/* COM-B gap progress bars */}
-          <div>
-            <div style={{ fontSize: 10, color: GREEN, letterSpacing: '0.1em', opacity: 0.8, marginBottom: 10, textTransform: 'uppercase' }}>Gap Analysis</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {[
-                { label: 'Capacity',      score: scores.capacity   ?? 0, inv: false, override: null,     oc: null     },
-                { label: 'Motivation',    score: scores.motivation ?? 0, inv: false, override: null,     oc: null     },
-                { label: 'Interest',      score: scores.interest   ?? 0, inv: false, override: null,     oc: null     },
-                { label: 'Affordability', score: scores.barriers   ?? 0, inv: true,  override: null,     oc: null     },
-                { label: 'Waste habit',   score: wh.score,               inv: false, override: wh.label, oc: wh.color },
-              ].map(({ label, score, inv, override, oc }) => {
-                const c   = oc || scoreColor(score, inv);
-                const pct = inv ? (100 - score) : score;
-                return (
-                  <div key={label}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <span style={{ fontSize: 11, color: MUTED }}>{label}</span>
-                      <span style={{ fontSize: 11, color: c }}>{override ?? score}</span>
-                    </div>
-                    <div style={{ height: 5, background: 'rgba(255,255,255,0.08)', borderRadius: 3 }}>
-                      <div style={{ height: 5, width: pct + '%', background: c, borderRadius: 3, transition: 'width 0.8s ease' }} />
-                    </div>
-                  </div>
-                );
-              })}
+              <div className="h-1.5 rounded-full bg-emerald-950/60 overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${bar.score}%`, background: bar.barColor, transition: 'width 0.8s ease' }}/>
+              </div>
+            </div>
+          ))}
+          {/* Waste habits bar */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center">
+              <span className="text-[13px] text-slate-300">Household Waste Habits</span>
+              <span className="text-[13px] font-bold text-emerald-400">
+                {(scores.barriers ?? 0) >= 60 ? 'GOOD' : (scores.barriers ?? 0) >= 30 ? 'MODERATE' : 'LOW'}
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-emerald-950/60 overflow-hidden">
+              <div className="h-full rounded-full bg-emerald-400" style={{ width: `${scores.barriers ?? 0}%`, transition: 'width 0.8s ease' }}/>
             </div>
           </div>
         </div>
+
+        {/* Fallback markdown for unparseable reports */}
+        {!parsed.parsedOk && reportText && (
+          <div className="bg-[#0c140f] border border-emerald-950/80 rounded-2xl p-5">
+            <style>{`
+              .rp-md p{color:rgba(203,213,225,0.85);font-size:14px;line-height:1.75;margin-bottom:14px}
+              .rp-md h2,.rp-md h3{color:#f1f5f9;font-weight:600;margin-top:20px;margin-bottom:8px}
+              .rp-md ul,.rp-md ol{color:rgba(203,213,225,0.85);font-size:14px;line-height:1.7;padding-left:1.4em;margin-bottom:14px}
+              .rp-md li{margin-bottom:5px}
+              .rp-md strong{color:#f1f5f9;font-weight:600}
+              .rp-md blockquote{border-left:3px solid #34d399;padding-left:12px;color:rgba(203,213,225,0.6);margin:1em 0;font-style:italic}
+            `}</style>
+            <div className="rp-md">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{reportText}</ReactMarkdown>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ── G: TIMELINE — 3-phase roadmap ───────────────────────────────────── */}
-      <PageDivider label="Your Roadmap" />
-      {parsed.parsedOk && (
-        <div className="rp-page" style={{ padding: '0 24px', marginBottom: 16 }}>
-          <div style={{ fontSize: 10, color: GREEN, letterSpacing: '0.1em', opacity: 0.8, marginBottom: 10, textTransform: 'uppercase' }}>Sus10 Roadmap</div>
-          <div className="rp-grid-3">
-            {[
-              { phase: 'PHASE 1 · 0–3 MONTHS',  title: 'Foundation', bullets: phases[0], accent: GREEN },
-              { phase: 'PHASE 2 · 3–12 MONTHS', title: 'Install',    bullets: phases[1], accent: AMBER },
-              { phase: 'PHASE 3 · 1–3 YEARS',   title: 'Optimise',  bullets: phases[2], accent: TEAL  },
-            ].map(({ phase, title, bullets, accent }) => (
-              <div key={phase} style={{ background: CARD, borderRadius: 8, padding: 14, border: '0.5px solid ' + BORDER, borderTop: '2px solid ' + accent }}>
-                <div style={{ fontSize: 10, color: accent, letterSpacing: '0.06em', marginBottom: 4, textTransform: 'uppercase' }}>{phase}</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: TEXT, marginBottom: 10 }}>{title}</div>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {(bullets && bullets.length ? bullets : ['Getting started', 'Initial steps', 'Planning phase', 'Next actions']).map((b, i) => (
-                    <li key={i} style={{ fontSize: 11, color: MUTED, paddingLeft: 14, position: 'relative', lineHeight: 1.45 }}>
-                      <span style={{ position: 'absolute', left: 0, color: accent, fontSize: 9, top: 2 }}>→</span>
-                      {stripMd(b)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* ══ SECTION 03: RECOMMENDED TIMELINE ══ */}
+      <div className="max-w-lg mx-auto px-4 mt-8 mb-3.5 flex items-center gap-0">
+        <span className="px-3 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-900/40 text-emerald-400 text-[10px] font-mono font-bold tracking-widest whitespace-nowrap">
+          03 • RECOMMENDED TIMELINE
+        </span>
+        <div className="flex-1 h-[1px] bg-emerald-950/40 ml-3"/>
+      </div>
 
-      {/* ── H: ACTION STEPS — 3-col recommendations ─────────────────────────── */}
-      {parsed.parsedOk && (
-        <div className="rp-page" style={{ padding: '0 24px', marginBottom: 16 }}>
-          <div style={{ fontSize: 10, color: GREEN, letterSpacing: '0.1em', opacity: 0.8, marginBottom: 10, textTransform: 'uppercase' }}>Top Recommendations</div>
-          {recItems.length > 0 ? (
-            <div className="rp-grid-3">
-              {recItems.map((raw, i) => {
-                const { title, body } = parseTitle(raw);
-                const Icon    = recIcon(title + ' ' + body);
-                const tags    = ['Highest impact', 'Time-sensitive', 'Your motivator'];
-                const tagClrs = [GREEN, AMBER, TEAL];
-                return (
-                  <div key={i} style={{ background: CARD, border: '0.5px solid ' + BORDER, borderRadius: 8, padding: 14 }}>
-                    <Icon style={{ width: 16, height: 16, color: MUTED, marginBottom: 8 }} />
-                    <div style={{ fontSize: 12, fontWeight: 600, color: TEXT, marginBottom: 6 }}>{title || 'Recommendation ' + (i + 1)}</div>
-                    <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.55, marginBottom: 8 }}>{body || '—'}</div>
-                    <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 8, background: tagClrs[i] + '1a', color: tagClrs[i] }}>{tags[i] || 'Recommended'}</span>
-                  </div>
-                );
-              })}
+      <div className="max-w-lg mx-auto px-4 space-y-3">
+        {recItems.length > 0 ? recItems.slice(0, 3).map((rec, i) => {
+          const colonIdx = rec.indexOf(':');
+          const hasColon = colonIdx > 0 && colonIdx < 60;
+          const rawTitle = hasColon ? rec.substring(0, colonIdx).replace(/^\d+\.\s*/, '').trim() : `Action ${i + 1}`;
+          const body     = hasColon ? rec.substring(colonIdx + 1).trim() : stripMd(rec);
+          const categories = ['GREENING', 'WATER', 'SOLAR'];
+          const costs      = ['Rs.2,000–5,000', 'Rs.15,000–25,000 (est.)', 'Rs.1,50,000–2,00,000 (after subsidy)'];
+          const urgency    = ['Lowest barrier · Start this week', 'Install before monsoon', 'One-time install · High lifetime savings'];
+          return (
+            <div key={i} className="bg-[#0c1a10] border border-emerald-950/50 rounded-2xl p-5">
+              <div className="flex justify-between items-center mb-3">
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400 tracking-[0.08em]">
+                  RECOMMENDATION {i + 1}
+                </span>
+                <span className="text-[11px] font-bold text-emerald-400 tracking-[0.06em]">
+                  {categories[i] || 'ACTION'}
+                </span>
+              </div>
+              <h3 className="text-[17px] font-bold text-white mb-2.5 leading-snug">{rawTitle}</h3>
+              <p className="text-[13px] text-slate-400 leading-relaxed mb-4">{body}</p>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-3 py-1 rounded-full border border-slate-700/50 text-slate-400 text-[11px]">
+                  Cost: {costs[i]}
+                </span>
+                <span className="px-3 py-1 rounded-full border border-emerald-500/30 text-emerald-400 text-[11px]">
+                  {urgency[i]}
+                </span>
+              </div>
             </div>
-          ) : (
-            <SectionFallback text={parsed.recommendations} />
+          );
+        }) : (
+          <div className="bg-[#0c1a10] border border-emerald-950/50 rounded-2xl p-5">
+            <p className="text-[13px] text-slate-500 italic">Recommendations will appear here once the report is fully parsed.</p>
+          </div>
+        )}
+      </div>
+
+      {/* ══ SECTION 04: ACTIVE ROADMAP ══ */}
+      <div className="max-w-lg mx-auto px-4 mt-8 mb-3.5 flex items-center gap-0">
+        <span className="px-3 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-900/40 text-emerald-400 text-[10px] font-mono font-bold tracking-widest whitespace-nowrap">
+          04 • SUS10 ACTIVE ROADMAP
+        </span>
+        <div className="flex-1 h-[1px] bg-emerald-950/40 ml-3"/>
+      </div>
+
+      <div className="max-w-lg mx-auto px-4 space-y-3">
+        {[
+          { n: 1, range: '0-3 MONTHS',  title: 'Foundation', items: phases[0].slice(0, 5) },
+          { n: 2, range: '3-12 MONTHS', title: 'Install',    items: phases[1].slice(0, 5) },
+          { n: 3, range: '1-3 YEARS',   title: 'Optimise',   items: phases[2].slice(0, 5) },
+        ].map(phase => {
+          const fallback = ['Set up initial installation', 'Research vendors and get quotes', 'Review savings and next steps'];
+          const items = phase.items.length > 0 ? phase.items : fallback;
+          return (
+            <div key={phase.n} className="bg-[#0c1a10] border border-emerald-950/50 rounded-2xl p-5">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <p className="text-[10px] font-bold text-emerald-400 tracking-[0.08em] mb-1">
+                    PHASE {phase.n} • {phase.range}
+                  </p>
+                  <p className="text-[17px] font-bold text-white">{phase.title}</p>
+                </div>
+                <span className="text-[11px] text-slate-500 bg-emerald-950/40 px-2.5 py-1 rounded-md">
+                  0/{items.length} Done
+                </span>
+              </div>
+              <div className="space-y-3">
+                {items.map((item, j) => (
+                  <div key={j} className="flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-[5px] border-[1.5px] border-emerald-900/50 flex-shrink-0 mt-0.5"/>
+                    <span className="text-[13px] text-slate-200 leading-snug">{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ══ SECTION 05: FINAL ASSESSMENT ══ */}
+      <div className="max-w-lg mx-auto px-4 mt-8 mb-3.5 flex items-center gap-0">
+        <span className="px-3 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-900/40 text-emerald-400 text-[10px] font-mono font-bold tracking-widest whitespace-nowrap">
+          05 • FINAL ASSESSMENT
+        </span>
+        <div className="flex-1 h-[1px] bg-emerald-950/40 ml-3"/>
+      </div>
+
+      <div className="max-w-lg mx-auto px-4">
+        {/* Triptych */}
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          {faTriptych.map((c, i) => (
+            <div key={i} className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3">
+              <p className="text-[9px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-2">{c.label}</p>
+              <p className="text-[11px] text-slate-200 leading-[1.5]">{c.text}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Main CTA card */}
+        <div className="bg-[#0c1a10] border border-emerald-950/50 rounded-2xl p-6 text-center">
+          <p className="text-slate-400 text-[13px] mb-4">
+            Ready to turn your rooftop into a climate solution?
+          </p>
+          <a href={ctaHref} className="block w-full py-3.5 px-6 rounded-xl bg-emerald-400 text-[#020c06] font-bold text-[14px] text-center no-underline mb-2">
+            {ctaText}
+          </a>
+          {email && (
+            <p className="text-slate-600 text-[11px]">
+              A copy of this report has been sent to {email}
+            </p>
           )}
         </div>
-      )}
 
-      {/* ── I: FINAL ASSESSMENT + CTA ────────────────────────────────────────── */}
-      {parsed.parsedOk && (
-        <div className="rp-page" style={{ padding: '0 24px', marginBottom: 8 }}>
-          <div style={{ fontSize: 10, color: GREEN, letterSpacing: '0.1em', opacity: 0.8, marginBottom: 10, textTransform: 'uppercase' }}>Final Assessment</div>
-          <div className="rp-grid-3">
-            {[
-              { label: 'Readiness',             body: finalCards.readiness   },
-              { label: 'Biggest Opportunity',   body: finalCards.opportunity },
-              { label: 'One Action This Month', body: finalCards.action      },
-            ].map(({ label, body }) => (
-              <div key={label} style={{ background: CARD, borderRadius: 8, padding: 14, border: '0.5px solid ' + BORDER }}>
-                <div style={{ fontSize: 10, color: DIM, marginBottom: 6, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{label}</div>
-                <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.6 }}>{body}</div>
-              </div>
-            ))}
-          </div>
+        {/* Closing quote */}
+        <div className="text-center py-6">
+          <p className="text-slate-600 text-[12px] italic mb-1.5">
+            "Every roof has the potential to become a climate solution."
+          </p>
+          <p className="text-emerald-400 text-[13px] font-semibold">
+            Your journey toward a Self-Sustaining Roof starts with one small step.
+          </p>
         </div>
-      )}
-
-      <CtaBlock tier={tier} firstName={firstName} email={email} overallScore={overallScore} />
-
-      {/* ── J: SOLUTION PARTNERS ────────────────────────────────────────────── */}
-      <div style={{ marginTop: 24 }}>
-        <VendorCards solar={solar} rainwater={rainwater} biogas={biogas} city={displayCity} firstName={firstName} />
       </div>
 
-      {/* Disclaimer */}
-      <div style={{ margin: '0 24px 16px', background: 'rgba(251,191,36,0.06)', borderLeft: '3px solid #d97706', borderRadius: '0 6px 6px 0', padding: '10px 12px' }}>
-        <p style={{ fontSize: 11, color: 'rgba(240,240,232,0.45)', lineHeight: 1.6, margin: 0 }}>
-          <strong style={{ color: 'rgba(240,240,232,0.7)' }}>About these estimates:</strong>
-          {' '}Calculated using MNRE solar data, IMD rainfall data, and CPCB waste norms. Indicative only — actual potential confirmed after a professional site assessment. Structural load, shade, roof slope, and local regulations need professional evaluation. Write to{' '}
-          <a href="mailto:gp@sus10.ai" style={{ color: AMBER }}>gp@sus10.ai</a> with any questions.
+      {/* ══ SOLUTION PARTNERS ══ */}
+      <div className="max-w-lg mx-auto px-4 mt-4 mb-3.5 flex items-center gap-0">
+        <span className="px-3 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-900/40 text-emerald-400 text-[10px] font-mono font-bold tracking-widest whitespace-nowrap">
+          SOLUTION PARTNERS
+        </span>
+        <div className="flex-1 h-[1px] bg-emerald-950/40 ml-3"/>
+      </div>
+
+      <div className="max-w-lg mx-auto px-4 space-y-3">
+        {[
+          { icon: '🌿', name: 'Rooftop Farming',     desc: 'Expert guidance on terrace gardens and container farms',   sub: 'Container Gardening · Food Forest' },
+          { icon: '💧', name: 'Rainwater Harvesting', desc: 'RWH system design, tank sizing, plumbing integration',    sub: 'Storage · Filtration · Recharge' },
+          { icon: '☀️', name: 'Solar Installation',   desc: 'MNRE-empanelled solar vendors, net-metering support',     sub: 'Grid-tied · Net Metering' },
+        ].map((v, i) => (
+          <div key={i} className="bg-[#0c1a10] border border-emerald-950/50 rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="text-[18px]">{v.icon}</span>
+              <div>
+                <p className="text-[14px] font-bold text-white">{v.name}</p>
+                <p className="text-[11px] text-slate-500">{v.sub}</p>
+              </div>
+            </div>
+            <p className="text-[12px] text-slate-500">{v.desc}</p>
+            <a
+              href={`mailto:gp@sus10.ai?subject=${encodeURIComponent('Vendor Enquiry — ' + v.name + ' — ' + firstName + ', ' + displayCity)}`}
+              className="block w-full py-2.5 rounded-xl bg-emerald-400 text-[#020c06] font-bold text-[13px] text-center no-underline"
+            >
+              Connect me →
+            </a>
+          </div>
+        ))}
+
+        <p className="text-center text-[11px] text-slate-600 pt-1 pb-2">
+          Sus10 AI will personally connect you with verified installers. No spam, no sales calls — just the right people.
         </p>
-      </div>
 
-      {/* Closing quote */}
-      <div style={{ margin: '0 24px 24px', textAlign: 'center', paddingTop: 4 }}>
-        <div style={{ fontSize: 13, color: 'rgba(240,240,232,0.45)', fontStyle: 'italic', lineHeight: 1.7 }}>
-          &ldquo;Every roof has the potential to become a climate solution.&rdquo;
-        </div>
-        <div style={{ fontSize: 13, color: GREEN, fontWeight: 500, lineHeight: 1.7, marginTop: 4 }}>
-          Your journey toward a Self-Sustaining Roof starts with one small step.
+        {/* Disclaimer */}
+        <div className="bg-amber-950/20 border border-amber-900/20 rounded-xl p-3.5">
+          <p className="text-[10px] text-stone-500 leading-relaxed">
+            About these estimates: Calculated using MNRE solar data, IMD rainfall data, and CPCB waste norms.
+            Indicative only — actual potential confirmed after a professional site assessment. Structural load,
+            shade, roof slope, and local regulations need professional evaluation. Write to{' '}
+            <a href="mailto:gp@sus10.ai" className="text-emerald-600">gp@sus10.ai</a>{' '}
+            with any questions.
+          </p>
         </div>
       </div>
 
