@@ -5,7 +5,7 @@ import Navbar from './Navbar';
 import {
   LayoutDashboard, Telescope, Building2, ClipboardList,
   Layers, Megaphone, Inbox, Users, FileText, BookOpen,
-  ListChecks, Mail, Flag, Shield, ChevronRight, ShieldCheck, Banknote, Eye,
+  ListChecks, Mail, Flag, Shield, ChevronRight, ShieldCheck, Banknote, Eye, SlidersHorizontal,
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -54,6 +54,7 @@ const SECTIONS = [
     items: [
       { to: '/admin/audit', label: 'Audit Log', icon: ShieldCheck, testid: 'admin-nav-audit' },
       { to: '/admin/feature-flags', label: 'Feature Flags', icon: Flag, testid: 'admin-nav-flags' },
+      { to: '/admin/calculator-config', label: 'Calculator Config', icon: SlidersHorizontal, testid: 'admin-nav-calc-config' },
     ],
   },
 ];

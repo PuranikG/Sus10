@@ -2480,12 +2480,14 @@ from services.email_service import send_report_email, send_admin_notification
 
 class GroupCreate(BaseModel):
     name: str
-    type: str = "enterprise"  # developer | federation | enterprise | rwa | chain
+    type: str = "enterprise"  # developer | federation | enterprise | rwa | chain | residential_colony | apartment_complex
     description: Optional[str] = None
     owner_org: Optional[str] = None
     primary_city: Optional[str] = None
     branding_color: Optional[str] = None
     logo_url: Optional[str] = None
+    colony_buildings_count: Optional[int] = None
+    colony_flats_count: Optional[int] = None
 
 
 @api_router.post("/groups")
@@ -2494,10 +2496,12 @@ async def create_group(request: Request, group: GroupCreate):
     user = await require_auth(request)
     now = datetime.now(timezone.utc)
     group_id = f"grp_{uuid.uuid4().hex[:12]}"
+    _residential_types = {"rwa", "federation", "residential_colony", "apartment_complex"}
     doc = {
         "group_id": group_id,
         "name": group.name,
         "type": group.type,
+        "project_type": "residential" if group.type in _residential_types else "commercial",
         "description": group.description,
         "owner_org": group.owner_org,
         "primary_city": group.primary_city,
@@ -2509,6 +2513,10 @@ async def create_group(request: Request, group: GroupCreate):
         "created_at": now,
         "updated_at": now,
     }
+    if group.colony_buildings_count is not None:
+        doc["colony_buildings_count"] = group.colony_buildings_count
+    if group.colony_flats_count is not None:
+        doc["colony_flats_count"] = group.colony_flats_count
     await db.groups.insert_one(doc)
     doc.pop("_id", None)
     return doc
@@ -4970,6 +4978,60 @@ async def get_calculator_config():
     return doc
 
 
+@api_router.get("/admin/calculator-config")
+async def admin_get_calculator_config(request: Request):
+    """Admin: return calculator config for editing."""
+    user = await require_auth(request)
+    if user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    doc = await db.calculator_config.find_one({"config_id": "homeowner_v1"}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Config not found")
+    return doc
+
+
+@api_router.patch("/admin/calculator-config/question/{question_id}")
+async def admin_update_calculator_question(question_id: str, request: Request):
+    """Admin: update label/options/required for a single question. Saves version history."""
+    user = await require_auth(request)
+    if user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    body = await request.json()
+    allowed_fields = {"label", "helper_text", "options", "required", "validation"}
+    update_fields = {k: v for k, v in body.items() if k in allowed_fields}
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+
+    doc = await db.calculator_config.find_one({"config_id": "homeowner_v1"})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Config not found")
+
+    # Snapshot to history before editing
+    history_entry = {
+        "config_id": "homeowner_v1",
+        "question_id": question_id,
+        "snapshot": {k: v for k, v in body.items()},
+        "edited_by": user.user_id,
+        "edited_at": datetime.now(timezone.utc),
+    }
+    await db.calculator_config_history.insert_one(history_entry)
+
+    # Update the specific question across all pages
+    updated = False
+    for page in doc.get("pages", []):
+        for q in page.get("questions", []):
+            if q.get("id") == question_id:
+                q.update(update_fields)
+                updated = True
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Question {question_id!r} not found")
+
+    doc["updated_at"] = datetime.now(timezone.utc)
+    doc.pop("_id", None)
+    await db.calculator_config.replace_one({"config_id": "homeowner_v1"}, doc)
+    return {"ok": True, "question_id": question_id, "updated": update_fields}
+
+
 def _score_for_answer(question: dict, answer) -> int:
     """Extract numeric score from a single_select or multi_select answer."""
     if not question.get("scored"):
@@ -5996,7 +6058,12 @@ async def report_generate(request: Request, background_tasks: BackgroundTasks):
             families=families_for_biogas,
             waste_kg_per_family_per_day=0.5,
         )
-        plantation = calculate_plantation_potential(usable_area_sqm=plantation_usable_sqm)
+        _planting_density = float(answers.get("planting_density") or 1.0)
+        _planting_density = max(0.5, min(3.0, _planting_density))
+        plantation = calculate_plantation_potential(
+            usable_area_sqm=plantation_usable_sqm,
+            planting_density=_planting_density,
+        )
         return solar, rainwater, biogas, plantation
 
     loop = asyncio.get_event_loop()

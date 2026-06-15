@@ -73,7 +73,7 @@ export default function AdminBuildingDiscoveryPage() {
   const [cityOpen, setCityOpen] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState([]); // multi-select
   const [strictType, setStrictType] = useState(true);     // B1.3 default ON
-  const [minArea, setMinArea] = useState(1000);
+  const [minArea, setMinArea] = useState(1000); // sq ft
   const [discoveredBuildings, setDiscoveredBuildings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedBuildings, setSelectedBuildings] = useState(new Set());
@@ -108,7 +108,7 @@ export default function AdminBuildingDiscoveryPage() {
           body: JSON.stringify({
             city: selectedCity,
             building_type: t,
-            min_area: minArea,
+            min_area: Math.round(minArea / 10.764),
             limit: 30,
             strict_type: strictType,
           }),
@@ -252,7 +252,7 @@ export default function AdminBuildingDiscoveryPage() {
         body: JSON.stringify({
           city: selectedCity,
           building_types: selectedTypes.length > 0 ? selectedTypes : null,
-          min_area: minArea,
+          min_area: Math.round(minArea / 10.764),
           limit_per_type: 20,
           strict_type: strictType,
           auto_approve: true,
@@ -452,20 +452,20 @@ export default function AdminBuildingDiscoveryPage() {
               {/* Minimum Area Filter */}
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <Label>Minimum Footprint</Label>
-                  <span className="text-sm font-medium">{minArea.toLocaleString()} sqm</span>
+                  <Label>Min area (sq ft)</Label>
+                  <span className="text-sm font-medium">{minArea.toLocaleString()} sq ft</span>
                 </div>
                 <Slider
                   value={[minArea]}
                   onValueChange={([val]) => setMinArea(val)}
-                  min={500}
-                  max={20000}
-                  step={500}
+                  min={1000}
+                  max={200000}
+                  step={1000}
                   data-testid="area-slider"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>500 sqm</span>
-                  <span>20,000 sqm</span>
+                  <span>1,000 sq ft</span>
+                  <span>200,000 sq ft</span>
                 </div>
               </div>
 
@@ -559,11 +559,11 @@ export default function AdminBuildingDiscoveryPage() {
                                 <div className="flex gap-6 mt-3 text-sm">
                                   <div>
                                     <span className="text-muted-foreground">Footprint:</span>
-                                    <span className="ml-2 font-semibold text-green-600">{building.estimated_footprint?.toLocaleString()} sqm</span>
+                                    <span className="ml-2 font-semibold text-green-600">{building.estimated_footprint ? Math.round(building.estimated_footprint * 10.764).toLocaleString() : '—'} sq ft</span>
                                   </div>
                                   <div>
                                     <span className="text-muted-foreground">Terrace:</span>
-                                    <span className="ml-2 font-semibold text-blue-600">{building.estimated_terrace?.toLocaleString()} sqm</span>
+                                    <span className="ml-2 font-semibold text-blue-600">{building.estimated_terrace ? Math.round(building.estimated_terrace * 10.764).toLocaleString() : '—'} sq ft</span>
                                   </div>
                                 </div>
                               </div>

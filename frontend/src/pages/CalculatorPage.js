@@ -572,6 +572,7 @@ export default function CalculatorPage() {
   const [submitError, setSubmitError]   = useState(null);
   const [mapsLoaded, setMapsLoaded]     = useState(false);
   const [dialCode, setDialCode]         = useState('+91');
+  const [showErrors, setShowErrors]     = useState(false);
 
   // Session tracking: start event on mount + abandon on unload
   const currentPageRef = useRef(0);
@@ -816,39 +817,88 @@ export default function CalculatorPage() {
               );
             }
             if (q.type === 'numeric_input') {
+              const missingNum = showErrors && !answers[q.id];
               return (
-                <NumericInputQuestion
-                  key={reactKey}
-                  question={q}
-                  value={answers[q.id] || ''}
-                  onChange={(val) => setAnswers(prev => ({ ...prev, [q.id]: val }))}
-                />
+                <div key={reactKey}>
+                  <NumericInputQuestion
+                    question={q}
+                    value={answers[q.id] || ''}
+                    onChange={(val) => setAnswers(prev => ({ ...prev, [q.id]: val }))}
+                  />
+                  {missingNum && (
+                    <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '-20px', marginBottom: '16px' }}>
+                      This field is required
+                    </div>
+                  )}
+                </div>
               );
             }
             if (q.type === 'single_select') {
+              const missingSelect = showErrors && (q.scored || q.validation?.required) && !answers[q.id];
               return (
-                <SingleSelectQuestion
-                  key={reactKey}
-                  question={q}
-                  value={answers[q.id] || ''}
-                  onChange={(val) => handleSingleSelect(q.id, val)}
-                />
+                <div key={reactKey}>
+                  <SingleSelectQuestion
+                    question={q}
+                    value={answers[q.id] || ''}
+                    onChange={(val) => handleSingleSelect(q.id, val)}
+                  />
+                  {missingSelect && (
+                    <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '-20px', marginBottom: '16px' }}>
+                      Please select an option to continue
+                    </div>
+                  )}
+                </div>
               );
             }
             if (q.type === 'multi_select') {
+              const val = answers[q.id] || [];
+              const missingMulti = showErrors && (q.scored || q.validation?.required) && val.length === 0;
               return (
-                <MultiSelectQuestion
-                  key={reactKey}
-                  question={q}
-                  value={answers[q.id] || []}
-                  onChange={(val) => handleMultiSelect(q.id, val)}
-                />
+                <div key={reactKey}>
+                  <MultiSelectQuestion
+                    question={q}
+                    value={val}
+                    onChange={(val) => handleMultiSelect(q.id, val)}
+                  />
+                  {missingMulti && (
+                    <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '-20px', marginBottom: '16px' }}>
+                      Please select at least one option to continue
+                    </div>
+                  )}
+                </div>
               );
             }
             // Unknown type — warn and skip rather than crashing the render
             console.warn(`Sus10 calculator: unknown question type "${q.type}" (id=${q.id}) — skipping`);
             return null;
           })}
+
+          {/* S4A-T2: Planting density slider — Page 2 only */}
+          {currentPage === 1 && (
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: '#f8fdf8', marginBottom: '6px' }}>Planting intensity</div>
+              <div style={{ fontSize: '12px', color: '#7aaa8a', marginBottom: '12px', lineHeight: 1.5 }}>
+                How densely do you want to plant? Higher density = more plants but more maintenance.
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <input
+                  type="range"
+                  min="0.5" max="3" step="0.5"
+                  value={answers.planting_density || 1}
+                  onChange={e => setAnswers(prev => ({ ...prev, planting_density: parseFloat(e.target.value) }))}
+                  style={{ flex: 1, accentColor: '#22c55e' }}
+                />
+                <span style={{ fontSize: '14px', fontWeight: 600, color: '#22c55e', minWidth: '80px', textAlign: 'right' }}>
+                  {answers.planting_density || 1} plants/sq ft
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#4a6a4a', marginTop: '4px' }}>
+                <span>0.5 — Light</span>
+                <span>1.0 — Standard</span>
+                <span>3.0 — Dense</span>
+              </div>
+            </div>
+          )}
 
           {/* Honeypot */}
           <div style={{ display: 'none' }} aria-hidden="true">
@@ -866,15 +916,18 @@ export default function CalculatorPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
             <div>
               {currentPage > 0 && (
-                <button type="button" onClick={() => setCurrentPage(p => p - 1)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: 'transparent', border: '1px solid #1e3024', borderRadius: '100px', color: '#7aaa8a', fontSize: '14px', cursor: 'pointer', transition: 'all 0.15s' }}>
+                <button type="button" onClick={() => { setShowErrors(false); setCurrentPage(p => p - 1); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: 'transparent', border: '1px solid #1e3024', borderRadius: '100px', color: '#7aaa8a', fontSize: '14px', cursor: 'pointer', transition: 'all 0.15s' }}>
                   <ChevronLeft style={{ width: '16px', height: '16px' }} /> Back
                 </button>
               )}
             </div>
             <button
               type="button"
-              disabled={!isPageValid()}
-              onClick={isLastPage ? handleSubmit : () => setCurrentPage(p => p + 1)}
+              onClick={() => {
+                if (!isPageValid()) { setShowErrors(true); return; }
+                setShowErrors(false);
+                if (isLastPage) handleSubmit(); else setCurrentPage(p => p + 1);
+              }}
               style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
                 padding: '12px 32px',
@@ -882,7 +935,7 @@ export default function CalculatorPage() {
                 border: 'none', borderRadius: '100px',
                 color: isPageValid() ? '#0a1a0e' : '#4a6a4a',
                 fontSize: '15px', fontWeight: 700,
-                cursor: isPageValid() ? 'pointer' : 'not-allowed',
+                cursor: 'pointer',
                 transition: 'all 0.2s',
                 boxShadow: isPageValid() ? '0 4px 20px rgba(34,197,94,0.25)' : 'none',
               }}

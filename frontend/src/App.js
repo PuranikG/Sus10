@@ -45,6 +45,7 @@ import CmsEditorPage from './pages/CmsEditorPage';
 import ResourcesIndexPage from './pages/ResourcesIndexPage';
 import CalculatorPage from './pages/CalculatorPage';
 import ReportPage from './pages/ReportPage';
+import AdminCalculatorConfigPage from './pages/AdminCalculatorConfigPage';
 
 import './App.css';
 
@@ -256,6 +257,14 @@ function AppRouter() {
         element={
           <ProtectedRoute>
             <AdminAuditLogPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/calculator-config"
+        element={
+          <ProtectedRoute>
+            <AdminCalculatorConfigPage />
           </ProtectedRoute>
         }
       />

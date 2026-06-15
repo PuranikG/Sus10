@@ -194,6 +194,7 @@ def calculate_plantation_potential(
     usable_area_sqm: float,
     plantation_type: str = "mixed",  # food | ornamental | mixed
     area_utilization: float = 0.70,
+    planting_density: float = 1.0,   # user multiplier: 0.5–3.0 plants/sqft scale
 ) -> Dict[str, Any]:
     """
     Rooftop container plantation (grow bags + NFT channels + raised planters).
@@ -222,7 +223,7 @@ def calculate_plantation_potential(
     for method, share in mix.items():
         area_for_method = effective_area * share
         params = GROWING_METHODS[method]
-        plants = int(area_for_method * params["plants_per_sqm"])
+        plants = int(area_for_method * params["plants_per_sqm"] * planting_density)
         water = plants * params["water_lpd_per_plant"]
         total_plants += plants
         total_water_lpd += water

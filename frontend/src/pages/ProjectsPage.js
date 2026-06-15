@@ -25,7 +25,11 @@ const GROUP_TYPES = [
   { value: 'developer', label: 'Developer Portfolio (e.g., Embassy, Prestige)' },
   { value: 'federation', label: 'RWA / Society Federation' },
   { value: 'rwa', label: 'Single Residential Society' },
+  { value: 'residential_colony', label: 'Residential Colony / Housing Society' },
+  { value: 'apartment_complex', label: 'Apartment Complex / Gated Community' },
 ];
+
+const RESIDENTIAL_TYPES = new Set(['rwa', 'federation', 'residential_colony', 'apartment_complex']);
 
 export default function ProjectsPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -155,8 +159,9 @@ export default function ProjectsPage() {
 }
 
 function CreateProjectDialog({ open, onOpenChange, onCreated }) {
-  const [form, setForm] = useState({ name: '', type: 'enterprise', primary_city: 'Bangalore', description: '' });
+  const [form, setForm] = useState({ name: '', type: 'enterprise', primary_city: 'Bangalore', description: '', colony_buildings_count: '', colony_flats_count: '' });
   const [creating, setCreating] = useState(false);
+  const isResidential = RESIDENTIAL_TYPES.has(form.type);
 
   const handleCreate = async () => {
     if (!form.name.trim()) {
@@ -165,7 +170,12 @@ function CreateProjectDialog({ open, onOpenChange, onCreated }) {
     }
     try {
       setCreating(true);
-      const g = await apiRequest('/groups', { method: 'POST', body: JSON.stringify(form) });
+      const payload = { ...form };
+      if (payload.colony_buildings_count) payload.colony_buildings_count = parseInt(payload.colony_buildings_count, 10);
+      else delete payload.colony_buildings_count;
+      if (payload.colony_flats_count) payload.colony_flats_count = parseInt(payload.colony_flats_count, 10);
+      else delete payload.colony_flats_count;
+      const g = await apiRequest('/groups', { method: 'POST', body: JSON.stringify(payload) });
       toast.success(`Created "${g.name}"`);
       onCreated(g);
     } catch (e) {
@@ -213,6 +223,32 @@ function CreateProjectDialog({ open, onOpenChange, onCreated }) {
               </SelectContent>
             </Select>
           </div>
+          {isResidential && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>No. of Buildings (optional)</Label>
+                <Input
+                  data-testid="colony-buildings-input"
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 12"
+                  value={form.colony_buildings_count}
+                  onChange={e => setForm({ ...form, colony_buildings_count: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>No. of Flats (optional)</Label>
+                <Input
+                  data-testid="colony-flats-input"
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 240"
+                  value={form.colony_flats_count}
+                  onChange={e => setForm({ ...form, colony_flats_count: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
           <div>
             <Label>Description (optional)</Label>
             <Input

@@ -315,7 +315,8 @@ export default function AdminBuildingsPage() {
                   <TableHead>Address</TableHead>
                   <TableHead>City</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Area (sqm)</TableHead>
+                  {/* OPEN-021: add per-building inline-edit for building_type and area fields */}
+                  <TableHead className="text-right">Area (sq ft)</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -343,7 +344,7 @@ export default function AdminBuildingsPage() {
                       <TableCell className="font-medium max-w-[260px] truncate" title={b.address}>{b.address}</TableCell>
                       <TableCell>{b.city}</TableCell>
                       <TableCell className="capitalize">{b.building_type?.replace(/_/g, ' ')}</TableCell>
-                      <TableCell className="text-right">{b.usable_terrace_area?.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{b.usable_terrace_area ? Math.round(b.usable_terrace_area * 10.764).toLocaleString() : '—'}</TableCell>
                       <TableCell>
                         {approved && <Badge className="bg-green-600">Approved</Badge>}
                         {rejected && <Badge variant="destructive">Rejected</Badge>}

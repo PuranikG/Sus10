@@ -134,6 +134,7 @@ export default function ProjectDetailPage() {
           </TabsList>
 
           <TabsContent value="buildings">
+            {/* OPEN-022: add bulk-remove and export-CSV actions to BuildingsTab */}
             <BuildingsTab group={group} onRemove={handleRemoveBuilding} />
           </TabsContent>
           <TabsContent value="sustenance">
@@ -179,7 +180,7 @@ function BuildingsTab({ group, onRemove }) {
                 <div className="flex flex-wrap gap-2 mt-3 text-xs">
                   <Badge variant="outline" className="capitalize">{b.building_type}</Badge>
                   {b.building_footprint_area && (
-                    <Badge variant="secondary">{Math.round(b.building_footprint_area)} m² footprint</Badge>
+                    <Badge variant="secondary">{Math.round(b.building_footprint_area * 10.764).toLocaleString()} sq ft footprint</Badge>
                   )}
                 </div>
               </div>
@@ -252,7 +253,7 @@ function BuildingSustenanceCard({ b }) {
           <div>
             <CardTitle className="text-lg">{b.building_name}</CardTitle>
             <CardDescription>
-              {b.city} · {b.footprint_sqm} m² footprint · {b.usable_terrace_sqm} m² usable terrace
+              {b.city} · {b.footprint_sqm ? Math.round(b.footprint_sqm * 10.764).toLocaleString() : '—'} sq ft footprint · {b.usable_terrace_sqm ? Math.round(b.usable_terrace_sqm * 10.764).toLocaleString() : '—'} sq ft usable terrace
             </CardDescription>
           </div>
           <Button
@@ -552,7 +553,7 @@ function GroupRollupTab({ rollup, computing, group }) {
         <StatCard icon={<Droplets />} label="Rainwater" value={`${Math.round(s.total_rainwater_kl_per_year).toLocaleString()} kL/yr`} color="text-blue-600" />
         <StatCard icon={<Leaf />} label="CO₂ Offset" value={`${s.total_co2_offset_tonnes_per_year} tCO₂e`} sub="per year" color="text-emerald-600" />
         <StatCard icon={<TrendingUp />} label="Annual Savings" value={`₹${s.total_annual_savings_inr.toLocaleString()}`} color="text-emerald-600" />
-        <StatCard icon={<BarChart3 />} label="Total Footprint" value={`${Math.round(s.total_footprint_sqm).toLocaleString()} m²`} sub={`${Math.round(s.total_terrace_sqm).toLocaleString()} m² rooftop`} color="text-slate-600" />
+        <StatCard icon={<BarChart3 />} label="Total Footprint" value={`${Math.round(s.total_footprint_sqm * 10.764).toLocaleString()} sq ft`} sub={`${Math.round(s.total_terrace_sqm * 10.764).toLocaleString()} sq ft rooftop`} color="text-slate-600" />
       </div>
 
       <Card>
@@ -632,6 +633,7 @@ function AddBuildingsDialog({ open, onOpenChange, group, onUpdated }) {
   const [city, setCity] = useState(group?.primary_city || 'Bangalore');
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [selected, setSelected] = useState({});
   const [importing, setImporting] = useState(false);
 
@@ -645,9 +647,10 @@ function AddBuildingsDialog({ open, onOpenChange, group, onUpdated }) {
       setSearching(true);
       setResults([]);
       setSelected({});
+      setHasSearched(false);
       const data = await apiRequest(`/poi/search?poi_name=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}`);
       setResults(data.results || []);
-      if ((data.results || []).length === 0) toast.info('No results — try another POI or city');
+      setHasSearched(true);
     } catch (e) {
       toast.error('Search failed');
     } finally {
@@ -744,9 +747,14 @@ function AddBuildingsDialog({ open, onOpenChange, group, onUpdated }) {
         </div>
 
         <div className="flex-1 overflow-y-auto -mx-6 px-6 mt-2 space-y-2 min-h-[200px]">
-          {results.length === 0 && !searching && (
+          {results.length === 0 && !searching && !hasSearched && (
             <div className="text-center py-8 text-muted-foreground text-sm">
               Enter a brand or POI name and click search.
+            </div>
+          )}
+          {results.length === 0 && !searching && hasSearched && (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              No buildings found. Try a different search term or add the building manually via Admin → Buildings.
             </div>
           )}
           {results.map((r, idx) => {
@@ -770,7 +778,10 @@ function AddBuildingsDialog({ open, onOpenChange, group, onUpdated }) {
                   <div className="font-medium text-sm">{r.name}</div>
                   <div className="text-xs text-muted-foreground line-clamp-1">{r.address}</div>
                   <div className="flex gap-2 mt-1.5">
-                    <Badge variant="outline" className="text-[10px] capitalize">{r.source === 'database' ? '✓ In DB' : 'Google Places'}</Badge>
+                    {r.source === 'database'
+                      ? <Badge className="text-[10px] bg-emerald-600 text-white hover:bg-emerald-700">In Database</Badge>
+                      : <Badge className="text-[10px] bg-amber-500 text-white hover:bg-amber-600">Import from Google Places</Badge>
+                    }
                     {r.city && <Badge variant="secondary" className="text-[10px]">{r.city}</Badge>}
                   </div>
                 </div>
