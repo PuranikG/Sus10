@@ -8,7 +8,7 @@ import {
   Heart, Users, CheckCircle2, DollarSign,
 } from 'lucide-react';
 import { apiRequest } from '../lib/utils';
-import { parseReportSections, extractBullets, extractPhases } from '../utils/reportParser';
+import { parseReportSections } from '../utils/reportParser';
 
 // JS tokens — kept for loading/error states and fallback components
 const GREEN  = '#4ade80';
@@ -184,106 +184,83 @@ export default function ReportPage() {
   if (error || !assessment) return <ErrorState error={error} />;
 
   // ── Unpack data ─────────────────────────────────────────────────────────────
-  const answers    = assessment.answers               || {};
-  const scores     = assessment.scores                || {};
-  const flags      = assessment.conditional_flags     || {};
-  const tier       = assessment.readiness_tier        || 'Explorer';
-  const tierColor  = TIER_COLORS[tier]                || RED;
-  const reportText = assessment.report_text           || '';
-  const solar      = assessment.calculated_solar      || {};
-  const rainwater  = assessment.calculated_rainwater  || {};
-  const biogas     = assessment.calculated_biogas     || null;
-  const plantation = assessment.calculated_plantation || {};
-  const inputsSqft = assessment.calculation_inputs_sqft || {};
-  const sp         = assessment.sustenance_potential  || {};
+  const answers     = assessment.answers              || {};
+  const scores      = assessment.scores               || {};
+  const flags       = assessment.conditional_flags    || {};
+  const tier        = assessment.readiness_tier       || 'Explorer';
+  const tierColor   = TIER_COLORS[tier]               || RED;
+  const reportText  = assessment.report_text          || '';
+  const sp          = assessment.sustenance_potential || {};
+  const showBiogas  = assessment.show_biogas || !!sp?.biogas;
 
-  const firstName    = answers.first_name || 'Your';
+  const firstName    = answers.first_name || 'You';
   const email        = answers.email      || '';
-  const city         = inputsSqft.city    || answers.city  || '';
+  const city         = answers.city       || '';
   const state        = answers.state      || '';
-  const displayCity  = city ? city.charAt(0).toUpperCase() + city.slice(1) : city;
-  const terraceSqft  = Math.round(inputsSqft.terrace_area_sqft || answers.terrace_area_sqft || 0);
-  const buildingType = answers.Q1         || '';
-  const q6Answer     = answers.Q6         || '';
+  const displayCity  = city ? city.charAt(0).toUpperCase() + city.slice(1) : '';
+  const terraceArea  = answers.terrace_area_sqft || 1000;
+  const terraceSqft  = Math.round(terraceArea);
+  const buildingType = answers.Q1 || 'Independent House';
   const overallScore = scores.overall != null ? scores.overall : 0;
 
-  // ── Derived totals ──────────────────────────────────────────────────────────
-  const totalSavings = Math.round(
-    (solar.annual_savings_inr     || 0) +
-    (rainwater.annual_savings_inr || 0) +
-    ((biogas && biogas.annual_savings_inr) || 0)
-  );
-  const rainSavBase  = rainwater.annual_savings_inr || 0;
-  const biogasBase   = (biogas && biogas.annual_savings_inr) || 0;
-  const totalSavLow  = Math.round((solar.savings_low_inr  || Math.round((solar.annual_savings_inr || 0) * 0.909)) + rainSavBase + biogasBase);
-  const totalSavHigh = Math.round((solar.savings_high_inr || Math.round((solar.annual_savings_inr || 0) * 1.091)) + rainSavBase + biogasBase);
+  // ── Derived totals (from sustenance_potential) ──────────────────────────────
+  const solarSaving  = sp?.solar?.annual_savings_inr    || 0;
+  const rwSaving     = sp?.rainwater?.annual_savings_inr || 0;
+  const biogasSaving = sp?.biogas?.annual_savings_inr   || 0;
+  const totalSavLow  = Math.round((solarSaving + rwSaving + biogasSaving) * 0.85);
+  const totalSavHigh = Math.round(solarSaving + rwSaving + biogasSaving);
+
   const co2Total = Math.round(
-    (solar.co2_offset_kg_per_year              || 0) +
-    ((biogas && biogas.co2_offset_kg_per_year) || 0) +
-    (plantation.co2_sequestered_kg_per_year    || 0)
+    (sp?.plantation?.co2_sequestration_kg_per_year || 0) +
+    (sp?.solar?.co2_offset_kg_per_year             || 0)
   );
-  const trees = Math.round(co2Total / 21);
+  const treesEq = co2Total > 0 ? Math.round(co2Total / 21) : null;
 
-  // ── Pillar numbers (prefer direct fields; fall back to sustenance_potential) ─
-  const solarKwh     = solar.annual_generation_kwh   || sp.solar?.kwh_per_year              || 0;
-  const solarSavings = solar.annual_savings_inr      || sp.solar?.annual_savings_inr        || 0;
-  const solarKwp     = solar.installed_capacity_kwp  || 0;
-  const solarCO2     = solar.co2_offset_kg_per_year  || sp.solar?.co2_offset_kg_per_year    || 0;
-  const solarKwhLow  = solar.kwh_low                 || Math.round(solarKwh * 0.909);
-  const solarKwhHigh = solar.kwh_high                || Math.round(solarKwh * 1.091);
-  const solarSavLow  = solar.savings_low_inr         || Math.round(solarSavings * 0.909);
-  const solarSavHigh = solar.savings_high_inr        || Math.round(solarSavings * 1.091);
+  // ── Pillar numbers ──────────────────────────────────────────────────────────
+  const solarKwh     = sp?.solar?.kwh_per_year           || 0;
+  const solarSavings = sp?.solar?.annual_savings_inr     || 0;
+  const solarCO2     = sp?.solar?.co2_offset_kg_per_year || 0;
+  const solarKwp     = solarKwh ? (solarKwh / 1400).toFixed(1) : null;
+  const solarSavLow  = Math.round(solarSavings * 0.9);
+  const solarSavHigh = solarSavings;
 
-  const rainKl       = rainwater.annual_yield_kiloliters || sp.rainwater?.kl_per_year        || 0;
-  const rainSavings  = rainwater.annual_savings_inr      || sp.rainwater?.annual_savings_inr || 0;
-  const rainCatch    = Math.round((rainwater.catchment_area_sqm || 0) * 10.764) || terraceSqft;
+  const rainKl      = sp?.rainwater?.kl_per_year        || 0;
+  const rainSavings = sp?.rainwater?.annual_savings_inr || 0;
 
-  const biogasMonthly = biogas ? Math.round((biogas.biogas_m3_per_day || 0) * 30 * 10) / 10 : 0;
-  const biogasSavings = (biogas && biogas.annual_savings_inr)       || 0;
-  const biogasWaste   = (biogas && biogas.daily_organic_waste_kg)   || 0;
-  const biogasCO2     = (biogas && biogas.co2_offset_kg_per_year)   || 0;
-  const lpgCylinders  = sp.biogas?.lpg_cylinders_per_year           || null;
+  const plantCount        = sp?.plantation?.plant_count                   || 0;
+  const plantFood         = sp?.plantation?.food_yield_kg_per_year        || 0;
+  const plantCO2          = sp?.plantation?.co2_sequestration_kg_per_year || 0;
+  const plantableAreaSqft = terraceArea ? Math.round(terraceArea * 0.49) : null;
 
-  const plantCount    = plantation.total_plants_count           || sp.plantation?.plant_count              || 0;
-  const plantFood     = plantation.annual_food_yield_kg         || sp.plantation?.food_yield_kg_per_year   || 0;
-  const plantAreaSqft = Math.round((plantation.effective_area_sqm || 0) * 10.764);
-  const plantCO2      = plantation.co2_sequestered_kg_per_year  || sp.plantation?.co2_sequestration_kg_per_year || 0;
+  const biogasM3         = sp?.biogas?.m3_per_year        || 0;
+  const biogasSavingsVal = sp?.biogas?.annual_savings_inr || 0;
 
   // ── Parse report text ───────────────────────────────────────────────────────
   const parsed        = parseReportSections(reportText);
-  const strengthItems = extractBullets(parsed.strengths, 5);
-  const recItems      = extractBullets(parsed.recommendations, 3);
-  const phases        = extractPhases(parsed.roadmap);
-  const finalCards    = extractFinalCards(parsed.finalAssessment, tier, overallScore);
-  const wh            = wasteHabit(q6Answer);
+  const strengthItems = parsed && Array.isArray(parsed.strengths)       ? parsed.strengths       : [];
+  const recItems      = parsed && Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
+  const roadmapPhases = parsed?.roadmap || {
+    phase1: { title: 'Foundation', body: '' },
+    phase2: { title: 'Install',    body: '' },
+    phase3: { title: 'Optimise',   body: '' },
+  };
 
-  const metaParts = [
-    displayCity && state ? displayCity + ', ' + state : (displayCity || state),
-    terraceSqft ? fmtNum(terraceSqft) + ' sq ft terrace' : null,
-    buildingType || null,
-  ].filter(Boolean);
-  const metaLine = metaParts.join(' · ');
+  const extractPhaseItems = (body, max = 5) => {
+    if (!body) return [];
+    return body
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l =>
+        l.startsWith('- ') || l.startsWith('* ') ||
+        l.startsWith('• ') || /^\d+\.\s/.test(l)
+      )
+      .map(l => l.replace(/^[-*•]\s+/, '').replace(/^\d+\.\s+/, '').trim())
+      .filter(l => l.length > 3)
+      .slice(0, max);
+  };
 
-  // ── New helpers for Tailwind redesign ────────────────────────────────────────
-  const safeFmt = (val, suffix = '') =>
-    (val !== null && val !== undefined && !isNaN(Number(val)))
-      ? `${Number(val).toLocaleString('en-IN')}${suffix}`
-      : '—';
-
-  const treesEq    = trees > 0 ? trees : null;
-  const ctaText    = flags.R09
-    ? 'Talk to your RWA or building owner'
-    : tier === 'Explorer'
-      ? 'Join our awareness session'
-      : tier === 'Getting Ready'
-        ? 'Get a free feasibility estimate'
-        : tier === 'Sustainability Champion'
-          ? 'Join the Sus10 pilot programme'
-          : 'Connect with us for a 1:1 Consultation';
-  const ctaHref = `mailto:gp@sus10.ai?subject=${encodeURIComponent('Sus10 Enquiry — ' + firstName + ', ' + tier)}`;
-
-  // Final assessment text extraction
-  const faText = parsed.finalAssessment || '';
+  const finalCards    = extractFinalCards(parsed?.finalAssessment || '', tier, overallScore);
+  const faText        = parsed?.finalAssessment || '';
   const faOppMatch    = faText.match(/[Bb]iggest [Oo]pportunity[:\s]+([^.]+\.)/);
   const faActionMatch = faText.match(/[Oo]ne [Aa]ction[^:]*[:\s]+([^.]+\.)/);
   const faTriptych = [
@@ -294,6 +271,23 @@ export default function ReportPage() {
     { label: 'ONE ACTION THIS MONTH',
       text: faActionMatch ? faActionMatch[1].trim() : finalCards.action },
   ];
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  const safeFmt = (val, suffix = '') =>
+    (val !== null && val !== undefined && !isNaN(Number(val)))
+      ? `${Number(val).toLocaleString('en-IN')}${suffix}`
+      : '—';
+
+  const ctaText = flags.R09
+    ? 'Talk to your RWA or building owner'
+    : tier === 'Explorer'
+      ? 'Join our awareness session'
+      : tier === 'Getting Ready'
+        ? 'Get a free feasibility estimate'
+        : tier === 'Sustainability Champion'
+          ? 'Join the Sus10 pilot programme'
+          : 'Connect with us for a 1:1 Consultation';
+  const ctaHref = `mailto:gp@sus10.ai?subject=${encodeURIComponent('Sus10 Enquiry — ' + firstName + ', ' + tier)}`;
 
   return (
     <div className="min-h-screen bg-[#080d0a] text-slate-100 font-sans pb-20 [--accent:#34d399] [--accent-dim:#059669]">
@@ -482,14 +476,14 @@ export default function ReportPage() {
             <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
               <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">PLANTS ESTIMATED</p>
               <p className="text-emerald-400 text-[26px] font-extrabold leading-tight">
-                {safeFmt(sp?.plantation?.plant_count ?? plantCount)}
+                {safeFmt(plantCount)}
               </p>
               <p className="text-emerald-400 text-[11px] mt-1">plants</p>
             </div>
             <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
               <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">ORGANIC HARVEST</p>
               <p className="text-white text-[26px] font-extrabold leading-tight">
-                {safeFmt(sp?.plantation?.food_yield_kg_per_year ?? plantFood)}
+                {safeFmt(plantFood)}
               </p>
               <p className="text-slate-500 text-[11px] mt-1">kg food / year</p>
             </div>
@@ -498,13 +492,13 @@ export default function ReportPage() {
             <div className="flex justify-between text-[12px]">
               <span className="text-slate-500">Plantable Area Budget:</span>
               <span className="text-emerald-400 font-semibold">
-                {safeFmt(sp?.plantation?.plantable_area_sqft ?? plantAreaSqft, ' sq ft')}
+                {safeFmt(plantableAreaSqft, ' sq ft')}
               </span>
             </div>
             <div className="flex justify-between text-[12px]">
               <span className="text-slate-500">Annual CO₂ Sequestered:</span>
               <span className="text-emerald-400 font-semibold">
-                {safeFmt(sp?.plantation?.co2_sequestration_kg_per_year ?? plantCO2, ' kg CO₂')}
+                {safeFmt(plantCO2, ' kg CO₂')}
               </span>
             </div>
           </div>
@@ -528,16 +522,14 @@ export default function ReportPage() {
             <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
               <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">CATCHMENT VOLUME</p>
               <p className="text-blue-400 text-[26px] font-extrabold leading-tight">
-                {safeFmt(sp?.rainwater?.kl_per_year ?? rainKl, ' kL')}
+                {safeFmt(rainKl, ' kL')}
               </p>
               <p className="text-blue-400 text-[11px] mt-1">litres / year</p>
             </div>
             <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
               <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">VALUED SAVINGS</p>
               <p className="text-white text-[26px] font-extrabold leading-tight">
-                {(sp?.rainwater?.annual_savings_inr ?? rainSavings) > 0
-                  ? `Rs.${fmtRs(sp?.rainwater?.annual_savings_inr ?? rainSavings)}`
-                  : '—'}
+                {rainSavings > 0 ? `Rs.${fmtRs(rainSavings)}` : '—'}
               </p>
               <p className="text-slate-500 text-[11px] mt-1">saved / year</p>
             </div>
@@ -574,8 +566,8 @@ export default function ReportPage() {
             <div className="bg-[#0c0800] border border-amber-950/60 rounded-xl p-3.5">
               <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">ACTIVE GENERATION</p>
               <p className="text-amber-400 text-[22px] font-extrabold leading-tight">
-                {(sp?.solar?.kwh_per_year ?? solarKwh) > 0
-                  ? `${safeFmt(Math.round((sp?.solar?.kwh_per_year ?? solarKwh) * 0.45))}–${safeFmt(sp?.solar?.kwh_per_year ?? solarKwh)}`
+                {solarKwh > 0
+                  ? `${safeFmt(Math.round(solarKwh * 0.45))}–${safeFmt(solarKwh)}`
                   : '—'}
               </p>
               <p className="text-amber-400 text-[11px] mt-1">kWh / year</p>
@@ -583,8 +575,8 @@ export default function ReportPage() {
             <div className="bg-[#0c0800] border border-amber-950/60 rounded-xl p-3.5">
               <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">SAVINGS ESTIMATE</p>
               <p className="text-white text-[20px] font-extrabold leading-tight">
-                {(sp?.solar?.annual_savings_inr ?? solarSavings) > 0
-                  ? `Rs.${Math.round((sp?.solar?.annual_savings_inr ?? solarSavings) / 1000 * 0.9)}k–${Math.round((sp?.solar?.annual_savings_inr ?? solarSavings) / 1000)}k`
+                {solarSavings > 0
+                  ? `Rs.${Math.round(solarSavLow / 1000)}k–${Math.round(solarSavHigh / 1000)}k`
                   : '—'}
               </p>
               <p className="text-amber-400 text-[11px] mt-1">
@@ -596,20 +588,20 @@ export default function ReportPage() {
             <div className="flex justify-between text-[12px]">
               <span className="text-slate-500">Installable Solar Array Size:</span>
               <span className="text-amber-400 font-semibold">
-                {safeFmt(sp?.solar?.system_size_kwp ?? solarKwp, ' kWp')}
+                {solarKwp ? `${solarKwp} kWp` : '—'}
               </span>
             </div>
             <div className="flex justify-between text-[12px]">
               <span className="text-slate-500">Total Carbon Offset:</span>
               <span className="text-amber-400 font-semibold">
-                {safeFmt(sp?.solar?.co2_offset_kg ?? solarCO2, ' kg CO₂ / yr')}
+                {safeFmt(solarCO2, ' kg CO₂ / yr')}
               </span>
             </div>
           </div>
         </div>
 
         {/* BIOGAS — conditional */}
-        {!!biogas && (
+        {showBiogas && (
           <div className="bg-[#0c1a10] border border-emerald-950/50 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
@@ -626,16 +618,14 @@ export default function ReportPage() {
               <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
                 <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">GAS YIELD</p>
                 <p className="text-emerald-400 text-[26px] font-extrabold leading-tight">
-                  {safeFmt(sp?.biogas?.m3_per_year ?? biogasMonthly)}
+                  {safeFmt(biogasM3)}
                 </p>
                 <p className="text-emerald-400 text-[11px] mt-1">m³ / month</p>
               </div>
               <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
                 <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">LPG SAVINGS</p>
                 <p className="text-white text-[26px] font-extrabold leading-tight">
-                  {(sp?.biogas?.annual_savings_inr ?? biogasSavings) > 0
-                    ? `Rs.${fmtRs(sp?.biogas?.annual_savings_inr ?? biogasSavings)}`
-                    : '—'}
+                  {biogasSavingsVal > 0 ? `Rs.${fmtRs(biogasSavingsVal)}` : '—'}
                 </p>
                 <p className="text-slate-500 text-[11px] mt-1">saved / yr</p>
               </div>
@@ -679,7 +669,7 @@ export default function ReportPage() {
             );
           }) : (
             <p className="text-[13px] text-slate-500 italic">
-              {parsed.parsedOk ? 'No strengths identified yet.' : 'Full report text below.'}
+              No strengths identified yet.
             </p>
           )}
         </div>
@@ -720,7 +710,7 @@ export default function ReportPage() {
         </div>
 
         {/* Fallback markdown for unparseable reports */}
-        {!parsed.parsedOk && reportText && (
+        {!parsed && reportText && (
           <div className="bg-[#0c140f] border border-emerald-950/80 rounded-2xl p-5">
             <style>{`
               .rp-md p{color:rgba(203,213,225,0.85);font-size:14px;line-height:1.75;margin-bottom:14px}
@@ -793,20 +783,23 @@ export default function ReportPage() {
 
       <div className="max-w-lg mx-auto px-4 space-y-3">
         {[
-          { n: 1, range: '0-3 MONTHS',  title: 'Foundation', items: phases[0].slice(0, 5) },
-          { n: 2, range: '3-12 MONTHS', title: 'Install',    items: phases[1].slice(0, 5) },
-          { n: 3, range: '1-3 YEARS',   title: 'Optimise',   items: phases[2].slice(0, 5) },
-        ].map(phase => {
-          const fallback = ['Set up initial installation', 'Research vendors and get quotes', 'Review savings and next steps'];
-          const items = phase.items.length > 0 ? phase.items : fallback;
+          { n: 1, range: '0-3 MONTHS',  phaseKey: 'phase1', fallbackTitle: 'Foundation' },
+          { n: 2, range: '3-12 MONTHS', phaseKey: 'phase2', fallbackTitle: 'Install'    },
+          { n: 3, range: '1-3 YEARS',   phaseKey: 'phase3', fallbackTitle: 'Optimise'   },
+        ].map(p => {
+          const phaseData  = roadmapPhases[p.phaseKey] || {};
+          const phaseTitle = phaseData.title || p.fallbackTitle;
+          const phaseItems = extractPhaseItems(phaseData.body, 5);
+          const fallback   = ['Set up initial installation', 'Research vendors and get quotes', 'Review savings and next steps'];
+          const items      = phaseItems.length > 0 ? phaseItems : fallback;
           return (
-            <div key={phase.n} className="bg-[#0c1a10] border border-emerald-950/50 rounded-2xl p-5">
+            <div key={p.n} className="bg-[#0c1a10] border border-emerald-950/50 rounded-2xl p-5">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-[10px] font-bold text-emerald-400 tracking-[0.08em] mb-1">
-                    PHASE {phase.n} • {phase.range}
+                    PHASE {p.n} • {p.range}
                   </p>
-                  <p className="text-[17px] font-bold text-white">{phase.title}</p>
+                  <p className="text-[17px] font-bold text-white">{phaseTitle}</p>
                 </div>
                 <span className="text-[11px] text-slate-500 bg-emerald-950/40 px-2.5 py-1 rounded-md">
                   0/{items.length} Done
