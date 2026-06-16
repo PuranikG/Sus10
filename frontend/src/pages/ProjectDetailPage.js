@@ -13,7 +13,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
-import { apiRequest } from '../lib/utils';
+import { apiRequest, API_URL } from '../lib/utils';
 import Navbar from '../components/layout/Navbar';
 import { toast } from 'sonner';
 
@@ -25,6 +25,32 @@ export default function ProjectDetailPage() {
   const [rollup, setRollup] = useState(null);
   const [computingRollup, setComputingRollup] = useState(false);
   const [showAddBuildings, setShowAddBuildings] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadReport = async () => {
+    if (!group?.group_id) return;
+    setDownloading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`${API_URL}/api/groups/${group.group_id}/report.docx`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Sus10_${(group.name || 'Project').replace(/\s+/g, '_')}_Report.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error('Failed to download report');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const loadGroup = useCallback(async () => {
     try {
@@ -110,7 +136,22 @@ export default function ProjectDetailPage() {
             </div>
             {group.description && <p className="text-muted-foreground mt-2">{group.description}</p>}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {(group.building_ids?.length || 0) >= 1 && (
+              <Button
+                data-testid="download-report-btn"
+                variant="outline"
+                onClick={handleDownloadReport}
+                disabled={downloading}
+                className="gap-2"
+                title="Word document — edit and share with vendors"
+              >
+                {downloading
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <Download className="h-4 w-4" />}
+                {downloading ? 'Generating…' : 'Download Report'}
+              </Button>
+            )}
             <Button data-testid="add-buildings-btn" onClick={() => setShowAddBuildings(true)} className="gap-2">
               <Plus className="h-4 w-4" /> Add Buildings
             </Button>
