@@ -224,16 +224,18 @@ export default function ReportPage() {
   const solarSavLow  = Math.round(solarSavings * 0.9);
   const solarSavHigh = solarSavings;
 
-  const rainKl      = sp?.rainwater?.kl_per_year        || 0;
-  const rainSavings = sp?.rainwater?.annual_savings_inr || 0;
+  const rainKl        = sp?.rainwater?.kl_per_year          || 0;
+  const rainLitres    = sp?.rainwater?.annual_yield_liters   || Math.round(rainKl * 1000);
+  const rainSavings   = sp?.rainwater?.annual_savings_inr   || 0;
 
   const plantCount        = sp?.plantation?.plant_count                   || 0;
   const plantFood         = sp?.plantation?.food_yield_kg_per_year        || 0;
   const plantCO2          = sp?.plantation?.co2_sequestration_kg_per_year || 0;
   const plantableAreaSqft = terraceArea ? Math.round(terraceArea * 0.49) : null;
 
-  const biogasM3         = sp?.biogas?.m3_per_year        || 0;
-  const biogasSavingsVal = sp?.biogas?.annual_savings_inr || 0;
+  const biogasM3         = sp?.biogas?.m3_per_year          || 0;
+  const biogasCylinders  = sp?.biogas?.lpg_cylinders_per_year || 0;
+  const biogasSavingsVal = sp?.biogas?.annual_savings_inr   || 0;
 
   // ── Parse report text ───────────────────────────────────────────────────────
   const parsed        = parseReportSections(reportText);
@@ -522,7 +524,7 @@ export default function ReportPage() {
             <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
               <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">CATCHMENT VOLUME</p>
               <p className="text-blue-400 text-[26px] font-extrabold leading-tight">
-                {safeFmt(rainKl, ' kL')}
+                {safeFmt(rainLitres)}
               </p>
               <p className="text-blue-400 text-[11px] mt-1">litres / year</p>
             </div>
@@ -570,7 +572,7 @@ export default function ReportPage() {
                   ? `${safeFmt(Math.round(solarKwh * 0.45))}–${safeFmt(solarKwh)}`
                   : '—'}
               </p>
-              <p className="text-amber-400 text-[11px] mt-1">kWh / year</p>
+              <p className="text-amber-400 text-[11px] mt-1">units / year</p>
             </div>
             <div className="bg-[#0c0800] border border-amber-950/60 rounded-xl p-3.5">
               <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">SAVINGS ESTIMATE</p>
@@ -620,7 +622,10 @@ export default function ReportPage() {
                 <p className="text-emerald-400 text-[26px] font-extrabold leading-tight">
                   {safeFmt(biogasM3)}
                 </p>
-                <p className="text-emerald-400 text-[11px] mt-1">m³ / month</p>
+                <p className="text-emerald-400 text-[11px] mt-1">m³ / year</p>
+                {biogasCylinders > 0 && (
+                  <p className="text-slate-400 text-[10px] mt-0.5">≈ {Math.round(biogasCylinders)} LPG cylinders/yr</p>
+                )}
               </div>
               <div className="bg-[#0c140f] border border-emerald-950/80 rounded-xl p-3.5">
                 <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-slate-500 mb-1">LPG SAVINGS</p>
