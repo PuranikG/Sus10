@@ -5900,6 +5900,8 @@ Your lowest scoring dimension is your biggest lever for improvement. Address it 
 
 **Rooftop Greening:** {plant_count} plants · {int(food_kg)} kg food/year · {plant_co2:,} kg CO2/year · Daily water need: {plant_water_lpd} litres{biogas_line}
 
+*Estimates use Sus10 calculation methodology: MNRE Solar Radiation Handbook (GHI), IMD long-period rainfall averages, IS 16190:2014 (biogas standards), CPCB/CGWB Rainwater Harvesting Manual, ICAR KVK container farming guidelines. All figures are indicative. Actual results depend on site conditions, equipment, and DISCOM policies.*
+
 ## 7. Suggested Sus10 Roadmap
 
 **Phase 1: Foundation (0–3 months)**
