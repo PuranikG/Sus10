@@ -5894,6 +5894,8 @@ Your lowest scoring dimension is your biggest lever for improvement. Address it 
 
 **Solar PV:** {solar_kwp} kWp installable · Rs.{solar_savings_low:,}–Rs.{solar_savings_high:,}/year · {solar_co2:,} kg CO2/year
 
+*Note: This is the estimated potential for your full rooftop area. Actual installation size depends on household load, inverter capacity, and DISCOM net metering policy.*
+
 **Rainwater Harvesting:** {int(rwh_kl)} kL/year · Rs.{rwh_savings:,}/year{env_note}
 
 **Rooftop Greening:** {plant_count} plants · {int(food_kg)} kg food/year · {plant_co2:,} kg CO2/year · Daily water need: {plant_water_lpd} litres{biogas_line}
@@ -6079,34 +6081,6 @@ async def report_generate(request: Request, background_tasks: BackgroundTasks):
     # google.maps.places.Autocomplete to new
     # google.maps.places.PlaceAutocompleteElement
     # (Not breaking yet — at least 12 months notice given. Sprint B+2.)
-    _SOLAR_KWP_CAPS = {
-        "Independent House": 7.0,
-        "Row House": 5.0,
-        "Mid/low-rise Apartment (1-4 floors)": 3.0,
-        "High-rise apartment (5+ floors)": 2.0,
-    }
-    try:
-        _installed_kwp = float(solar_result.get("installed_capacity_kwp") or 0)
-        _kwp_cap = _SOLAR_KWP_CAPS.get(q1_value, 5.0)
-        # Guard: only cap when installed > 0 (avoids ZeroDivisionError)
-        if _installed_kwp > 0 and _installed_kwp > _kwp_cap:
-            _scale = _kwp_cap / _installed_kwp
-            solar_result["installed_capacity_kwp"] = round(_kwp_cap, 2)
-            for _k in ["annual_generation_kwh", "monthly_generation_kwh",
-                       "annual_savings_inr", "co2_offset_kg_per_year"]:
-                if _k in solar_result and solar_result[_k] is not None:
-                    solar_result[_k] = round(float(solar_result[_k]) * _scale)
-            solar_result["capped"] = True
-            solar_result["cap_note"] = (
-                f"Sized to {_kwp_cap} kWp — practical for "
-                f"typical {q1_value} household load"
-            )
-    except Exception as _cap_exc:
-        logger.error(
-            f"Solar kWp cap failed — type={type(_cap_exc).__name__} err={_cap_exc}",
-            exc_info=True,
-        )
-
     # ── Solar low/high range (50–60% of terrace) ─────────────────────────────
     # These keys MUST be set before STEP G builds the f-string prompt.
     # Wrap in try/except with safe defaults so a crash here never causes 502.
