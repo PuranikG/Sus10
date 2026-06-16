@@ -3550,6 +3550,35 @@ async def get_group_sustenance(
     }
 
 
+@api_router.get("/groups/{group_id}/report.docx")
+async def get_group_report_docx(group_id: str):
+    """Download a DOCX sustainability report for a project/group."""
+    group = await db.groups.find_one({"group_id": group_id}, {"_id": 0})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    building_ids = group.get("building_ids", [])
+    buildings = (
+        await db.buildings.find(
+            {"building_id": {"$in": building_ids}}, {"_id": 0}
+        ).to_list(len(building_ids))
+        if building_ids
+        else []
+    )
+    per_building = [calculate_full_sustenance_potential(building=b) for b in buildings]
+    rollup = aggregate_group_potential(per_building)
+    from services.group_report_docx import generate_group_report_docx
+    docx_bytes = generate_group_report_docx(
+        group=group, buildings=buildings, sustenance=rollup, per_building=per_building
+    )
+    safe_name = "".join(c for c in group.get("name", "Project") if c.isalnum() or c in (" ", "_", "-")).replace(" ", "_")
+    filename = f"Sus10_{safe_name}_Report.docx"
+    return FastAPIResponse(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # ==================== INCUBEX-STYLE SEARCH (POI-based) ====================
 @api_router.get("/poi/search")
 async def search_buildings_by_poi(
