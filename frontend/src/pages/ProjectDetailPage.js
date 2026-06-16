@@ -4,7 +4,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Building2, MapPin, Plus, Trash2, Loader2, Search,
   Sun, Sprout, Flame, Droplets, TrendingUp, Leaf, Sparkles, BarChart3,
-  Download, ExternalLink, Check, X, Eye, Brain, ChevronLeft, ChevronRight
+  Download, ExternalLink, Check, X, Eye, Brain, ChevronLeft, ChevronRight, Users
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -120,30 +120,43 @@ export default function ProjectDetailPage() {
           </div>
         </div>
 
-        <Tabs defaultValue="buildings" className="space-y-4">
-          <TabsList>
-            <TabsTrigger data-testid="tab-buildings" value="buildings">
-              <Building2 className="h-4 w-4 mr-2" /> Buildings
-            </TabsTrigger>
-            <TabsTrigger data-testid="tab-sustenance" value="sustenance">
-              <Leaf className="h-4 w-4 mr-2" /> Sustenance Potential
-            </TabsTrigger>
-            <TabsTrigger data-testid="tab-rollup" value="rollup">
-              <BarChart3 className="h-4 w-4 mr-2" /> Group Rollup (BRSR)
-            </TabsTrigger>
-          </TabsList>
+        {(() => {
+          const isResidentialProject = ['residential_colony', 'apartment_complex'].includes(group.type || group.project_type);
+          return (
+            <Tabs defaultValue="buildings" className="space-y-4">
+              <TabsList>
+                <TabsTrigger data-testid="tab-buildings" value="buildings">
+                  <Building2 className="h-4 w-4 mr-2" /> Buildings
+                </TabsTrigger>
+                <TabsTrigger data-testid="tab-sustenance" value="sustenance">
+                  <Leaf className="h-4 w-4 mr-2" /> Sustenance Potential
+                </TabsTrigger>
+                {isResidentialProject ? (
+                  <TabsTrigger data-testid="tab-community" value="rollup">
+                    <Users className="h-4 w-4 mr-2" /> Community Impact
+                  </TabsTrigger>
+                ) : (
+                  <TabsTrigger data-testid="tab-rollup" value="rollup">
+                    <BarChart3 className="h-4 w-4 mr-2" /> Group Rollup (BRSR)
+                  </TabsTrigger>
+                )}
+              </TabsList>
 
-          <TabsContent value="buildings">
-            {/* OPEN-022: add bulk-remove and export-CSV actions to BuildingsTab */}
-            <BuildingsTab group={group} onRemove={handleRemoveBuilding} />
-          </TabsContent>
-          <TabsContent value="sustenance">
-            <SustenancePerBuildingTab rollup={rollup} computing={computingRollup} />
-          </TabsContent>
-          <TabsContent value="rollup">
-            <GroupRollupTab rollup={rollup} computing={computingRollup} group={group} />
-          </TabsContent>
-        </Tabs>
+              <TabsContent value="buildings">
+                {/* OPEN-022: add bulk-remove and export-CSV actions to BuildingsTab */}
+                <BuildingsTab group={group} onRemove={handleRemoveBuilding} />
+              </TabsContent>
+              <TabsContent value="sustenance">
+                <SustenancePerBuildingTab rollup={rollup} computing={computingRollup} />
+              </TabsContent>
+              <TabsContent value="rollup">
+                {isResidentialProject
+                  ? <CommunityImpactTab rollup={rollup} computing={computingRollup} group={group} />
+                  : <GroupRollupTab rollup={rollup} computing={computingRollup} group={group} />}
+              </TabsContent>
+            </Tabs>
+          );
+        })()}
       </div>
 
       <AddBuildingsDialog
@@ -595,6 +608,51 @@ function GroupRollupTab({ rollup, computing, group }) {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ===================== COMMUNITY IMPACT TAB (residential projects) =====================
+function CommunityImpactTab({ rollup, computing, group }) {
+  if (computing) return <CardLoader text="Computing community impact…" />;
+  if (!rollup || !rollup.summary || !rollup.buildings?.length) {
+    return <EmptyState text="Add buildings to see community sustainability potential." />;
+  }
+  const s = rollup.summary;
+  const flats = group.colony_flats_count || s.buildings_count * 4;
+  const foodPerFamily = flats > 0 ? Math.round(s.total_food_kg_per_year / flats) : 0;
+  const waterPerHousehold = flats > 0 ? Math.round((s.total_rainwater_kl_per_year * 1000) / flats) : 0;
+  const elecSavingsKwh = s.total_solar_kwh_per_year || 0;
+
+  return (
+    <div className="space-y-6">
+      <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/20 border-emerald-200 dark:border-emerald-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-emerald-600" />
+            Community Sustainability Score
+          </CardTitle>
+          <CardDescription>Rooftop sustainability potential for your residential community</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-base leading-relaxed">
+            Across {s.buildings_count} building{s.buildings_count === 1 ? '' : 's'} in this community, rooftop sustainability
+            could save <strong className="text-emerald-700 dark:text-emerald-300">Rs.{s.total_annual_savings_inr.toLocaleString('en-IN')}/year</strong>,
+            grow food for families, and offset <strong className="text-emerald-700 dark:text-emerald-300">{s.total_co2_offset_kg_per_year.toLocaleString('en-IN')} kg CO₂/year</strong>.
+          </p>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard icon={<Building2 />} label="Buildings" value={s.buildings_count} color="text-slate-600" />
+        <StatCard icon={<Sun />} label="Solar (Common Area)" value={`${Math.round(s.total_solar_kwp)} kWp`} sub="Electricity savings impact" color="text-amber-600" />
+        <StatCard icon={<Sprout />} label="Community Garden" value={`${s.total_plants_count.toLocaleString()} plants`} sub={foodPerFamily > 0 ? `~${foodPerFamily} kg/family/yr` : ''} color="text-green-600" />
+        <StatCard icon={<Droplets />} label="Water Savings" value={`${Math.round(s.total_rainwater_kl_per_year * 1000).toLocaleString('en-IN')} L/yr`} sub={waterPerHousehold > 0 ? `~${waterPerHousehold.toLocaleString('en-IN')} L/household` : ''} color="text-blue-600" />
+        <StatCard icon={<Flame />} label="Biogas" value={`${Math.round(s.total_biogas_m3_per_year)} m³/yr`} color="text-orange-600" />
+        <StatCard icon={<Leaf />} label="Environmental Impact" value={`${s.total_co2_offset_kg_per_year.toLocaleString('en-IN')} kg CO₂`} sub="saved per year" color="text-emerald-600" />
+        <StatCard icon={<TrendingUp />} label="Community Savings" value={`Rs.${s.total_annual_savings_inr.toLocaleString('en-IN')}`} sub="annual estimate" color="text-emerald-600" />
+        <StatCard icon={<BarChart3 />} label="Total Rooftop" value={`${Math.round(s.total_terrace_sqm * 10.764).toLocaleString('en-IN')} sq ft`} color="text-slate-600" />
+      </div>
     </div>
   );
 }
