@@ -182,6 +182,12 @@ function BuildingsTab({ group, onRemove }) {
                   {b.building_footprint_area && (
                     <Badge variant="secondary">{Math.round(b.building_footprint_area * 10.764).toLocaleString()} sq ft footprint</Badge>
                   )}
+                  {b.usable_terrace_area && (
+                    <Badge variant="secondary" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-300">{Math.round(b.usable_terrace_area * 10.764).toLocaleString()} sq ft terrace</Badge>
+                  )}
+                  {b.usable_terrace_area_sqft && !b.usable_terrace_area && (
+                    <Badge variant="secondary" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-300">{Math.round(b.usable_terrace_area_sqft).toLocaleString()} sq ft terrace</Badge>
+                  )}
                 </div>
               </div>
               <div className="flex flex-col gap-1">
@@ -292,14 +298,14 @@ function BuildingSustenanceCard({ b }) {
             icon={<Flame className="h-5 w-5" />}
             color="bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300"
             label="Biogas"
-            primary={`${b.summary.biogas_m3_per_year} m³/yr`}
-            secondary={b.pillars.biogas.recommended_plant_size?.split('(')[0]?.trim() || 'Plant sized'}
+            primary={b.pillars.biogas?.lpg_equivalent_kg_per_year ? `${Math.round(b.pillars.biogas.lpg_equivalent_kg_per_year / 14.2)} cyl/yr` : `${b.summary.biogas_m3_per_year} m³/yr`}
+            secondary={`${b.summary.biogas_m3_per_year} m³/year`}
           />
           <PillarCard
             icon={<Droplets className="h-5 w-5" />}
             color="bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
             label="Rainwater"
-            primary={`${b.summary.rainwater_kl_per_year} kL/yr`}
+            primary={`${(b.summary.rainwater_kl_per_year * 1000).toLocaleString('en-IN')} L/yr`}
             secondary={`${b.pillars.rainwater.households_supported} households`}
           />
         </div>
@@ -549,8 +555,8 @@ function GroupRollupTab({ rollup, computing, group }) {
         <StatCard icon={<Building2 />} label="Buildings" value={s.buildings_count} color="text-slate-600" />
         <StatCard icon={<Sun />} label="Solar Capacity" value={`${Math.round(s.total_solar_kwp)} kWp`} sub={`${Math.round(s.total_solar_kwh_per_year / 1000)} MWh/yr`} color="text-amber-600" />
         <StatCard icon={<Sprout />} label="Plants" value={s.total_plants_count.toLocaleString()} sub={s.total_food_kg_per_year > 0 ? `${Math.round(s.total_food_kg_per_year).toLocaleString()} kg food/yr` : ''} color="text-green-600" />
-        <StatCard icon={<Flame />} label="Biogas" value={`${Math.round(s.total_biogas_m3_per_year).toLocaleString()} m³/yr`} color="text-orange-600" />
-        <StatCard icon={<Droplets />} label="Rainwater" value={`${Math.round(s.total_rainwater_kl_per_year).toLocaleString()} kL/yr`} color="text-blue-600" />
+        <StatCard icon={<Flame />} label="Biogas" value={`${Math.round(s.total_biogas_m3_per_year).toLocaleString()} m³/yr`} sub={s.total_biogas_m3_per_year ? `≈${Math.round(s.total_biogas_m3_per_year * 0.45 / 14.2)} cyl/yr` : ''} color="text-orange-600" />
+        <StatCard icon={<Droplets />} label="Rainwater" value={`${Math.round(s.total_rainwater_kl_per_year * 1000).toLocaleString('en-IN')} L/yr`} color="text-blue-600" />
         <StatCard icon={<Leaf />} label="CO₂ Offset" value={`${s.total_co2_offset_tonnes_per_year} tCO₂e`} sub="per year" color="text-emerald-600" />
         <StatCard icon={<TrendingUp />} label="Annual Savings" value={`₹${s.total_annual_savings_inr.toLocaleString()}`} color="text-emerald-600" />
         <StatCard icon={<BarChart3 />} label="Total Footprint" value={`${Math.round(s.total_footprint_sqm * 10.764).toLocaleString()} sq ft`} sub={`${Math.round(s.total_terrace_sqm * 10.764).toLocaleString()} sq ft rooftop`} color="text-slate-600" />
@@ -569,7 +575,7 @@ function GroupRollupTab({ rollup, computing, group }) {
                   <th className="py-2 px-3 text-right">Solar (kWp)</th>
                   <th className="py-2 px-3 text-right">Plants</th>
                   <th className="py-2 px-3 text-right">Biogas (m³/yr)</th>
-                  <th className="py-2 px-3 text-right">Rainwater (kL/yr)</th>
+                  <th className="py-2 px-3 text-right">Rainwater (L/yr)</th>
                   <th className="py-2 pl-3 text-right">CO₂ (t/yr)</th>
                 </tr>
               </thead>
@@ -580,7 +586,7 @@ function GroupRollupTab({ rollup, computing, group }) {
                     <td className="py-2 px-3 text-right">{b.summary.solar_kwp}</td>
                     <td className="py-2 px-3 text-right">{b.summary.plants_count}</td>
                     <td className="py-2 px-3 text-right">{b.summary.biogas_m3_per_year}</td>
-                    <td className="py-2 px-3 text-right">{b.summary.rainwater_kl_per_year}</td>
+                    <td className="py-2 px-3 text-right">{Math.round(b.summary.rainwater_kl_per_year * 1000).toLocaleString('en-IN')}</td>
                     <td className="py-2 pl-3 text-right font-semibold text-emerald-600">{b.summary.total_co2_offset_tonnes_per_year}</td>
                   </tr>
                 ))}
