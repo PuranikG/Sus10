@@ -2475,6 +2475,7 @@ from services.sustenance_calculator import (
     calculate_biogas_potential,
     calculate_plantation_potential,
 )
+from services.city_data import seed_city_parameters
 from services.gemini_rooftop_analyzer import analyze_rooftop
 from services.email_service import send_report_email, send_admin_notification
 
@@ -4613,6 +4614,7 @@ async def ensure_critical_flags():
     )
     # Sprint A: seed calculator config
     await _seed_calculator_config()
+    await seed_city_parameters(db)
 
 
 # ==================== SPRINT A: CALCULATOR & REPORT ====================
