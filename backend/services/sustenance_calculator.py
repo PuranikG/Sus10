@@ -210,74 +210,26 @@ def calculate_plantation_potential(
     When 'food': 60% grow bags + 40% NFT
     When 'ornamental': 100% ornamental containers
     """
-    effective_area = usable_area_sqm * area_utilization
-
-    if plantation_type == "food":
-        mix = {"grow_bags": 0.6, "nft_hydroponics": 0.4}
-    elif plantation_type == "ornamental":
-        mix = {"ornamental_containers": 1.0}
-    else:  # mixed
-        mix = {"grow_bags": 0.5, "nft_hydroponics": 0.3, "raised_planters": 0.2}
-
-    total_plants = 0
-    total_water_lpd = 0
-    breakdown = []
-    for method, share in mix.items():
-        area_for_method = effective_area * share
-        params = GROWING_METHODS[method]
-        plants = int(area_for_method * params["plants_per_sqm"] * planting_density)
-        water = plants * params["water_lpd_per_plant"]
-        total_plants += plants
-        total_water_lpd += water
-        breakdown.append({
-            "method": method,
-            "area_sqm": round(area_for_method, 1),
-            "plants_count": plants,
-            "water_lpd": round(water, 1),
-            "plant_type": params["type"],
-        })
-
-    # CO2 sequestration: container plants ~2-5 kg CO2/year/plant
+    effective_area_sqm = usable_area_sqm * area_utilization
+    effective_area_sqft = round(effective_area_sqm * 10.764)
+    density_per_sqm = planting_density * 10.764
+    total_plants = int(effective_area_sqm * density_per_sqm)
+    food_fraction = 1.0 if plantation_type == "food" else (0.0 if plantation_type == "ornamental" else 0.6)
+    annual_food_yield_kg = round(total_plants * food_fraction * 2.5, 1)
     co2_sequestered_kg_yr = total_plants * 3.5
-
-    # Food yield estimate (only food/mixed)
-    annual_food_yield_kg = 0
-    if plantation_type in ("food", "mixed"):
-        # Avg yield across food plants ~3 kg/plant/year, but only ~60% are food-yielding plants
-        food_plants_fraction = 0.6 if plantation_type == "mixed" else 1.0
-        annual_food_yield_kg = total_plants * food_plants_fraction * 3.0
-
-    # Recommended species (top 5 by suitability)
-    if plantation_type == "food":
-        species = ROOFTOP_PLANT_CATALOG["food"][:6]
-    elif plantation_type == "ornamental":
-        species = ROOFTOP_PLANT_CATALOG["ornamental"]
-    else:
-        species = ROOFTOP_PLANT_CATALOG["food"][:4] + ROOFTOP_PLANT_CATALOG["ornamental"][:2]
-
+    water_lpd = total_plants * 2.0
+    water_annual_litres = round(water_lpd * 365)
     return {
-        "plantation_type": plantation_type,
-        "effective_area_sqm": round(effective_area, 1),
-        "area_utilization_pct": round(area_utilization * 100, 1),
         "total_plants_count": total_plants,
-        "water_required_lpd": round(total_water_lpd),
-        "water_required_annual_kl": round(total_water_lpd * 365 / 1000, 1),
-        "annual_food_yield_kg": round(annual_food_yield_kg, 1) if annual_food_yield_kg else None,
+        "effective_area_sqm": round(effective_area_sqm, 1),
+        "effective_area_sqft": effective_area_sqft,
+        "planting_density_per_sqft": planting_density,
+        "annual_food_yield_kg": annual_food_yield_kg if annual_food_yield_kg else None,
         "co2_sequestered_kg_per_year": round(co2_sequestered_kg_yr),
-        "growing_methods_breakdown": breakdown,
-        "recommended_species": species,
-        "methodology": (
-            f"Container plantation on {round(effective_area,1)} m² ({round(area_utilization*100)}% utilization). "
-            f"All species ≤7 ft height. Mix: {plantation_type}. "
-            f"CO2 estimate based on 3.5 kg/plant/year for container plants."
-        ),
-        "constraints": [
-            "Only plants with max height ≤ 7 ft (terrace structural & wind safety)",
-            "Container/grow-bag/NFT based — no in-ground planting",
-            "Requires waterproofing layer and drip irrigation setup",
-            "Avoid heavy soil — use cocopeat + compost mix",
-        ],
-        "data_source": "ICAR + KVK rooftop farming guidelines",
+        "water_required_lpd": round(water_lpd),
+        "water_required_annual_litres": water_annual_litres,
+        "methodology": f"Container plantation on {effective_area_sqft} sq ft ({round(area_utilization*100)}% utilisation). Density: {planting_density} plant/sqft. Food yield: {food_fraction*2.5} kg/plant/yr (ICAR KVK). CO2: 3.5 kg/plant/yr (ICAR/FAO).",
+        "data_source": "ICAR KVK container farming guidelines + IS 16190:2014",
     }
 
 

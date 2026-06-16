@@ -6046,7 +6046,7 @@ async def report_generate(request: Request, background_tasks: BackgroundTasks):
     # shade from adjacent structures). Use midpoint 55% for base calculation.
     # Plantation: 70% (containers fit around edges and unused corners).
     solar_usable_sqm      = round(area_sqm * 0.55, 2)
-    plantation_usable_sqm = round(area_sqm * 0.70, 2)
+    plantation_usable_sqm = area_sqm
     # Legacy alias kept for rainwater + biogas (catchment = full terrace)
     usable_area_sqm = solar_usable_sqm   # used only for solar calc below
     usable_area_sqft = round(solar_usable_sqm * 10.764)
