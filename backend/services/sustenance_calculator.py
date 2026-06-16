@@ -18,6 +18,7 @@ References:
 
 from typing import Dict, Any, List, Optional
 import math
+from services.city_data import get_city_params
 
 
 # ===================== MNRE GHI LOOKUP (kWh/m²/day annual avg) =====================
@@ -113,7 +114,9 @@ def calculate_solar_potential(
     Optimal tilt = latitude (approx). User instructed 20° for India broad use.
     """
     city_key = (city or "").lower().strip()
-    ghi = MNRE_GHI.get(city_key, MNRE_GHI["default"])
+    _cp = get_city_params(city_key)
+    ghi = _cp["ghi_kwh_per_sqm_per_day"]
+    tariff = _cp["electricity_tariff_inr_kwh"]
     latitude = CITY_LATITUDE.get(city_key, 20.0)
 
     effective_area = usable_area_sqm * area_utilization
@@ -121,8 +124,7 @@ def calculate_solar_potential(
     annual_kwh = installed_kwp * ghi * 365 * performance_ratio
     monthly_kwh = annual_kwh / 12
 
-    # Financial: avg commercial tariff in India ~₹8/kWh
-    annual_savings_inr = annual_kwh * 8
+    annual_savings_inr = annual_kwh * tariff
     # CO2 offset: Indian grid emission factor 0.82 kgCO2/kWh (CEA 2023)
     co2_offset_kg_yr = annual_kwh * 0.82
 
@@ -414,15 +416,16 @@ def calculate_rainwater_potential(
       - first_flush_loss = 5% (dirt/debris flushed)
     """
     city_key = (city or "").lower().strip()
-    rainfall_mm = ANNUAL_RAINFALL_MM.get(city_key, ANNUAL_RAINFALL_MM["default"])
+    _cp = get_city_params(city_key)
+    rainfall_mm = _cp["annual_rainfall_mm"]
+    water_cost = _cp["water_cost_inr_kl"]
 
     # 1 mm rainfall on 1 m² = 1 liter
     gross_yield_l = catchment_area_sqm * rainfall_mm
     net_yield_l = gross_yield_l * runoff_coefficient * (1 - first_flush_loss_pct)
     net_yield_kl = net_yield_l / 1000
 
-    # Municipal water cost in India: ~₹15-25/kL (using ₹20)
-    annual_savings_inr = net_yield_kl * 20
+    annual_savings_inr = net_yield_kl * water_cost
 
     # Household water need: ~135 LPCD × 4 people = 540 L/day = ~197 kL/year
     households_supported = net_yield_kl / 197
