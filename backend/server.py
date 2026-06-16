@@ -3696,6 +3696,75 @@ async def import_building_from_poi(request: Request):
     return {"imported": True, "building": doc}
 
 
+@api_router.post("/buildings")
+async def create_building_manual(request: Request):
+    """
+    Create a building via manual input (authenticated users). Used as the last-resort
+    fallback in the Add Buildings modal when neither DB nor Google Places finds results.
+    Body: { name, address, city, building_type, usable_terrace_area_sqft,
+            floors?, units?, notes? }
+    """
+    user = await require_auth(request)
+    body = await request.json()
+    name = (body.get("name") or "").strip()
+    address = (body.get("address") or "").strip()
+    city = (body.get("city") or "").strip()
+    building_type = body.get("building_type", "residential")
+    area_sqft = float(body.get("usable_terrace_area_sqft") or 0)
+    if not name or not address or not city or area_sqft < 100:
+        raise HTTPException(status_code=400, detail="name, address, city and area_sqft (≥100) are required")
+    area_sqm = round(area_sqft * 0.0929, 2)
+    floors = int(body.get("floors") or 1)
+    units = body.get("units")
+    notes = body.get("notes", "")
+    building_id = f"bld_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    doc = {
+        "building_id": building_id,
+        "name": name,
+        "address": address,
+        "city": city,
+        "pincode": "",
+        "building_type": building_type,
+        "building_footprint_area": area_sqm,
+        "usable_terrace_area": area_sqm,
+        "usable_terrace_area_sqft": area_sqft,
+        "floors": floors,
+        "data_source": "manual_input",
+        "is_approved": True,
+        "created_by": user.user_id,
+        "created_at": now,
+        "updated_at": now,
+    }
+    if units is not None:
+        doc["units"] = int(units)
+    if notes:
+        doc["notes"] = notes
+    await db.buildings.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.patch("/groups/{group_id}")
+async def patch_group(group_id: str, request: Request):
+    """Partial update of a group — supports colony_buildings_count, colony_flats_count, description."""
+    user = await require_auth(request)
+    group = await db.groups.find_one({"group_id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    if group.get("created_by") != user.user_id and user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    body = await request.json()
+    allowed = {"colony_buildings_count", "colony_flats_count", "description", "name", "primary_city"}
+    updates = {k: v for k, v in body.items() if k in allowed and v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    updates["updated_at"] = datetime.now(timezone.utc)
+    await db.groups.update_one({"group_id": group_id}, {"$set": updates})
+    updated = await db.groups.find_one({"group_id": group_id}, {"_id": 0})
+    return updated
+
+
 @api_router.post("/sustenance/building/{building_id}/gemini-analyze")
 async def gemini_analyze_rooftop(building_id: str, request: Request):
     """

@@ -627,29 +627,47 @@ function EmptyState({ text }) {
   );
 }
 
-// ===================== ADD BUILDINGS DIALOG (POI search + import) =====================
+// ===================== ADD BUILDINGS DIALOG (3-stage: DB → Google Places → Manual) =====================
+const MANUAL_BUILDING_TYPES = ['residential', 'commercial', 'it_park', 'hospital', 'college'];
+const CITY_LIST = ['Bangalore', 'Mumbai', 'Delhi', 'Gurugram', 'Noida', 'Pune', 'Hyderabad', 'Chennai',
+  'Nagpur', 'Nashik', 'Surat', 'Ahmedabad', 'Kolkata', 'Chennai', 'Bhopal', 'Indore'];
+
 function AddBuildingsDialog({ open, onOpenChange, group, onUpdated }) {
   const [query, setQuery] = useState('');
   const [city, setCity] = useState(group?.primary_city || 'Bangalore');
-  const [results, setResults] = useState([]);
+  const [dbResults, setDbResults] = useState([]);
+  const [poiResults, setPoiResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [selected, setSelected] = useState({});
-  const [importing, setImporting] = useState(false);
+  const [selected, setSelected] = useState({});   // DB multi-select
+  const [importingId, setImportingId] = useState(null);
+  const [addingDb, setAddingDb] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const [manualForm, setManualForm] = useState({ name: '', address: '', city: group?.primary_city || 'Bangalore', building_type: 'residential', area_sqft: '', floors: '1', units: '', notes: '' });
+  const [submittingManual, setSubmittingManual] = useState(false);
 
   useEffect(() => {
-    if (group?.primary_city) setCity(group.primary_city);
+    if (group?.primary_city) {
+      setCity(group.primary_city);
+      setManualForm(f => ({ ...f, city: group.primary_city }));
+    }
   }, [group]);
 
   const handleSearch = async () => {
-    if (!query.trim()) return toast.error('Enter a brand/POI name');
+    if (!query.trim()) return toast.error('Enter a brand, building name or address');
     try {
       setSearching(true);
-      setResults([]);
+      setDbResults([]);
+      setPoiResults([]);
       setSelected({});
       setHasSearched(false);
+      setShowManual(false);
       const data = await apiRequest(`/poi/search?poi_name=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}`);
-      setResults(data.results || []);
+      const all = data.results || [];
+      const db = all.filter(r => r.source === 'database');
+      const poi = all.filter(r => r.source !== 'database');
+      setDbResults(db);
+      setPoiResults(poi);
       setHasSearched(true);
     } catch (e) {
       toast.error('Search failed');
@@ -658,71 +676,119 @@ function AddBuildingsDialog({ open, onOpenChange, group, onUpdated }) {
     }
   };
 
-  const toggleSelect = (idx) => {
-    setSelected(s => ({ ...s, [idx]: !s[idx] }));
-  };
+  // Stage 1: DB multi-select + batch add
+  const toggleDb = (idx) => setSelected(s => ({ ...s, [idx]: !s[idx] }));
+  const dbSelectedCount = Object.values(selected).filter(Boolean).length;
 
-  const selectedCount = Object.values(selected).filter(Boolean).length;
-
-  const handleAddSelected = async () => {
-    const chosen = results.filter((_, i) => selected[i]);
-    if (chosen.length === 0) return toast.error('Select buildings to add');
+  const handleAddDbSelected = async () => {
+    const chosen = dbResults.filter((_, i) => selected[i]);
+    if (chosen.length === 0) return;
     try {
-      setImporting(true);
-      const buildingIds = [];
-
-      for (const r of chosen) {
-        if (r.source === 'database' && r.building_id) {
-          buildingIds.push(r.building_id);
-        } else if (r.google_place_id) {
-          const res = await apiRequest('/poi/import', {
-            method: 'POST',
-            body: JSON.stringify({
-              google_place_id: r.google_place_id,
-              name: r.name,
-              address: r.address,
-              city: r.city,
-              latitude: r.latitude,
-              longitude: r.longitude,
-              building_type: 'commercial',
-            }),
-          });
-          if (res.building?.building_id) buildingIds.push(res.building.building_id);
-        }
-      }
-
-      if (buildingIds.length > 0) {
+      setAddingDb(true);
+      const ids = chosen.map(r => r.building_id).filter(Boolean);
+      if (ids.length > 0) {
         await apiRequest(`/groups/${group.group_id}/buildings`, {
           method: 'POST',
-          body: JSON.stringify({ building_ids: buildingIds }),
+          body: JSON.stringify({ building_ids: ids }),
         });
-        toast.success(`Added ${buildingIds.length} buildings to project`);
+        toast.success(`Added ${ids.length} building${ids.length === 1 ? '' : 's'} to project`);
         onUpdated();
         onOpenChange(false);
       }
     } catch (e) {
-      toast.error('Failed to add buildings: ' + (e.message || ''));
+      toast.error('Failed to add buildings');
     } finally {
-      setImporting(false);
+      setAddingDb(false);
     }
   };
 
+  // Stage 2: Google Places single-click import + add
+  const handleImportBuilding = async (r) => {
+    try {
+      setImportingId(r.google_place_id);
+      const res = await apiRequest('/poi/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          google_place_id: r.google_place_id,
+          name: r.name,
+          address: r.address,
+          city: r.city || city,
+          latitude: r.latitude,
+          longitude: r.longitude,
+          building_type: 'commercial',
+        }),
+      });
+      const buildingId = res.building?.building_id;
+      if (!buildingId) throw new Error('Import did not return a building_id');
+      await apiRequest(`/groups/${group.group_id}/buildings`, {
+        method: 'POST',
+        body: JSON.stringify({ building_ids: [buildingId] }),
+      });
+      toast.success(`${r.name} imported and added to project`);
+      onUpdated();
+      onOpenChange(false);
+    } catch (e) {
+      toast.error('Import failed: ' + (e.message || ''));
+    } finally {
+      setImportingId(null);
+    }
+  };
+
+  // Stage 3: manual form submit
+  const handleManualSubmit = async () => {
+    const { name, address, city: mCity, building_type, area_sqft, floors, units, notes } = manualForm;
+    if (!name.trim() || !address.trim() || !mCity.trim() || !area_sqft || parseFloat(area_sqft) < 100) {
+      return toast.error('Name, address, city, and area (≥100 sq ft) are required');
+    }
+    try {
+      setSubmittingManual(true);
+      const building = await apiRequest('/buildings', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: name.trim(),
+          address: address.trim(),
+          city: mCity.trim(),
+          building_type,
+          usable_terrace_area_sqft: parseFloat(area_sqft),
+          floors: parseInt(floors) || 1,
+          units: units ? parseInt(units) : undefined,
+          notes: notes.trim() || undefined,
+        }),
+      });
+      await apiRequest(`/groups/${group.group_id}/buildings`, {
+        method: 'POST',
+        body: JSON.stringify({ building_ids: [building.building_id] }),
+      });
+      toast.success(`${name} added manually and linked to project`);
+      onUpdated();
+      onOpenChange(false);
+    } catch (e) {
+      toast.error('Failed to add building: ' + (e.message || ''));
+    } finally {
+      setSubmittingManual(false);
+    }
+  };
+
+  const bothEmpty = hasSearched && dbResults.length === 0 && poiResults.length === 0;
+  const showStage = dbResults.length > 0 ? 1 : poiResults.length > 0 ? 2 : hasSearched ? 3 : 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col" data-testid="add-buildings-dialog">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col" data-testid="add-buildings-dialog">
         <DialogHeader>
           <DialogTitle>Add Buildings to "{group?.name}"</DialogTitle>
           <DialogDescription>
-            Search Google Places by brand/POI name (e.g., "Incubex", "WeWork") or address. We'll auto-fetch building footprint polygons.
+            Search by name or address. We'll check our database first, then Google Places.
           </DialogDescription>
         </DialogHeader>
 
+        {/* Search bar */}
         <div className="grid grid-cols-[1fr_auto_auto] gap-2 items-end">
           <div>
-            <Label className="text-xs">Search POI / Brand / Address</Label>
+            <Label className="text-xs">Building / Brand / Address</Label>
             <Input
               data-testid="poi-search-input"
-              placeholder="e.g., Incubex, WeWork, DLF Cyber City"
+              placeholder="e.g., Brigade Millenium, WeWork, DLF Cyber City"
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -746,64 +812,227 @@ function AddBuildingsDialog({ open, onOpenChange, group, onUpdated }) {
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto -mx-6 px-6 mt-2 space-y-2 min-h-[200px]">
-          {results.length === 0 && !searching && !hasSearched && (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              Enter a brand or POI name and click search.
+        {/* Results area */}
+        <div className="flex-1 overflow-y-auto -mx-6 px-6 mt-2 min-h-[200px] space-y-2">
+
+          {/* Idle */}
+          {!hasSearched && !searching && (
+            <div className="text-center py-10 text-muted-foreground text-sm">
+              Enter a building name and click search.
             </div>
           )}
-          {results.length === 0 && !searching && hasSearched && (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              No buildings found. Try a different search term or add the building manually via Admin → Buildings.
+
+          {searching && (
+            <div className="text-center py-10 text-muted-foreground text-sm flex flex-col items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Searching database and Google Places…
             </div>
           )}
-          {results.map((r, idx) => {
-            const isSelected = !!selected[idx];
-            return (
-              <button
-                key={idx}
-                type="button"
-                data-testid={`poi-result-${idx}`}
-                onClick={() => toggleSelect(idx)}
-                className={`w-full text-left p-3 rounded-md border transition flex items-start gap-3 ${
-                  isSelected ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
-                }`}
-              >
-                <div className={`mt-1 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${
-                  isSelected ? 'bg-primary border-primary' : 'border-input'
-                }`}>
-                  {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm">{r.name}</div>
-                  <div className="text-xs text-muted-foreground line-clamp-1">{r.address}</div>
-                  <div className="flex gap-2 mt-1.5">
-                    {r.source === 'database'
-                      ? <Badge className="text-[10px] bg-emerald-600 text-white hover:bg-emerald-700">In Database</Badge>
-                      : <Badge className="text-[10px] bg-amber-500 text-white hover:bg-amber-600">Import from Google Places</Badge>
-                    }
-                    {r.city && <Badge variant="secondary" className="text-[10px]">{r.city}</Badge>}
+
+          {/* Stage 1: DB results */}
+          {showStage === 1 && (
+            <>
+              <p className="text-xs text-muted-foreground pb-1">
+                Found {dbResults.length} building{dbResults.length === 1 ? '' : 's'} in our database. Select and click Add.
+              </p>
+              {dbResults.map((r, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  data-testid={`db-result-${idx}`}
+                  onClick={() => toggleDb(idx)}
+                  className={`w-full text-left p-3 rounded-md border transition flex items-start gap-3 ${
+                    selected[idx] ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                  }`}
+                >
+                  <div className={`mt-1 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${
+                    selected[idx] ? 'bg-primary border-primary' : 'border-input'
+                  }`}>
+                    {selected[idx] && <Check className="h-3 w-3 text-primary-foreground" />}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">{r.name || r.address}</div>
+                    <div className="text-xs text-muted-foreground line-clamp-1">{r.address}</div>
+                    <div className="flex gap-2 mt-1.5">
+                      <Badge className="text-[10px] bg-emerald-600 text-white">In Database</Badge>
+                      {r.city && <Badge variant="secondary" className="text-[10px]">{r.city}</Badge>}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* Stage 2: Google Places results (auto-shown when DB is empty) */}
+          {showStage === 2 && (
+            <>
+              <p className="text-xs text-muted-foreground pb-1">
+                Not in our database — found {poiResults.length} result{poiResults.length === 1 ? '' : 's'} from Google Places.
+                Click a result to import it and add to your project.
+              </p>
+              {poiResults.map((r, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  data-testid={`poi-result-${idx}`}
+                  disabled={!!importingId}
+                  onClick={() => handleImportBuilding(r)}
+                  className="w-full text-left p-3 rounded-md border transition flex items-start gap-3 hover:bg-amber-50 dark:hover:bg-amber-950/20 hover:border-amber-300"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">{r.name}</div>
+                    <div className="text-xs text-muted-foreground line-clamp-1">{r.address}</div>
+                    <div className="flex gap-2 mt-1.5">
+                      <Badge className="text-[10px] bg-amber-500 text-white">Import from Google Places</Badge>
+                      {r.city && <Badge variant="secondary" className="text-[10px]">{r.city}</Badge>}
+                    </div>
+                  </div>
+                  {importingId === r.google_place_id
+                    ? <Loader2 className="h-4 w-4 animate-spin text-amber-500 mt-1 shrink-0" />
+                    : <Plus className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />}
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* Stage 3: Both empty — show "Add manually" option */}
+          {bothEmpty && !showManual && (
+            <div className="text-center py-8 space-y-3">
+              <p className="text-muted-foreground text-sm">No results found in database or Google Places.</p>
+              <Button
+                data-testid="add-manually-btn"
+                variant="outline"
+                onClick={() => setShowManual(true)}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" /> Add building manually
+              </Button>
+            </div>
+          )}
+
+          {/* Manual entry form (inline) */}
+          {showManual && (
+            <div className="rounded-lg border p-4 space-y-3 mt-2 bg-muted/20">
+              <p className="text-sm font-medium">Enter building details manually</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <Label className="text-xs">Building Name *</Label>
+                  <Input
+                    data-testid="manual-name"
+                    placeholder="e.g., Brigade Millenium Block A"
+                    value={manualForm.name}
+                    onChange={e => setManualForm(f => ({ ...f, name: e.target.value }))}
+                  />
                 </div>
-              </button>
-            );
-          })}
+                <div className="col-span-2">
+                  <Label className="text-xs">Address *</Label>
+                  <Input
+                    data-testid="manual-address"
+                    placeholder="Street address"
+                    value={manualForm.address}
+                    onChange={e => setManualForm(f => ({ ...f, address: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">City *</Label>
+                  <select
+                    data-testid="manual-city"
+                    value={manualForm.city}
+                    onChange={e => setManualForm(f => ({ ...f, city: e.target.value }))}
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  >
+                    {CITY_LIST.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs">Building Type *</Label>
+                  <select
+                    data-testid="manual-type"
+                    value={manualForm.building_type}
+                    onChange={e => setManualForm(f => ({ ...f, building_type: e.target.value }))}
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  >
+                    {MANUAL_BUILDING_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1).replace('_', ' ')}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs">Rooftop / Terrace Area (sq ft) *</Label>
+                  <Input
+                    data-testid="manual-area"
+                    type="number"
+                    min="100"
+                    placeholder="e.g., 500"
+                    value={manualForm.area_sqft}
+                    onChange={e => setManualForm(f => ({ ...f, area_sqft: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Number of Floors</Label>
+                  <Input
+                    data-testid="manual-floors"
+                    type="number"
+                    min="1"
+                    placeholder="1"
+                    value={manualForm.floors}
+                    onChange={e => setManualForm(f => ({ ...f, floors: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Apartments / Units *</Label>
+                  <Input
+                    data-testid="manual-units"
+                    type="number"
+                    min="1"
+                    placeholder="e.g., 48"
+                    value={manualForm.units}
+                    onChange={e => setManualForm(f => ({ ...f, units: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Notes (optional)</Label>
+                  <Input
+                    data-testid="manual-notes"
+                    placeholder="Any additional details"
+                    value={manualForm.notes}
+                    onChange={e => setManualForm(f => ({ ...f, notes: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" size="sm" onClick={() => setShowManual(false)}>Back</Button>
+                <Button
+                  data-testid="manual-submit-btn"
+                  size="sm"
+                  onClick={handleManualSubmit}
+                  disabled={submittingManual}
+                  className="gap-2"
+                >
+                  {submittingManual && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Add Building
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
+        {/* Footer — only show for Stage 1 (DB batch-add) */}
         <DialogFooter className="flex items-center justify-between sm:justify-between border-t pt-3">
           <div className="text-sm text-muted-foreground">
-            {selectedCount > 0 && <span>{selectedCount} selected</span>}
+            {showStage === 1 && dbSelectedCount > 0 && <span>{dbSelectedCount} selected</span>}
+            {showStage === 2 && <span className="text-xs text-amber-600">Click a result to import</span>}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button
-              data-testid="add-selected-btn"
-              onClick={handleAddSelected}
-              disabled={importing || selectedCount === 0}
-            >
-              {importing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Add {selectedCount > 0 ? `${selectedCount} ` : ''}Building{selectedCount === 1 ? '' : 's'}
-            </Button>
+            {showStage === 1 && (
+              <Button
+                data-testid="add-selected-btn"
+                onClick={handleAddDbSelected}
+                disabled={addingDb || dbSelectedCount === 0}
+              >
+                {addingDb && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Add {dbSelectedCount > 0 ? `${dbSelectedCount} ` : ''}Building{dbSelectedCount === 1 ? '' : 's'}
+              </Button>
+            )}
           </div>
         </DialogFooter>
       </DialogContent>
