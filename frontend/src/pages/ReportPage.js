@@ -207,8 +207,8 @@ export default function ReportPage() {
   const solarSaving  = sp?.solar?.annual_savings_inr    || 0;
   const rwSaving     = sp?.rainwater?.annual_savings_inr || 0;
   const biogasSaving = sp?.biogas?.annual_savings_inr   || 0;
-  const totalSavLow  = Math.round((solarSaving + rwSaving + biogasSaving) * 0.85);
-  const totalSavHigh = Math.round(solarSaving + rwSaving + biogasSaving);
+  const totalSavLow  = Math.round((sp?.solar?.savings_low_inr  || Math.round(solarSaving * 0.85)) + rwSaving + biogasSaving);
+  const totalSavHigh = Math.round((sp?.solar?.savings_high_inr || solarSaving) + rwSaving + biogasSaving);
 
   const co2Total = Math.round(
     (sp?.plantation?.co2_sequestration_kg_per_year || 0) +
@@ -220,7 +220,7 @@ export default function ReportPage() {
   const solarKwh     = sp?.solar?.kwh_per_year           || 0;
   const solarSavings = sp?.solar?.annual_savings_inr     || 0;
   const solarCO2     = sp?.solar?.co2_offset_kg_per_year || 0;
-  const solarKwp     = solarKwh ? (solarKwh / 1400).toFixed(1) : null;
+  const solarKwp     = sp?.solar?.installed_capacity_kwp || (solarKwh ? (solarKwh / 1400).toFixed(1) : null);
   const solarSavLow  = Math.round(solarSavings * 0.9);
   const solarSavHigh = solarSavings;
 
@@ -424,7 +424,7 @@ export default function ReportPage() {
                 CO₂ OFFSET POTENTIAL
               </p>
               <p className="text-emerald-400 font-bold text-[15px]">
-                {co2Total > 0 ? `${(co2Total / 1000).toFixed(1)} tons / yr` : '—'}
+                {co2Total > 0 ? `${fmtNum(co2Total)} kg CO₂/yr` : '—'}
               </p>
             </div>
           </div>
@@ -744,7 +744,7 @@ export default function ReportPage() {
         {recItems.length > 0 ? recItems.slice(0, 3).map((rec, i) => {
           const colonIdx = rec.indexOf(':');
           const hasColon = colonIdx > 0 && colonIdx < 60;
-          const rawTitle = hasColon ? rec.substring(0, colonIdx).replace(/^\d+\.\s*/, '').trim() : `Action ${i + 1}`;
+          const rawTitle = hasColon ? rec.substring(0, colonIdx).replace(/^\d+\.\s*/, '').replace(/\*\*/g, '').trim() : `Action ${i + 1}`;
           const body     = hasColon ? rec.substring(colonIdx + 1).trim() : stripMd(rec);
           const categories = ['GREENING', 'WATER', 'SOLAR'];
           const costs      = ['Rs.2,000–5,000', 'Rs.15,000–25,000 (est.)', 'Rs.1,50,000–2,00,000 (after subsidy)'];

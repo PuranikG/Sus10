@@ -6270,6 +6270,9 @@ async def get_report(assessment_id: str):
             "kwh_per_year":           _solar.get("annual_generation_kwh"),
             "annual_savings_inr":     _solar.get("annual_savings_inr"),
             "co2_offset_kg_per_year": _solar.get("co2_offset_kg_per_year"),
+            "savings_low_inr":        _solar.get("savings_low_inr"),
+            "savings_high_inr":       _solar.get("savings_high_inr"),
+            "installed_capacity_kwp": _solar.get("installed_capacity_kwp"),
         },
         "plantation": {
             "plant_count":                   _plant.get("total_plants_count"),
@@ -6277,8 +6280,9 @@ async def get_report(assessment_id: str):
             "co2_sequestration_kg_per_year": _plant.get("co2_sequestered_kg_per_year"),
         },
         "rainwater": {
-            "kl_per_year":        _rain.get("annual_yield_kiloliters"),
-            "annual_savings_inr": _rain.get("annual_savings_inr"),
+            "kl_per_year":          _rain.get("annual_yield_kiloliters"),
+            "annual_yield_liters":  _rain.get("annual_yield_liters"),
+            "annual_savings_inr":   _rain.get("annual_savings_inr"),
         },
         "biogas": {
             "m3_per_year":            _bg.get("biogas_m3_per_year"),
