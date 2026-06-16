@@ -2475,7 +2475,7 @@ from services.sustenance_calculator import (
     calculate_biogas_potential,
     calculate_plantation_potential,
 )
-from services.city_data import seed_city_parameters
+from services.city_data import seed_city_parameters, get_city_params
 from services.gemini_rooftop_analyzer import analyze_rooftop
 from services.email_service import send_report_email, send_admin_notification
 
@@ -6054,6 +6054,8 @@ async def report_generate(request: Request, background_tasks: BackgroundTasks):
     # ── STEP E: Call calculator functions (thread pool) ──────────────────────
     # Calculator functions are pure-Python sync. Running them via
     # run_in_executor frees the event loop so other requests are not blocked.
+    _city_params = get_city_params(city)
+    _lpg = _city_params.get("lpg_domestic_inr_kg", 64.0)
     def _run_calculations():
         solar = calculate_solar_potential(usable_area_sqm=solar_usable_sqm, city=city)
         rainwater = calculate_rainwater_potential(catchment_area_sqm=area_sqm, city=city)
@@ -6063,6 +6065,7 @@ async def report_generate(request: Request, background_tasks: BackgroundTasks):
             floors=num_floors_int,
             families=families_for_biogas,
             waste_kg_per_family_per_day=0.5,
+            lpg_price_inr_kg=_lpg,
         )
         _planting_density = float(answers.get("planting_density") or 1.0)
         _planting_density = max(0.5, min(3.0, _planting_density))

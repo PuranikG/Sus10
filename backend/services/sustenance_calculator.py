@@ -253,6 +253,7 @@ def calculate_biogas_potential(
     occupants_override: Optional[int] = None,
     families: Optional[int] = None,
     waste_kg_per_family_per_day: Optional[float] = None,
+    lpg_price_inr_kg: float = 64.0,
 ) -> Dict[str, Any]:
     """
     Biogas from organic kitchen/canteen/food waste.
@@ -298,7 +299,7 @@ def calculate_biogas_potential(
     # LPG savings: 1 m³ biogas ≈ 0.45 kg LPG
     lpg_equivalent_kg_yr = biogas_m3_per_year * 0.45
     # LPG price ~₹100/kg commercial
-    savings_inr_yr = lpg_equivalent_kg_yr * 100
+    savings_inr_yr = lpg_equivalent_kg_yr * lpg_price_inr_kg
 
     # CO2 offset: avoiding LPG + waste-to-landfill methane (very significant)
     # LPG CO2: 3.0 kg/kg; landfill methane (CH4): ~50 kg CO2e per ton organic waste
