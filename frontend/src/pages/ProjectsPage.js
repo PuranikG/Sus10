@@ -30,6 +30,8 @@ const GROUP_TYPES = [
 ];
 
 const RESIDENTIAL_TYPES = new Set(['rwa', 'federation', 'residential_colony', 'apartment_complex']);
+// Colony fields (colony_buildings_count / colony_flats_count) shown only for these two types per spec
+const COLONY_TYPES = new Set(['residential_colony', 'apartment_complex']);
 
 export default function ProjectsPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -162,6 +164,7 @@ function CreateProjectDialog({ open, onOpenChange, onCreated }) {
   const [form, setForm] = useState({ name: '', type: 'enterprise', primary_city: 'Bangalore', description: '', colony_buildings_count: '', colony_flats_count: '' });
   const [creating, setCreating] = useState(false);
   const isResidential = RESIDENTIAL_TYPES.has(form.type);
+  const isColony = COLONY_TYPES.has(form.type);
 
   const handleCreate = async () => {
     if (!form.name.trim()) {
@@ -223,10 +226,10 @@ function CreateProjectDialog({ open, onOpenChange, onCreated }) {
               </SelectContent>
             </Select>
           </div>
-          {isResidential && (
+          {isColony && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>No. of Buildings (optional)</Label>
+                <Label>No. of Buildings in Colony (optional)</Label>
                 <Input
                   data-testid="colony-buildings-input"
                   type="number"
