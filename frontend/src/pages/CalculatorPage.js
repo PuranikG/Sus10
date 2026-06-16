@@ -391,9 +391,9 @@ function PlacesAddressField({ question, mapsLoaded, addressData, onPlaceSelected
       {error && (
         <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>{error}</div>
       )}
-      {addressData && !error && (
+      {addressData?.city && !error && (
         <div style={{ fontSize: '12px', color: '#22c55e', marginTop: '4px' }}>
-          ✓ {addressData.city}{addressData.state ? ', ' + addressData.state : ''}
+          ✓ We found: {addressData.city.charAt(0).toUpperCase() + addressData.city.slice(1)}{addressData.state ? ', ' + addressData.state.charAt(0).toUpperCase() + addressData.state.slice(1) : ''}
         </div>
       )}
 
@@ -640,7 +640,12 @@ export default function CalculatorPage() {
   }, []);
 
   const handlePlaceSelected = useCallback((structured) => {
-    setAnswers(prev => ({ ...prev, address_data: structured }));
+    setAnswers(prev => ({
+      ...prev,
+      address_data: structured,
+      city:  structured ? (structured.city  || '').trim().toLowerCase() : '',
+      state: structured ? (structured.state || '').trim().toLowerCase() : '',
+    }));
   }, []);
 
   const handleSingleSelect = useCallback((qid, val) => {

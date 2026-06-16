@@ -6010,6 +6010,8 @@ async def report_generate(request: Request, background_tasks: BackgroundTasks):
     # Normalise city: lowercase + strip so it matches calculator lookup keys
     # (Google Places returns e.g. "Mumbai" with capitals; keys are lowercase)
     city = (str(answers.get("city") or "").strip().lower()) or "default"
+    state = (str(answers.get("state") or "").strip().lower()) or ""
+    logger.info(f"CITY_CAPTURE city={city} state={state} track={track}")
     building_type = "residential"
 
     # ── STEP C: Map select answers to integers ────────────────────────────────
