@@ -3608,7 +3608,20 @@ async def search_buildings_by_poi(
 
     # 2) Google Places Text Search (only if API key available)
     google_key = os.environ.get("GOOGLE_PLACES_API_KEY")
-    if google_key and len(results) < limit:
+    logger.info(f"POI_SEARCH: query={poi_name} city={city} db_results={len(results)}")
+    logger.info(f"POI_SEARCH: google_key_present={bool(google_key)}")
+
+    if not google_key:
+        logger.error("POI_SEARCH: GOOGLE_PLACES_API_KEY not set in environment")
+        return {
+            "poi_name": poi_name,
+            "city": city,
+            "count": len(results),
+            "results": results,
+            "warning": "Google Places API key not configured",
+        }
+
+    if len(results) < limit:
         try:
             search_text = f"{poi_name} in {city}" if city else poi_name
             async with httpx.AsyncClient(timeout=10) as http:
@@ -3621,15 +3634,16 @@ async def search_buildings_by_poi(
                     },
                     json={"textQuery": search_text, "maxResultCount": limit - len(results)},
                 )
+                logger.info(f"POI_SEARCH: Google Places status={resp.status_code}")
                 if resp.status_code == 200:
                     data = resp.json()
+                    logger.info(f"POI_SEARCH: Google Places returned {len(data.get('places', []))} places")
                     existing_place_ids = {b.get("google_place_id") for b in results if b.get("google_place_id")}
                     for place in data.get("places", []):
                         pid = place.get("id")
                         if pid in existing_place_ids:
                             continue
                         loc = place.get("location", {})
-                        # Extract city from addressComponents
                         place_city = city or ""
                         for comp in place.get("addressComponents", []):
                             types = comp.get("types", [])
@@ -3648,10 +3662,46 @@ async def search_buildings_by_poi(
                             "source": "google_places",
                             "is_imported": False,
                         })
+                else:
+                    logger.error(f"POI_SEARCH: Google Places non-200 response: {resp.status_code} {resp.text[:300]}")
         except Exception as e:
-            logger.warning(f"Google Places search failed: {e}")
+            logger.error(f"POI_SEARCH Google Places failed: {type(e).__name__}: {e}", exc_info=True)
 
     return {"poi_name": poi_name, "city": city, "count": len(results), "results": results}
+
+
+@api_router.get("/admin/poi/test")
+async def admin_poi_test(
+    request: Request,
+    query: str = Query(..., description="Search text e.g. 'Brigade Millenium'"),
+    city: Optional[str] = None,
+):
+    """Diagnostic endpoint: calls Google Places directly and returns raw response + errors."""
+    await require_admin(request)
+    google_key = os.environ.get("GOOGLE_PLACES_API_KEY")
+    if not google_key:
+        return {"error": "GOOGLE_PLACES_API_KEY not set", "google_key_present": False}
+    search_text = f"{query} in {city}" if city else query
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.post(
+                "https://places.googleapis.com/v1/places:searchText",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Goog-Api-Key": google_key,
+                    "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.types",
+                },
+                json={"textQuery": search_text, "maxResultCount": 5},
+            )
+        return {
+            "google_key_present": True,
+            "search_text": search_text,
+            "status_code": resp.status_code,
+            "response": resp.json() if resp.status_code == 200 else None,
+            "error_body": resp.text[:500] if resp.status_code != 200 else None,
+        }
+    except Exception as e:
+        return {"google_key_present": True, "error": f"{type(e).__name__}: {e}"}
 
 
 @api_router.post("/poi/import")
