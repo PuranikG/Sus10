@@ -5651,7 +5651,7 @@ def generate_report_from_templates(assessment: dict) -> str:
             f"recommendation. Your current water availability is "
             f"limited — a properly designed RWH system on your "
             f"{int(terrace_sqft)} sq ft roof could capture approximately "
-            f"{int(rwh_kl)} kL per year, significantly reducing "
+            f"{int(rwh_kl * 1000):,} litres per year, significantly reducing "
             f"your dependence on external supply."
         )
 
@@ -5891,7 +5891,7 @@ def generate_report_from_templates(assessment: dict) -> str:
         biggest_opp = (
             f"Your rooftop has strong potential across all four "
             f"pillars. Solar at {solar_kwp} kWp, rainwater at "
-            f"{int(rwh_kl)} kL/year, and {plant_count} plants for "
+            f"{int(rwh_kl * 1000):,} litres/year, and {plant_count} plants for "
             f"food and greening represent a combined annual impact "
             f"of Rs.{solar_savings_low + rwh_savings:,}+ in "
             f"savings and {max(1, (solar_co2 + plant_co2) // 21):,} "
@@ -5943,8 +5943,8 @@ def generate_report_from_templates(assessment: dict) -> str:
     biogas_line = ""
     if show_biogas and biogas:
         _bg_sav = int(biogas.get("annual_savings_inr", 0) or 0)
-        _bg_m3  = round(float(biogas.get("biogas_m3_per_day", 0) or 0) * 30, 1)
-        biogas_line = f"\n**Biogas:** Rs.{_bg_sav:,}/year LPG saved · {_bg_m3} m³/month"
+        _bg_cylinders = round(float(biogas.get("lpg_equivalent_kg_per_year", 0) or 0) / 14.2, 1)
+        biogas_line = f"\nBiogas: {_bg_cylinders} cylinders/year equivalent · Rs.{_bg_sav:,}/year LPG saved"
 
     support_text = (
         f"You have indicated needing: {', '.join(support_needed)}. "
@@ -5990,13 +5990,13 @@ Your lowest scoring dimension is your biggest lever for improvement. Address it 
 
 ## 6. Potential Savings and Benefits
 
-**Solar PV:** {solar_kwp} kWp installable · Rs.{solar_savings_low:,}–Rs.{solar_savings_high:,}/year · {solar_co2:,} kg CO2/year
+Solar PV: {solar_kwp} kWp installable · Rs.{solar_savings_low:,}–Rs.{solar_savings_high:,}/year · {solar_co2:,} kg CO2/year
 
 *Note: This is the estimated potential for your full rooftop area. Actual installation size depends on household load, inverter capacity, and DISCOM net metering policy.*
 
-**Rainwater Harvesting:** {int(rwh_kl)} kL/year · Rs.{rwh_savings:,}/year{env_note}
+Rainwater Harvesting: {int(rwh_kl * 1000):,} litres/year · Rs.{rwh_savings:,}/year{env_note}
 
-**Rooftop Greening:** {plant_count} plants · {int(food_kg)} kg food/year · {plant_co2:,} kg CO2/year · Daily water need: {plant_water_lpd} litres{biogas_line}
+Rooftop Greening: {plant_count} plants · {int(food_kg)} kg food/year · {plant_co2:,} kg CO2/year · Daily water need: {plant_water_lpd} litres{biogas_line}
 
 *Estimates use Sus10 calculation methodology: MNRE Solar Radiation Handbook (GHI), IMD long-period rainfall averages, IS 16190:2014 (biogas standards), CPCB/CGWB Rainwater Harvesting Manual, ICAR KVK container farming guidelines. All figures are indicative. Actual results depend on site conditions, equipment, and DISCOM policies.*
 
