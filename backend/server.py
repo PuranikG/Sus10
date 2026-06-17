@@ -3617,7 +3617,7 @@ async def search_buildings_by_poi(
     results.extend(db_results)
 
     # 2) Google Places Text Search (only if API key available)
-    google_key = os.environ.get("GOOGLE_PLACES_API_KEY")
+    google_key = os.environ.get("GOOGLE_PLACES_SERVER_KEY") or os.environ.get("GOOGLE_PLACES_API_KEY", "")
     logger.info(f"POI_SEARCH: query={poi_name} city={city} db_results={len(results)}")
     logger.info(f"POI_SEARCH: google_key_present={bool(google_key)}")
 
@@ -3688,9 +3688,9 @@ async def admin_poi_test(
 ):
     """Diagnostic endpoint: calls Google Places directly and returns raw response + errors."""
     await require_admin(request)
-    google_key = os.environ.get("GOOGLE_PLACES_API_KEY")
+    google_key = os.environ.get("GOOGLE_PLACES_SERVER_KEY") or os.environ.get("GOOGLE_PLACES_API_KEY", "")
     if not google_key:
-        return {"error": "GOOGLE_PLACES_API_KEY not set", "google_key_present": False}
+        return {"error": "Neither GOOGLE_PLACES_SERVER_KEY nor GOOGLE_PLACES_API_KEY set", "google_key_present": False}
     search_text = f"{query} in {city}" if city else query
     try:
         async with httpx.AsyncClient(timeout=10) as http:
@@ -3738,7 +3738,7 @@ async def import_building_from_poi(request: Request):
         raise HTTPException(status_code=400, detail="latitude/longitude required")
 
     # Try to fetch footprint polygon via Google Geocoding (existing pipeline)
-    google_key = os.environ.get("GOOGLE_PLACES_API_KEY")
+    google_key = os.environ.get("GOOGLE_PLACES_SERVER_KEY") or os.environ.get("GOOGLE_PLACES_API_KEY", "")
     footprint_polygon = None
     footprint_area = None
     if google_key:
