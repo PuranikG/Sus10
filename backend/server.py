@@ -3579,6 +3579,16 @@ async def get_group_report_docx(group_id: str):
     )
 
 
+@api_router.get("/city-params/{city}")
+async def get_city_params_endpoint(city: str):
+    """Return climate/tariff parameters for a given city slug. Public, no auth required."""
+    from services.city_data import get_city_params, CITY_PARAMETERS
+    city_key = city.lower().strip()
+    params = get_city_params(city_key)
+    is_default = city_key not in CITY_PARAMETERS
+    return {**params, "is_default": is_default, "queried_city": city}
+
+
 # ==================== INCUBEX-STYLE SEARCH (POI-based) ====================
 @api_router.get("/poi/search")
 async def search_buildings_by_poi(
