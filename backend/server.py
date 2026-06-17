@@ -6216,6 +6216,7 @@ async def report_generate(request: Request, background_tasks: BackgroundTasks):
     # run_in_executor frees the event loop so other requests are not blocked.
     _city_params = get_city_params(city)
     _lpg = _city_params.get("lpg_domestic_inr_kg", 64.0)
+    logger.info(f"BIOGAS_LPG: city={city} lpg_price_inr_kg={_lpg}")
     def _run_calculations():
         solar = calculate_solar_potential(usable_area_sqm=solar_usable_sqm, city=city)
         rainwater = calculate_rainwater_potential(catchment_area_sqm=area_sqm, city=city)
