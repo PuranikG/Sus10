@@ -5931,9 +5931,9 @@ def generate_report_from_templates(assessment: dict) -> str:
         )
 
     # ── ASSEMBLE MARKDOWN ────────────────────────────────────
-    strengths_md = "\n\n".join([f"**{s[0]}**\n{s[1]}" for s in strengths])
+    strengths_md = "\n\n".join([f"{s[0]}\n{s[1]}" for s in strengths])
     recs_md = "\n\n".join([
-        f"**Recommendation {i+1}: {r[0]}**\n{r[1]}\n*{r[2]}*"
+        f"Recommendation {i+1}: {r[0]}\n{r[1]}\n{r[2]}"
         for i, r in enumerate(recs)
     ])
     phase1_md = "\n".join([f"- {item}" for item in phase1_items])
