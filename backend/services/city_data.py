@@ -12,7 +12,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 8.0,
         "water_cost_inr_kl": 20.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── MAHARASHTRA ───────────────────────────────────────────────────────────
     "mumbai": {
@@ -21,7 +21,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 10.0,
         "water_cost_inr_kl": 17.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "pune": {
         "ghi_kwh_per_sqm_per_day": 5.40,
@@ -29,7 +29,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 9.5,
         "water_cost_inr_kl": 18.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "nagpur": {
         "ghi_kwh_per_sqm_per_day": 5.50,
@@ -37,7 +37,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 8.5,
         "water_cost_inr_kl": 15.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "nashik": {
         "ghi_kwh_per_sqm_per_day": 5.4,
@@ -45,7 +45,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 9.0,
         "water_cost_inr_kl": 16.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "aurangabad": {
         "ghi_kwh_per_sqm_per_day": 5.5,
@@ -53,7 +53,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 8.5,
         "water_cost_inr_kl": 14.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── KARNATAKA ─────────────────────────────────────────────────────────────
     "bengaluru": {
@@ -62,7 +62,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.5,
         "water_cost_inr_kl": 22.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "bangalore": {
         "ghi_kwh_per_sqm_per_day": 5.50,
@@ -70,7 +70,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.5,
         "water_cost_inr_kl": 22.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "mysuru": {
         "ghi_kwh_per_sqm_per_day": 5.6,
@@ -78,7 +78,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 18.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "mysore": {
         "ghi_kwh_per_sqm_per_day": 5.6,
@@ -86,7 +86,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 18.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "hubli": {
         "ghi_kwh_per_sqm_per_day": 5.7,
@@ -94,7 +94,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 14.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "mangaluru": {
         "ghi_kwh_per_sqm_per_day": 4.8,
@@ -102,7 +102,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.5,
         "water_cost_inr_kl": 16.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── TAMIL NADU ────────────────────────────────────────────────────────────
     "chennai": {
@@ -111,7 +111,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.0,
         "water_cost_inr_kl": 9.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "coimbatore": {
         "ghi_kwh_per_sqm_per_day": 5.60,
@@ -119,7 +119,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.0,
         "water_cost_inr_kl": 12.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "madurai": {
         "ghi_kwh_per_sqm_per_day": 5.70,
@@ -127,7 +127,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.0,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "tiruchirappalli": {
         "ghi_kwh_per_sqm_per_day": 5.8,
@@ -135,7 +135,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.0,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "salem": {
         "ghi_kwh_per_sqm_per_day": 5.7,
@@ -143,7 +143,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.0,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── TELANGANA / ANDHRA PRADESH ────────────────────────────────────────────
     "hyderabad": {
@@ -152,7 +152,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.5,
         "water_cost_inr_kl": 15.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "secunderabad": {
         "ghi_kwh_per_sqm_per_day": 5.60,
@@ -160,7 +160,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.5,
         "water_cost_inr_kl": 15.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "visakhapatnam": {
         "ghi_kwh_per_sqm_per_day": 5.40,
@@ -168,7 +168,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 12.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "vijayawada": {
         "ghi_kwh_per_sqm_per_day": 5.50,
@@ -176,7 +176,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 12.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "warangal": {
         "ghi_kwh_per_sqm_per_day": 5.5,
@@ -184,7 +184,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 13.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── KERALA ────────────────────────────────────────────────────────────────
     "kochi": {
@@ -193,7 +193,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "thiruvananthapuram": {
         "ghi_kwh_per_sqm_per_day": 5.30,
@@ -201,7 +201,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "kozhikode": {
         "ghi_kwh_per_sqm_per_day": 4.7,
@@ -209,7 +209,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "thrissur": {
         "ghi_kwh_per_sqm_per_day": 4.9,
@@ -217,7 +217,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── DELHI / NCR ───────────────────────────────────────────────────────────
     "delhi": {
@@ -226,7 +226,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 8.0,
         "water_cost_inr_kl": 5.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "new delhi": {
         "ghi_kwh_per_sqm_per_day": 5.30,
@@ -234,7 +234,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 8.0,
         "water_cost_inr_kl": 5.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "gurgaon": {
         "ghi_kwh_per_sqm_per_day": 5.30,
@@ -242,7 +242,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 12.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "gurugram": {
         "ghi_kwh_per_sqm_per_day": 5.30,
@@ -250,7 +250,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 12.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "noida": {
         "ghi_kwh_per_sqm_per_day": 5.25,
@@ -258,7 +258,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 11.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "faridabad": {
         "ghi_kwh_per_sqm_per_day": 5.30,
@@ -266,7 +266,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 11.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "ghaziabad": {
         "ghi_kwh_per_sqm_per_day": 5.25,
@@ -274,7 +274,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 11.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── UTTAR PRADESH ─────────────────────────────────────────────────────────
     "lucknow": {
@@ -283,7 +283,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 12.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "kanpur": {
         "ghi_kwh_per_sqm_per_day": 5.1,
@@ -291,7 +291,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 11.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "agra": {
         "ghi_kwh_per_sqm_per_day": 5.3,
@@ -299,7 +299,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "varanasi": {
         "ghi_kwh_per_sqm_per_day": 5.1,
@@ -307,7 +307,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "allahabad": {
         "ghi_kwh_per_sqm_per_day": 5.1,
@@ -315,7 +315,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "prayagraj": {
         "ghi_kwh_per_sqm_per_day": 5.1,
@@ -323,7 +323,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── RAJASTHAN ─────────────────────────────────────────────────────────────
     "jaipur": {
@@ -332,7 +332,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.5,
         "water_cost_inr_kl": 14.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "jodhpur": {
         "ghi_kwh_per_sqm_per_day": 6.2,
@@ -340,7 +340,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.5,
         "water_cost_inr_kl": 16.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "udaipur": {
         "ghi_kwh_per_sqm_per_day": 5.8,
@@ -348,7 +348,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.5,
         "water_cost_inr_kl": 14.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "kota": {
         "ghi_kwh_per_sqm_per_day": 5.8,
@@ -356,7 +356,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.5,
         "water_cost_inr_kl": 13.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── GUJARAT ───────────────────────────────────────────────────────────────
     "ahmedabad": {
@@ -365,7 +365,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 5.5,
         "water_cost_inr_kl": 13.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "surat": {
         "ghi_kwh_per_sqm_per_day": 5.75,
@@ -373,7 +373,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 5.5,
         "water_cost_inr_kl": 12.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "vadodara": {
         "ghi_kwh_per_sqm_per_day": 5.75,
@@ -381,7 +381,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 5.5,
         "water_cost_inr_kl": 12.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "rajkot": {
         "ghi_kwh_per_sqm_per_day": 5.80,
@@ -389,7 +389,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 5.5,
         "water_cost_inr_kl": 14.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── MADHYA PRADESH ────────────────────────────────────────────────────────
     "bhopal": {
@@ -406,7 +406,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 14.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "jabalpur": {
         "ghi_kwh_per_sqm_per_day": 5.3,
@@ -414,7 +414,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 12.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "gwalior": {
         "ghi_kwh_per_sqm_per_day": 5.4,
@@ -422,7 +422,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 12.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── PUNJAB / HARYANA / HIMACHAL ───────────────────────────────────────────
     "chandigarh": {
@@ -431,7 +431,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.0,
         "water_cost_inr_kl": 8.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "ludhiana": {
         "ghi_kwh_per_sqm_per_day": 4.8,
@@ -439,7 +439,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "amritsar": {
         "ghi_kwh_per_sqm_per_day": 4.9,
@@ -447,7 +447,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "shimla": {
         "ghi_kwh_per_sqm_per_day": 4.2,
@@ -455,7 +455,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 4.5,
         "water_cost_inr_kl": 8.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── BIHAR / JHARKHAND ─────────────────────────────────────────────────────
     "patna": {
@@ -464,7 +464,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "ranchi": {
         "ghi_kwh_per_sqm_per_day": 4.9,
@@ -472,7 +472,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 11.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── WEST BENGAL / ODISHA ──────────────────────────────────────────────────
     "kolkata": {
@@ -481,7 +481,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 6.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "bhubaneswar": {
         "ghi_kwh_per_sqm_per_day": 5.2,
@@ -489,7 +489,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── ASSAM / NORTH EAST ────────────────────────────────────────────────────
     "guwahati": {
@@ -498,7 +498,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.0,
         "water_cost_inr_kl": 8.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── GOA ───────────────────────────────────────────────────────────────────
     "panaji": {
@@ -507,7 +507,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 3.5,
         "water_cost_inr_kl": 8.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "goa": {
         "ghi_kwh_per_sqm_per_day": 5.0,
@@ -515,7 +515,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 3.5,
         "water_cost_inr_kl": 8.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── CHHATTISGARH ──────────────────────────────────────────────────────────
     "raipur": {
@@ -524,7 +524,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 5.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── UTTARAKHAND ───────────────────────────────────────────────────────────
     "dehradun": {
@@ -533,7 +533,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 5.5,
         "water_cost_inr_kl": 9.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── JAMMU & KASHMIR / LADAKH ──────────────────────────────────────────────
     "jammu": {
@@ -542,7 +542,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 4.0,
         "water_cost_inr_kl": 7.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "srinagar": {
         "ghi_kwh_per_sqm_per_day": 4.5,
@@ -550,7 +550,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 4.0,
         "water_cost_inr_kl": 7.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "leh": {
         "ghi_kwh_per_sqm_per_day": 6.0,
@@ -558,7 +558,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 4.0,
         "water_cost_inr_kl": 6.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     # ── ADDITIONAL TIER-2 CITIES ──────────────────────────────────────────────
     "thane": {
@@ -567,7 +567,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 9.5,
         "water_cost_inr_kl": 16.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "navi mumbai": {
         "ghi_kwh_per_sqm_per_day": 5.20,
@@ -575,7 +575,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 9.5,
         "water_cost_inr_kl": 16.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "kolhapur": {
         "ghi_kwh_per_sqm_per_day": 5.3,
@@ -583,7 +583,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 9.0,
         "water_cost_inr_kl": 15.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "solapur": {
         "ghi_kwh_per_sqm_per_day": 5.6,
@@ -591,7 +591,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 9.0,
         "water_cost_inr_kl": 14.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "belgaum": {
         "ghi_kwh_per_sqm_per_day": 5.5,
@@ -599,7 +599,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 14.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "belagavi": {
         "ghi_kwh_per_sqm_per_day": 5.5,
@@ -607,7 +607,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 14.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "tirunelveli": {
         "ghi_kwh_per_sqm_per_day": 5.9,
@@ -615,7 +615,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.0,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "erode": {
         "ghi_kwh_per_sqm_per_day": 5.8,
@@ -623,7 +623,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.0,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "vellore": {
         "ghi_kwh_per_sqm_per_day": 5.7,
@@ -631,7 +631,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.0,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "nellore": {
         "ghi_kwh_per_sqm_per_day": 5.6,
@@ -639,7 +639,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 11.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "guntur": {
         "ghi_kwh_per_sqm_per_day": 5.5,
@@ -647,7 +647,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 11.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "tirupati": {
         "ghi_kwh_per_sqm_per_day": 5.7,
@@ -655,7 +655,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 11.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "kolapur": {
         "ghi_kwh_per_sqm_per_day": 5.3,
@@ -663,7 +663,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 9.0,
         "water_cost_inr_kl": 15.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "bikaner": {
         "ghi_kwh_per_sqm_per_day": 6.3,
@@ -671,7 +671,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.5,
         "water_cost_inr_kl": 18.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "ajmer": {
         "ghi_kwh_per_sqm_per_day": 5.9,
@@ -679,7 +679,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.5,
         "water_cost_inr_kl": 15.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "gandhinagar": {
         "ghi_kwh_per_sqm_per_day": 5.8,
@@ -687,7 +687,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 5.5,
         "water_cost_inr_kl": 12.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "anand": {
         "ghi_kwh_per_sqm_per_day": 5.7,
@@ -695,7 +695,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 5.5,
         "water_cost_inr_kl": 12.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "dhanbad": {
         "ghi_kwh_per_sqm_per_day": 4.9,
@@ -703,7 +703,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "jamshedpur": {
         "ghi_kwh_per_sqm_per_day": 4.9,
@@ -711,7 +711,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "durgapur": {
         "ghi_kwh_per_sqm_per_day": 4.8,
@@ -719,7 +719,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 8.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "siliguri": {
         "ghi_kwh_per_sqm_per_day": 4.2,
@@ -727,7 +727,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 7.0,
         "water_cost_inr_kl": 8.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "meerut": {
         "ghi_kwh_per_sqm_per_day": 5.1,
@@ -735,7 +735,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "bareilly": {
         "ghi_kwh_per_sqm_per_day": 5.0,
@@ -743,7 +743,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "aligarh": {
         "ghi_kwh_per_sqm_per_day": 5.2,
@@ -751,7 +751,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "moradabad": {
         "ghi_kwh_per_sqm_per_day": 5.0,
@@ -759,7 +759,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 6.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
     "raipur": {
         "ghi_kwh_per_sqm_per_day": 5.2,
@@ -767,7 +767,7 @@ CITY_PARAMETERS = {
         "electricity_tariff_inr_kwh": 5.5,
         "water_cost_inr_kl": 10.0,
         "lpg_domestic_inr_kg": 64.0,
-        "lpg_commercial_inr_kg": 80.0,
+        "lpg_commercial_inr_kg": 90.0,
     },
 }
 
