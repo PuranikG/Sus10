@@ -5739,7 +5739,7 @@ def generate_report_from_templates(assessment: dict) -> str:
     q5_answers = answers.get("Q5", [])
     if isinstance(q5_answers, list) and "None of these" in q5_answers:
         awareness_note = (
-            f"\n\n**Starting Point:** You indicated limited awareness "
+            f"\n\nStarting Point: You indicated limited awareness "
             f"of rooftop technologies. That is completely fine — "
             f"most homeowners start here. This report introduces "
             f"the four pillars: Solar PV, Rainwater Harvesting, "
@@ -5859,8 +5859,7 @@ def generate_report_from_templates(assessment: dict) -> str:
     recs.append((
         "Rainwater Harvesting",
         f"Your building's {int(terrace_sqft)} sq ft roof could capture "
-        f"approximately {int(rwh_kl * 1000):,} litres "
-        f"({int(rwh_kl)} kL) of water per year — "
+        f"approximately {int(rwh_kl * 1000):,} litres of water per year — "
         f"potentially saving Rs.{rwh_savings:,} annually. "
         f"Install before the monsoon season for maximum benefit. "
         f"{city} rainfall data confirms strong viability.",
@@ -6018,23 +6017,23 @@ def generate_report_from_templates(assessment: dict) -> str:
 
     report = f"""## 1. Respondent Profile
 
-{first_name}, you own a {building_type} in {city}{', ' + state if state else ''} with a {int(terrace_sqft)} sq ft rooftop. Your Sus10 Readiness Score is **{overall_score}/100 — {readiness_tier}**.{awareness_note}
+{first_name}, you own a {building_type} in {city}{', ' + state if state else ''} with a {int(terrace_sqft)} sq ft rooftop. Your Sus10 Readiness Score is {overall_score}/100 — {readiness_tier}.{awareness_note}
 
 {weakest_link}
 
 ## 2. Sus10 Readiness Score: {overall_score}/100
 
-Tier: **{readiness_tier.upper()}**
+Tier: {readiness_tier}
 
 {tier_msg}
 
 Your three COM-B components:
 
-**Capability ({capability_score}/100):** {cap_msg}
+Capability ({capability_score}/100): {cap_msg}
 
-**Opportunity ({opportunity_score}/100):** {opp_msg}
+Opportunity ({opportunity_score}/100): {opp_msg}
 
-**Motivation ({motivation_score}/100):** {mot_msg}{affordability_note}{water_note}{renter_note}
+Motivation ({motivation_score}/100): {mot_msg}{affordability_note}{water_note}{renter_note}
 
 ## 3. Strengths Identified
 
@@ -6062,13 +6061,13 @@ Rooftop Greening: {plant_count} plants · {int(food_kg)} kg food/year · {plant_
 
 ## 7. Suggested Sus10 Roadmap
 
-**Phase 1: Foundation (0–3 months)**
+Phase 1: Foundation (0–3 months)
 {phase1_md}
 
-**Phase 2: Install (3–12 months)**
+Phase 2: Install (3–12 months)
 {phase2_md}
 
-**Phase 3: Optimise (1–3 years)**
+Phase 3: Optimise (1–3 years)
 {phase3_md}
 
 ## 8. Support Needed
@@ -6077,11 +6076,11 @@ Rooftop Greening: {plant_count} plants · {int(food_kg)} kg food/year · {plant_
 
 ## 9. Final Assessment
 
-**Your Readiness Level:** {readiness_tier} ({overall_score}/100)
+Your Readiness Level: {readiness_tier} ({overall_score}/100)
 
-**Biggest Opportunity:** {biggest_opp}
+Biggest Opportunity: {biggest_opp}
 
-**One Action This Month:** {one_action}
+One Action This Month: {one_action}
 
 Every roof has the potential to become a climate solution. Your journey toward a Self-Sustaining Roof starts with one small step."""
 
