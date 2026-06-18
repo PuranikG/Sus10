@@ -6487,26 +6487,6 @@ async def _seed_calculator_config():
 
 # ── Diagnostic test endpoints ─────────────────────────────────────────────────
 
-@api_router.get("/test/claude")
-async def test_claude():
-    """Minimal LLM smoke-test via Emergent integration. Isolates key presence and connectivity."""
-    llm_key = os.environ.get("EMERGENT_LLM_KEY")
-    key_present = bool(llm_key)
-    logger.info(f"test/claude — EMERGENT_LLM_KEY present: {key_present}")
-    if not llm_key:
-        return {"status": "error", "detail": "EMERGENT_LLM_KEY is not set in environment", "key_present": False}
-    try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage as LlmUserMessage
-        chat = LlmChat(
-            api_key=llm_key,
-            session_id="sus10-test-smoke",
-            system_message="You are a test assistant.",
-        ).with_model("claude", "claude-sonnet-4-5")
-        response = await chat.send_message(LlmUserMessage(text="Say OK"))
-        return {"status": "ok", "response": response, "key_present": True}
-    except Exception as e:
-        return {"status": "error", "detail": str(e), "key_present": key_present}
-
 
 @api_router.get("/test/score")
 async def test_score():
