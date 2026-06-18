@@ -17,6 +17,7 @@ import json as json_module
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 import sys
+import jwt as pyjwt
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -326,7 +327,22 @@ async def get_current_user(request: Request) -> Optional[User]:
     
     if not session_token:
         return None
-    
+
+    JWT_SECRET = os.environ.get("JWT_SECRET", "")
+    if JWT_SECRET:
+        try:
+            payload = pyjwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            user_id = payload.get("user_id") or payload.get("sub")
+            if user_id:
+                from bson import ObjectId
+                user = await db.users.find_one({"_id": ObjectId(user_id)})
+                if user:
+                    if isinstance(user.get("created_at"), str):
+                        user["created_at"] = datetime.fromisoformat(user["created_at"])
+                    return User(**{k: v for k, v in user.items() if k != "_id"})
+        except Exception:
+            pass
+
     session_doc = await db.user_sessions.find_one({"session_token": session_token}, {"_id": 0})
     if not session_doc:
         return None
@@ -6563,88 +6579,6 @@ async def test_email_send():
             "type":   type(e).__name__,
             "detail": str(e),
         }
-
-
-@api_router.post("/admin/migrate-db-clean")
-async def migrate_database_clean(request: Request):
-    """Clean migration — drops destination collections first then imports fresh"""
-    import os
-    from motor.motor_asyncio import AsyncIOMotorClient
-
-    dest_uri = "mongodb+srv://sus10admin:auOoJBgkvz0yP6Iu@sus10-cluster.efqva4q.mongodb.net/?retryWrites=true&w=majority"
-    dest_client = AsyncIOMotorClient(dest_uri)
-    dest_db = dest_client["sus10_prod"]
-
-    results = {}
-    collections = await db.list_collection_names()
-
-    for coll_name in collections:
-        source_coll = db[coll_name]
-        dest_coll = dest_db[coll_name]
-
-        # Drop destination collection first
-        await dest_coll.drop()
-
-        # Fetch all from source
-        docs = await source_coll.find({}, {"_id": 0}).to_list(length=None)
-
-        if docs:
-            try:
-                await dest_coll.insert_many(docs, ordered=False)
-                dest_count = await dest_coll.count_documents({})
-                results[coll_name] = {
-                    "source": len(docs),
-                    "destination": dest_count,
-                    "match": len(docs) == dest_count
-                }
-            except Exception as e:
-                results[coll_name] = {"error": str(e), "source": len(docs)}
-        else:
-            results[coll_name] = {"source": 0, "destination": 0, "match": True}
-
-    dest_client.close()
-    return {"status": "complete", "results": results}
-
-
-@api_router.post("/admin/migrate-db")
-async def migrate_database(request: Request):
-    """Temporary migration endpoint - exports current DB to new Atlas"""
-    import os
-    from motor.motor_asyncio import AsyncIOMotorClient
-
-    # Connect to destination
-    dest_uri = "mongodb+srv://sus10admin:auOoJBgkvz0yP6Iu@sus10-cluster.efqva4q.mongodb.net/?retryWrites=true&w=majority"
-    dest_client = AsyncIOMotorClient(dest_uri)
-    dest_db = dest_client["sus10_prod"]
-
-    results = {}
-
-    # Get all collection names from source (current db)
-    collections = await db.list_collection_names()
-
-    for coll_name in collections:
-        source_coll = db[coll_name]
-        dest_coll = dest_db[coll_name]
-
-        # Fetch all documents from source
-        docs = await source_coll.find({}, {"_id": 0}).to_list(length=None)
-
-        if docs:
-            try:
-                await dest_coll.insert_many(docs, ordered=False)
-                dest_count = await dest_coll.count_documents({})
-                results[coll_name] = {
-                    "source": len(docs),
-                    "destination": dest_count,
-                    "match": len(docs) == dest_count
-                }
-            except Exception as e:
-                results[coll_name] = {"error": str(e), "source": len(docs)}
-        else:
-            results[coll_name] = {"source": 0, "destination": 0, "match": True}
-
-    dest_client.close()
-    return {"status": "complete", "results": results}
 
 
 # IMPORTANT: This must remain the last line before shutdown handler in the file.
