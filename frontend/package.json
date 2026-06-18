@@ -66,7 +66,8 @@
     "zod": "^3.24.4"
   },
   "overrides": {
-    "ajv-keywords": "^3.5.2"
+    "ajv-keywords": "^3.5.2",
+    "schema-utils": "^2.7.1"
   },
   "scripts": {
     "start": "craco start",
