@@ -17,11 +17,13 @@ import io
 import math
 import json
 import base64
+import asyncio
 import logging
 from typing import Dict, Any, Optional
 import httpx
 from PIL import Image
-from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+from google import genai
+from google.genai import types
 
 logger = logging.getLogger(__name__)
 
@@ -249,18 +251,29 @@ async def analyze_rooftop(building: Dict[str, Any]) -> Dict[str, Any]:
         return {"error": "EMERGENT_LLM_KEY not configured", "success": False}
 
     try:
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=f"rooftop-{building.get('building_id', 'unknown')}",
-            system_message=_build_system_prompt(),
-        ).with_model("gemini", GEMINI_MODEL)
+        client = genai.Client(api_key=api_key)
 
-        msg = UserMessage(
-            text=_build_analysis_prompt(name, footprint, city),
-            file_contents=[ImageContent(image_base64=image_b64)],
+        image_bytes = base64.b64decode(image_b64)
+
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model=GEMINI_MODEL,
+            contents=[
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
+                        types.Part.from_text(text=_build_analysis_prompt(name, footprint, city)),
+                    ]
+                )
+            ],
+            config=types.GenerateContentConfig(
+                system_instruction=_build_system_prompt(),
+                response_mime_type="application/json",
+            )
         )
 
-        raw = await chat.send_message(msg)
+        raw = response.text
 
         cleaned = raw.strip()
         if cleaned.startswith("```"):
