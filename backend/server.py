@@ -6565,6 +6565,47 @@ async def test_email_send():
         }
 
 
+@api_router.post("/admin/migrate-db-clean")
+async def migrate_database_clean(request: Request):
+    """Clean migration — drops destination collections first then imports fresh"""
+    import os
+    from motor.motor_asyncio import AsyncIOMotorClient
+
+    dest_uri = "mongodb+srv://sus10admin:auOoJBgkvz0yP6Iu@sus10-cluster.efqva4q.mongodb.net/?retryWrites=true&w=majority"
+    dest_client = AsyncIOMotorClient(dest_uri)
+    dest_db = dest_client["sus10_prod"]
+
+    results = {}
+    collections = await db.list_collection_names()
+
+    for coll_name in collections:
+        source_coll = db[coll_name]
+        dest_coll = dest_db[coll_name]
+
+        # Drop destination collection first
+        await dest_coll.drop()
+
+        # Fetch all from source
+        docs = await source_coll.find({}, {"_id": 0}).to_list(length=None)
+
+        if docs:
+            try:
+                await dest_coll.insert_many(docs, ordered=False)
+                dest_count = await dest_coll.count_documents({})
+                results[coll_name] = {
+                    "source": len(docs),
+                    "destination": dest_count,
+                    "match": len(docs) == dest_count
+                }
+            except Exception as e:
+                results[coll_name] = {"error": str(e), "source": len(docs)}
+        else:
+            results[coll_name] = {"source": 0, "destination": 0, "match": True}
+
+    dest_client.close()
+    return {"status": "complete", "results": results}
+
+
 @api_router.post("/admin/migrate-db")
 async def migrate_database(request: Request):
     """Temporary migration endpoint - exports current DB to new Atlas"""
