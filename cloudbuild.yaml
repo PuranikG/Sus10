@@ -7,6 +7,6 @@ steps:
     args: ['push', 'asia-south1-docker.pkg.dev/sus10-core/sus10-repo/sus10-backend:latest']
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
-    args: ['run', 'deploy', 'sus10-backend', '--image=asia-south1-docker.pkg.dev/sus10-core/sus10-repo/sus10-backend:$COMMIT_SHA', '--region=asia-south1', '--platform=managed', '--allow-unauthenticated', '--port=8001', '--memory=512Mi', '--cpu=1', '--min-instances=0', '--max-instances=10', '--timeout=60']
+    args: ['run', 'deploy', 'sus10-backend', '--image=asia-south1-docker.pkg.dev/sus10-core/sus10-repo/sus10-backend:$COMMIT_SHA', '--region=asia-south1', '--platform=managed', '--allow-unauthenticated', '--port=8080', '--memory=512Mi', '--cpu=1', '--min-instances=0', '--max-instances=10', '--timeout=60']
 options:
   logging: CLOUD_LOGGING_ONLY
