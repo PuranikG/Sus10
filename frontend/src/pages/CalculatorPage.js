@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, ChevronRight, ChevronLeft, Leaf } from 'lucide-react';
-import { apiRequest } from '../lib/utils';
+import { apiRequest, API_URL } from '../lib/utils';
 
 // ─── Session event helpers (fire-and-forget, never block the UI) ─────────────
 
@@ -16,7 +16,7 @@ function _getUtmParams() {
 
 function fireSessionEvent(payload) {
   try {
-    fetch('/api/session/event', {
+    fetch(`${API_URL}/session/event`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
