@@ -274,6 +274,24 @@ def calculate_biogas_potential(
         btype, OCCUPANCY_DEFAULTS["commercial"]
     )
 
+    if families is not None and int(families) == 0:
+        return {
+            "occupants_estimated": 0, "families_estimated": 0,
+            "people_density_per_sqm": people_density,
+            "waste_kg_per_family_per_day_used": float(waste_kg_per_family_per_day) if waste_kg_per_family_per_day is not None else 0,
+            "daily_waste_source": "families_zero",
+            "built_up_area_sqm": round(building_footprint_sqm * floors, 1),
+            "floors_assumed": floors,
+            "daily_organic_waste_kg": 0, "annual_waste_diverted_kg": 0,
+            "biogas_m3_per_day": 0, "biogas_m3_per_year": 0,
+            "lpg_equivalent_kg_per_year": 0, "annual_savings_inr": 0,
+            "recommended_plant_size": "Not applicable", "estimated_capex_inr": 0,
+            "co2_offset_kg_per_year": 0,
+            "methodology": "families=0: no biogas calculation for commercial buildings.",
+            "data_source": "IS 16190:2014 + CPCB Solid Waste Management Rules 2016",
+            "lpg_price_inr_kg": lpg_price_inr_kg,
+        }
+
     built_up_area = building_footprint_sqm * floors
 
     daily_waste_source = "occupancy_default"

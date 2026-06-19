@@ -34,6 +34,15 @@ api_router = APIRouter(prefix="/api")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
+def strip_markdown(text: str) -> str:
+    if not text:
+        return text
+    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+    text = re.sub(r'\*([^*]+)\*', r'\1', text)
+    return text
+
+
 # ==================== ENUMS ====================
 class UserType(str, Enum):
     individual = "individual"
@@ -2782,7 +2791,7 @@ async def get_building_potential(
         narrative_parts.append(f"**{bname}** could save **{_fmt_inr(annual_savings)}** every year through integrated sustenance.")
     else:
         narrative_parts.append(f"Here's what **{bname}** can do across the 4 pillars of sustenance.")
-    narrative_headline = " ".join(narrative_parts).strip()
+    narrative_headline = strip_markdown(" ".join(narrative_parts).strip())
 
     narrative_chips: List[Dict[str, str]] = []
     if solar_kwh:
@@ -4578,7 +4587,7 @@ class QuickCalcRequest(BaseModel):
     monthly_electricity_bill_inr: Optional[float] = Field(default=None, ge=0)
     monthly_gas_bill_inr: Optional[float] = Field(default=None, ge=0)
     family_size: Optional[int] = Field(default=None, ge=1, le=200)
-    families: Optional[int] = Field(default=None, ge=1, le=2000)
+    families: Optional[int] = Field(default=None, ge=0, le=2000)
     building_type: Optional[str] = "residential"
     name: Optional[str] = None
     email: Optional[str] = None
@@ -4601,7 +4610,7 @@ async def calculate_quick_potential(payload: QuickCalcRequest, request: Request)
     # Determine families count for biogas estimation:
     # - explicit `families` (e.g. society admin) wins
     # - otherwise default to 1 (single home). Multi-family buildings should pass `families`.
-    families = payload.families or 1
+    families = payload.families if payload.families is not None else 1
     if payload.building_type in ("apartment", "housing_society", "residential_complex") and payload.families:
         families = payload.families
     doc = {
