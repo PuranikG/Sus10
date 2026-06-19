@@ -4761,17 +4761,20 @@ async def root():
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
+_raw_origins = os.environ.get("CORS_ORIGINS", "")
+_origins_list = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
+_always_allowed = [
+    "https://sus10.ai",
+    "https://www.sus10.ai",
+    "https://sus10.vercel.app",
+]
+CORS_ORIGINS = list(set(_origins_list + _always_allowed))
+
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    # When CORS_ORIGINS is "*", use allow_origin_regex to echo the actual request origin
-    # (browsers reject "Access-Control-Allow-Origin: *" with credentials: include).
-    # Otherwise use explicit allow_origins from CORS_ORIGINS env var.
-    **(
-        {"allow_origin_regex": ".*"}
-        if os.environ.get('CORS_ORIGINS', '*').strip() == '*'
-        else {"allow_origins": os.environ.get('CORS_ORIGINS', '*').split(',')}
-    ),
     allow_methods=["*"],
     allow_headers=["*"],
 )
