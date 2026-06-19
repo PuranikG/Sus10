@@ -27,7 +27,7 @@ export function AuthProvider({ children }) {
 
   const login = async () => {
     try {
-      const response = await fetch(`${API_URL}/auth/google/login`);
+      const response = await fetch(`${API_URL}/auth/google/login`, { credentials: 'include' });
       const { auth_url } = await response.json();
       window.location.href = auth_url;
     } catch (err) {
