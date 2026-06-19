@@ -32,7 +32,7 @@ export default function ProjectDetailPage() {
     setDownloading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const res = await fetch(`${API_URL}/api/groups/${group.group_id}/report.docx`, {
+      const res = await fetch(`${API_URL}/groups/${group.group_id}/report.docx`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error('Download failed');

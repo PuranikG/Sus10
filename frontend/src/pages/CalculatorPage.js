@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, ChevronRight, ChevronLeft, Leaf } from 'lucide-react';
 import { apiRequest, API_URL } from '../lib/utils';
+import { useAuth } from '../context/AuthContext';
 
 // ─── Session event helpers (fire-and-forget, never block the UI) ─────────────
 
@@ -562,6 +563,7 @@ function MultiSelectQuestion({ question, value = [], onChange }) {
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function CalculatorPage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [config, setConfig]           = useState(null);
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError]   = useState(null);
@@ -878,8 +880,8 @@ export default function CalculatorPage() {
             return null;
           })}
 
-          {/* S4A-T2: Planting density slider — Page 2 only */}
-          {currentPage === 1 && (
+          {/* S4A-T2: Planting density slider — Page 2 only, authenticated users only */}
+          {isAuthenticated && currentPage === 1 && (
             <div style={{ marginBottom: '28px' }}>
               <div style={{ fontSize: '15px', fontWeight: 600, color: '#f8fdf8', marginBottom: '6px' }}>Planting intensity</div>
               <div style={{ fontSize: '12px', color: '#7aaa8a', marginBottom: '12px', lineHeight: 1.5 }}>
