@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { apiRequest } from '../lib/utils';
+import { apiRequest, API_URL } from '../lib/utils';
 
 const AuthContext = createContext(null);
 
@@ -22,20 +22,17 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    // CRITICAL: If returning from OAuth callback, skip the /me check.
-    // AuthCallback will exchange the session_id and establish the session first.
-    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    if (window.location.hash?.includes('session_id=')) {
-      setLoading(false);
-      return;
-    }
     checkAuth();
   }, [checkAuth]);
 
-  const login = () => {
-    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + '/dashboard';
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+  const login = async () => {
+    try {
+      const response = await fetch(`${API_URL}/auth/google/login`);
+      const { auth_url } = await response.json();
+      window.location.href = auth_url;
+    } catch (err) {
+      console.error('Failed to initiate Google login:', err);
+    }
   };
 
   const logout = async () => {

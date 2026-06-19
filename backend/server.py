@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query, UploadFile, File, BackgroundTasks
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -17,6 +17,8 @@ import json as json_module
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 import sys
+import base64
+import urllib.parse
 import jwt as pyjwt
 
 ROOT_DIR = Path(__file__).parent
@@ -494,9 +496,118 @@ async def logout(request: Request, response: Response):
     session_token = request.cookies.get("session_token")
     if session_token:
         await db.user_sessions.delete_one({"session_token": session_token})
-    
+
     response.delete_cookie(key="session_token", path="/", secure=True, samesite="none")
     return {"message": "Logged out"}
+
+
+@api_router.get("/auth/google/login")
+async def google_login(request: Request):
+    """Return Google OAuth URL for the frontend to redirect to."""
+    redirect_uri = str(request.base_url).rstrip("/") + "/api/auth/google/callback"
+    params = {
+        "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "select_account",
+    }
+    auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
+    return {"auth_url": auth_url}
+
+
+@api_router.get("/auth/google/callback")
+async def google_callback(code: str, request: Request):
+    """Receive OAuth code from Google, create session, redirect to dashboard."""
+    frontend_url = os.environ.get("FRONTEND_URL", "https://sus10.ai")
+    redirect_uri = str(request.base_url).rstrip("/") + "/api/auth/google/callback"
+
+    # Exchange authorization code for tokens
+    async with httpx.AsyncClient() as client:
+        token_response = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": code,
+                "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
+                "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET"),
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+            },
+        )
+    token_data = token_response.json()
+
+    # Decode id_token payload (Google already verified it during the exchange)
+    id_token_str = token_data.get("id_token", "")
+    if not id_token_str:
+        logger.error(f"Google token exchange failed: {token_data}")
+        return RedirectResponse(url=f"{frontend_url}/signin?error=auth_failed")
+
+    payload_b64 = id_token_str.split(".")[1]
+    payload_b64 += "=" * (4 - len(payload_b64) % 4)
+    user_info = json_module.loads(base64.b64decode(payload_b64))
+    email = user_info.get("email", "")
+    name = user_info.get("name", "")
+    picture = user_info.get("picture", "")
+
+    if not email:
+        return RedirectResponse(url=f"{frontend_url}/signin?error=auth_failed")
+
+    # Private beta allowlist check
+    allowlist_enabled = os.environ.get("AUTH_ALLOWLIST_ENABLED", "false").lower() == "true"
+    if allowlist_enabled:
+        raw_emails = os.environ.get("AUTH_ALLOWLIST_EMAILS", "")
+        allowed = {e.strip().lower() for e in raw_emails.split(",") if e.strip()}
+        if email.strip().lower() not in allowed:
+            logger.warning(f"Google OAuth rejected (not allowlisted): {email}")
+            return RedirectResponse(url=f"{frontend_url}/signin?error=not_authorized")
+
+    # Find or create user
+    existing_user = await db.users.find_one({"email": email}, {"_id": 0})
+    if existing_user:
+        user_id = existing_user["user_id"]
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"name": name, "picture": picture, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        )
+    else:
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        await db.users.insert_one({
+            "user_id": user_id,
+            "email": email,
+            "name": name,
+            "picture": picture,
+            "user_type": "individual",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+    # Create JWT as session token
+    JWT_SECRET = os.environ.get("JWT_SECRET", "")
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    jwt_payload = {"email": email, "name": name, "user_id": user_id, "exp": expires_at}
+    session_token = pyjwt.encode(jwt_payload, JWT_SECRET, algorithm="HS256")
+
+    # Persist session so get_current_user's DB lookup also works
+    await db.user_sessions.insert_one({
+        "session_id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": expires_at.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    response = RedirectResponse(url=f"{frontend_url}/dashboard")
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+        max_age=7 * 24 * 60 * 60,
+    )
+    return response
+
 
 # ==================== FEATURE FLAGS ====================
 async def get_feature_flags() -> Dict[str, bool]:
