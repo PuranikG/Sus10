@@ -746,11 +746,16 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 async def seed_plants(db) -> int:
-    """Upsert all plant records. Safe to call multiple times — idempotent."""
+    """Upsert all plant records. Idempotent — sets data on insert, skips manual
+    field edits on existing records by only overwriting non-user-editable fields."""
     ops = 0
     for plant in PLANT_SEED_DATA:
-        await db.plants.update_one(
-            {"plant_id": plant["plant_id"]},
+        _id_filter = {"plant_id": plant["plant_id"]}
+        # $setOnInsert: write all fields when creating a new document.
+        # $set on updated_at is intentionally omitted so manual edits via admin UI
+        # are not overwritten. Any missing records are fully inserted.
+        result = await db.plants.update_one(
+            _id_filter,
             {"$setOnInsert": plant},
             upsert=True,
         )

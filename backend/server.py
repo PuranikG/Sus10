@@ -1220,7 +1220,8 @@ async def public_search_plants(
     plant_type: Optional[str] = Query(default=None),
     high_rise: Optional[bool] = Query(default=None),
     category: Optional[str] = Query(default=None),
-    limit: int = Query(default=50, le=200),
+    limit: int = Query(default=50, le=500),
+    offset: int = Query(default=0, ge=0),
 ):
     query: Dict[str, Any] = {"active": True}
     if climate_zone:
@@ -1231,8 +1232,10 @@ async def public_search_plants(
         query["high_rise_suitable"] = high_rise
     if category:
         query["plant_category"] = category
-    items = await db.plants.find(query, {"_id": 0}).sort("terrace_suitability_score", -1).limit(limit).to_list(limit)
-    return {"plants": items, "total": len(items)}
+    total = await db.plants.count_documents(query)
+    cursor = db.plants.find(query, {"_id": 0}).sort("terrace_suitability_score", -1).skip(offset).limit(limit)
+    items = await cursor.to_list(limit)
+    return {"plants": items, "total": total, "offset": offset, "limit": limit}
 
 
 # ==================== END SPRINT 7A ====================
@@ -5006,9 +5009,10 @@ async def ensure_critical_flags():
     # Sprint A: seed calculator config
     await _seed_calculator_config()
     await seed_city_parameters(db)
-    # Sprint 7A: seed plant database if collection is empty
-    if await db.plants.count_documents({}) == 0:
-        from services.plant_database import seed_plants
+    # Sprint 7A: seed plant database — re-seeds if collection is smaller than
+    # the compiled list (handles first-run partial seeds and expansions).
+    from services.plant_database import seed_plants, PLANT_SEED_DATA as _psd
+    if await db.plants.count_documents({}) < len(_psd):
         await seed_plants(db)
 
 
