@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Loader2, Plus, Pencil, RefreshCw, Leaf, CheckCircle2, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Loader2, Plus, Pencil, RefreshCw, Leaf, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -31,6 +31,7 @@ const CATEGORY_COLORS = {
 
 const PLANT_TYPES = ['food', 'medicinal', 'ornamental', 'mixed'];
 const CLIMATE_ZONES = ['hot-humid', 'hot-dry', 'composite', 'cold-dry'];
+const PAGE_SIZE = 25;
 
 const blank = () => ({
   common_name: '', scientific_name: '', family: '',
@@ -59,8 +60,9 @@ function CategoryBadge({ category }) {
 }
 
 export default function AdminPlantsPage() {
-  const [items, setItems] = useState([]);
-  const [filtered, setFiltered] = useState([]);
+  const [plants, setPlants] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [open, setOpen] = useState(false);
@@ -72,24 +74,33 @@ export default function AdminPlantsPage() {
   const [filterZone, setFilterZone] = useState('all');
   const [filterActive, setFilterActive] = useState('all');
 
-  const load = async () => {
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const rangeStart = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(currentPage * PAGE_SIZE, total);
+
+  const load = useCallback(async (page = currentPage) => {
     setLoading(true);
     try {
-      const r = await apiRequest('/admin/plants?limit=500');
-      setItems(r?.plants || []);
-    } finally { setLoading(false); }
+      const offset = (page - 1) * PAGE_SIZE;
+      const params = new URLSearchParams({ limit: PAGE_SIZE, offset });
+      if (filterCategory !== 'all') params.set('category', filterCategory);
+      if (filterType !== 'all') params.set('plant_type', filterType);
+      if (filterZone !== 'all') params.set('climate_zone', filterZone);
+      if (filterActive !== 'all') params.set('active', filterActive);
+      const r = await apiRequest(`/admin/plants?${params}`);
+      setPlants(r?.plants || []);
+      setTotal(r?.total ?? 0);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, filterCategory, filterType, filterZone, filterActive]);
+
+  useEffect(() => { load(currentPage); }, [load, currentPage]);
+
+  const applyFilter = (setter) => (value) => {
+    setter(value);
+    setCurrentPage(1);
   };
-
-  useEffect(() => { load(); }, []);
-
-  useEffect(() => {
-    let list = items;
-    if (filterCategory !== 'all') list = list.filter(p => p.plant_category === filterCategory);
-    if (filterType !== 'all') list = list.filter(p => p.plant_type === filterType);
-    if (filterZone !== 'all') list = list.filter(p => (p.climate_zones || []).includes(filterZone));
-    if (filterActive !== 'all') list = list.filter(p => String(!!p.active) === filterActive);
-    setFiltered(list);
-  }, [items, filterCategory, filterType, filterZone, filterActive]);
 
   const startNew = () => { setEditing(blank()); setOpen(true); };
   const startEdit = (p) => { setEditing({ ...p }); setOpen(true); };
@@ -117,7 +128,7 @@ export default function AdminPlantsPage() {
         toast.success('Plant created');
       }
       setOpen(false);
-      load();
+      load(currentPage);
     } catch (e) {
       toast.error(e.message || 'Save failed');
     }
@@ -130,7 +141,7 @@ export default function AdminPlantsPage() {
         body: JSON.stringify({ ...plant, active: !plant.active }),
       });
       toast.success(plant.active ? 'Deactivated' : 'Activated');
-      load();
+      load(currentPage);
     } catch (e) {
       toast.error('Update failed');
     }
@@ -143,7 +154,7 @@ export default function AdminPlantsPage() {
         body: JSON.stringify({ ...plant, shivani_validated: !plant.shivani_validated }),
       });
       toast.success(plant.shivani_validated ? 'Validation removed' : 'Marked as validated');
-      load();
+      load(currentPage);
     } catch (e) {
       toast.error('Update failed');
     }
@@ -155,7 +166,8 @@ export default function AdminPlantsPage() {
       const r = await apiRequest('/admin/plants/seed', { method: 'POST' });
       toast.success(`Seeded ${r.seeded} records`);
       setSeedConfirm(false);
-      load();
+      setCurrentPage(1);
+      load(1);
     } catch (e) {
       toast.error('Seed failed');
     } finally { setSeeding(false); }
@@ -173,10 +185,10 @@ export default function AdminPlantsPage() {
   return (
     <AdminShell
       title="Plant Database"
-      subtitle={`${items.length} species · curated for Indian climate-aware rooftop plantation`}
+      subtitle={`${total} species · curated for Indian climate-aware rooftop plantation`}
       actions={
         <>
-          <Button size="sm" variant="outline" onClick={load} data-testid="plants-refresh"><RefreshCw className="h-4 w-4" /></Button>
+          <Button size="sm" variant="outline" onClick={() => load(currentPage)} data-testid="plants-refresh"><RefreshCw className="h-4 w-4" /></Button>
           <Button size="sm" variant="outline" onClick={() => setSeedConfirm(true)} data-testid="plants-seed-btn">
             <Leaf className="h-4 w-4 mr-1" /> Seed Database
           </Button>
@@ -186,28 +198,28 @@ export default function AdminPlantsPage() {
     >
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">
-        <Select value={filterCategory} onValueChange={setFilterCategory}>
+        <Select value={filterCategory} onValueChange={applyFilter(setFilterCategory)}>
           <SelectTrigger className="h-8 text-xs w-48"><SelectValue placeholder="All categories" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
             {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filterType} onValueChange={setFilterType}>
+        <Select value={filterType} onValueChange={applyFilter(setFilterType)}>
           <SelectTrigger className="h-8 text-xs w-36"><SelectValue placeholder="All types" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All types</SelectItem>
             {PLANT_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filterZone} onValueChange={setFilterZone}>
+        <Select value={filterZone} onValueChange={applyFilter(setFilterZone)}>
           <SelectTrigger className="h-8 text-xs w-40"><SelectValue placeholder="All zones" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All zones</SelectItem>
             {CLIMATE_ZONES.map(z => <SelectItem key={z} value={z}>{z}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filterActive} onValueChange={setFilterActive}>
+        <Select value={filterActive} onValueChange={applyFilter(setFilterActive)}>
           <SelectTrigger className="h-8 text-xs w-32"><SelectValue placeholder="Active/Inactive" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -219,9 +231,15 @@ export default function AdminPlantsPage() {
 
       <Card>
         <CardContent className="p-0">
+          {/* Record count */}
           <div className="px-4 py-3 border-b text-sm text-muted-foreground" data-testid="plants-count">
-            {loading ? 'Loading…' : `Showing ${filtered.length.toLocaleString('en-IN')} of ${items.length.toLocaleString('en-IN')} plants`}
+            {loading
+              ? 'Loading…'
+              : total === 0
+                ? 'No plants match filters'
+                : `Showing ${rangeStart}–${rangeEnd} of ${total.toLocaleString('en-IN')} plants`}
           </div>
+
           {loading ? (
             <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           ) : (
@@ -243,7 +261,7 @@ export default function AdminPlantsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map(p => (
+                  {plants.map(p => (
                     <TableRow key={p.plant_id} data-testid={`plant-row-${p.plant_id}`}>
                       <TableCell className="font-medium min-w-[180px]">
                         <div>{p.common_name}</div>
@@ -291,11 +309,38 @@ export default function AdminPlantsPage() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {filtered.length === 0 && (
+                  {plants.length === 0 && (
                     <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">No plants match filters</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
+            </div>
+          )}
+
+          {/* Pagination controls */}
+          {!loading && total > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t" data-testid="plants-pagination">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                data-testid="plants-prev"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                data-testid="plants-next"
+              >
+                Next <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
             </div>
           )}
         </CardContent>
@@ -306,7 +351,7 @@ export default function AdminPlantsPage() {
         <DialogContent data-testid="seed-confirm-dialog">
           <DialogHeader><DialogTitle>Seed Plant Database</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This will upsert all 76+ built-in species records. Existing plants with matching IDs will not be overwritten. Safe to run multiple times.
+            This will upsert all 297 built-in species records. Existing plants with matching IDs will not be overwritten. Safe to run multiple times.
           </p>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setSeedConfirm(false)}>Cancel</Button>

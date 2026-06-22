@@ -1150,20 +1150,26 @@ async def admin_delete_subsidy(subsidy_id: str, request: Request):
 async def admin_list_plants(
     request: Request,
     category: Optional[str] = Query(default=None),
+    plant_type: Optional[str] = Query(default=None),
     active: Optional[str] = Query(default=None),
     climate_zone: Optional[str] = Query(default=None),
-    limit: int = Query(default=500, le=2000),
+    limit: int = Query(default=25, le=2000),
+    offset: int = Query(default=0, ge=0),
 ):
     await require_admin(request)
     query: Dict[str, Any] = {}
     if category:
         query["plant_category"] = category
+    if plant_type:
+        query["plant_type"] = plant_type
     if active is not None:
         query["active"] = active.lower() == "true"
     if climate_zone:
         query["climate_zones"] = climate_zone
-    items = await db.plants.find(query, {"_id": 0}).sort("plant_category", 1).limit(limit).to_list(limit)
-    return {"plants": items, "total": len(items)}
+    total = await db.plants.count_documents(query)
+    cursor = db.plants.find(query, {"_id": 0}).sort("plant_category", 1).skip(offset).limit(limit)
+    items = await cursor.to_list(limit)
+    return {"plants": items, "total": total, "offset": offset, "limit": limit}
 
 
 @api_router.post("/admin/plants")
