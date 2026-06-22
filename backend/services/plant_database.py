@@ -732,6 +732,16 @@ PLANT_SEED_DATA: List[Dict[str, Any]] = [
 
 
 # ---------------------------------------------------------------------------
+# Expansion: 224 additional species (Sprint 7A)
+# ---------------------------------------------------------------------------
+try:
+    from services.plant_database_ext import ADDITIONAL_PLANTS as _ext
+    PLANT_SEED_DATA = PLANT_SEED_DATA + _ext
+except ImportError:
+    pass
+
+
+# ---------------------------------------------------------------------------
 # Seed function
 # ---------------------------------------------------------------------------
 
