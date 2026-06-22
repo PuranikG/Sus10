@@ -1144,6 +1144,100 @@ async def admin_delete_subsidy(subsidy_id: str, request: Request):
     return {"subsidy_id": subsidy_id, "deleted": True}
 
 
+# ==================== SPRINT 7A: PLANT DATABASE ====================
+
+@api_router.get("/admin/plants")
+async def admin_list_plants(
+    request: Request,
+    category: Optional[str] = Query(default=None),
+    active: Optional[str] = Query(default=None),
+    climate_zone: Optional[str] = Query(default=None),
+    limit: int = Query(default=500, le=2000),
+):
+    await require_admin(request)
+    query: Dict[str, Any] = {}
+    if category:
+        query["plant_category"] = category
+    if active is not None:
+        query["active"] = active.lower() == "true"
+    if climate_zone:
+        query["climate_zones"] = climate_zone
+    items = await db.plants.find(query, {"_id": 0}).sort("plant_category", 1).limit(limit).to_list(limit)
+    return {"plants": items, "total": len(items)}
+
+
+@api_router.post("/admin/plants")
+async def admin_create_plant(payload: Dict[str, Any], request: Request):
+    user = await require_admin(request)
+    now = datetime.now(timezone.utc).isoformat()
+    doc = dict(payload)
+    doc["plant_id"] = f"plt_{uuid.uuid4().hex[:12]}"
+    doc["created_at"] = now
+    doc["updated_at"] = now
+    doc.setdefault("active", True)
+    doc.setdefault("shivani_validated", False)
+    await db.plants.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.put("/admin/plants/{plant_id}")
+async def admin_update_plant(plant_id: str, payload: Dict[str, Any], request: Request):
+    user = await require_admin(request)
+    update = dict(payload)
+    update.pop("plant_id", None)
+    update.pop("_id", None)
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    res = await db.plants.update_one({"plant_id": plant_id}, {"$set": update})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Plant not found")
+    return {"plant_id": plant_id, "updated": True}
+
+
+@api_router.delete("/admin/plants/{plant_id}")
+async def admin_delete_plant(plant_id: str, request: Request):
+    await require_admin(request)
+    res = await db.plants.update_one(
+        {"plant_id": plant_id},
+        {"$set": {"active": False, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Plant not found")
+    return {"plant_id": plant_id, "deactivated": True}
+
+
+@api_router.post("/admin/plants/seed")
+async def admin_seed_plants(request: Request):
+    await require_admin(request)
+    from services.plant_database import seed_plants
+    count = await seed_plants(db)
+    return {"seeded": count}
+
+
+@api_router.get("/plants/search")
+async def public_search_plants(
+    climate_zone: Optional[str] = Query(default=None),
+    plant_type: Optional[str] = Query(default=None),
+    high_rise: Optional[bool] = Query(default=None),
+    category: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, le=200),
+):
+    query: Dict[str, Any] = {"active": True}
+    if climate_zone:
+        query["climate_zones"] = climate_zone
+    if plant_type:
+        query["plant_type"] = plant_type
+    if high_rise is not None:
+        query["high_rise_suitable"] = high_rise
+    if category:
+        query["plant_category"] = category
+    items = await db.plants.find(query, {"_id": 0}).sort("terrace_suitability_score", -1).limit(limit).to_list(limit)
+    return {"plants": items, "total": len(items)}
+
+
+# ==================== END SPRINT 7A ====================
+
+
 @api_router.delete("/admin/rate-limits/clear")
 async def clear_rate_limits(request: Request):
     """Admin-only: flush the rate_limits collection immediately."""
@@ -4912,6 +5006,10 @@ async def ensure_critical_flags():
     # Sprint A: seed calculator config
     await _seed_calculator_config()
     await seed_city_parameters(db)
+    # Sprint 7A: seed plant database if collection is empty
+    if await db.plants.count_documents({}) == 0:
+        from services.plant_database import seed_plants
+        await seed_plants(db)
 
 
 # ==================== SPRINT A: CALCULATOR & REPORT ====================

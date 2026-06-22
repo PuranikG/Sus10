@@ -27,6 +27,7 @@ import AdminGenericListPage from './pages/AdminGenericListPage';
 import AdminLeadsPage from './pages/AdminLeadsPage';
 import AdminAuditLogPage from './pages/AdminAuditLogPage';
 import AdminSubsidiesPage from './pages/AdminSubsidiesPage';
+import AdminPlantsPage from './pages/AdminPlantsPage';
 import AdminBuildingDiscoveryPage from './pages/AdminBuildingDiscoveryPage';
 import BuildingPotentialPage from './pages/BuildingPotentialPage';
 import SubsidiesPage from './pages/SubsidiesPage';
@@ -245,6 +246,14 @@ function AppRouter() {
         element={
           <ProtectedRoute>
             <AdminSubsidiesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/plants"
+        element={
+          <ProtectedRoute>
+            <AdminPlantsPage />
           </ProtectedRoute>
         }
       />
