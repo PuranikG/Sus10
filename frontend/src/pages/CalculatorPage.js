@@ -293,9 +293,20 @@ function PlacesAddressField({ question, mapsLoaded, addressData, onPlaceSelected
             await place.fetchFields({
               fields: ['displayName', 'formattedAddress', 'addressComponents', 'location', 'id'],
             });
-          } catch (_) { /* fetchFields may fail silently */ }
+          } catch (err) {
+            console.warn('fetchFields failed, falling back to legacy autocomplete', err);
+            onPlaceSelected(null);
+            return;
+          }
+          // Guard: if addressComponents still missing after fetchFields, abort
+          if (!place.addressComponents?.length) {
+            console.warn('addressComponents empty after fetchFields — place selection aborted');
+            onPlaceSelected(null);
+            return;
+          }
           const lat = place.location?.lat?.() ?? null;
           const lng = place.location?.lng?.() ?? null;
+          console.log('City captured:', _extractStructured(place.addressComponents, place.formattedAddress, lat, lng, place.id, true).city || 'none');
           handleStructured(_extractStructured(
             place.addressComponents, place.formattedAddress, lat, lng, place.id, true
           ));
