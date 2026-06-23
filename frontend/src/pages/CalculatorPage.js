@@ -883,7 +883,7 @@ export default function CalculatorPage() {
           {/* S4A-T2: Planting density slider — Page 2 only, authenticated users only */}
           {isAuthenticated && currentPage === 1 && (
             <div style={{ marginBottom: '28px' }}>
-              <div style={{ fontSize: '15px', fontWeight: 600, color: '#f8fdf8', marginBottom: '6px' }}>Planting intensity</div>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: '#f8fdf8', marginBottom: '6px' }}>Planting Density</div>
               <div style={{ fontSize: '12px', color: '#7aaa8a', marginBottom: '12px', lineHeight: 1.5 }}>
                 How densely do you want to plant? Higher density = more plants but more maintenance.
               </div>
