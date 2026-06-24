@@ -891,6 +891,136 @@ export default function CalculatorPage() {
             return null;
           })}
 
+          {/* Balcony & boundary wall — optional, page 0 (About Your Home) only */}
+          {currentPage === 0 && (
+            <div style={{ marginBottom: '28px', paddingTop: '20px', borderTop: '1px solid #1e3024' }}>
+              <div style={{ fontSize: '11px', color: '#4a6a4a', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '20px' }}>
+                Optional — helps us calculate your full green potential
+              </div>
+
+              {/* Section A — Balconies */}
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ fontSize: '15px', fontWeight: 600, color: '#f8fdf8', marginBottom: '12px' }}>
+                  Do you have balconies?
+                </div>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: answers.has_balconies === true ? '16px' : 0 }}>
+                  {['Yes', 'No'].map(opt => {
+                    const sel = opt === 'Yes' ? answers.has_balconies === true : answers.has_balconies === false;
+                    return (
+                      <button key={opt} type="button"
+                        onClick={() => setAnswers(prev => ({
+                          ...prev,
+                          has_balconies: opt === 'Yes',
+                          ...(opt === 'No' ? { num_balconies: null, balcony_size_category: null } : {}),
+                        }))}
+                        style={{
+                          padding: '10px 28px',
+                          background: sel ? 'rgba(34,197,94,0.15)' : '#111e15',
+                          border: `1px solid ${sel ? '#22c55e' : '#1e3024'}`,
+                          borderRadius: '10px',
+                          color: sel ? '#22c55e' : '#c8ddd0',
+                          fontSize: '14px', fontWeight: sel ? 600 : 400,
+                          cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                      >{opt}</button>
+                    );
+                  })}
+                </div>
+                {answers.has_balconies === true && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', color: '#7aaa8a', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Total number of balconies
+                      </label>
+                      <input
+                        type="number" min="1"
+                        value={answers.num_balconies ?? ''}
+                        onChange={e => setAnswers(prev => ({ ...prev, num_balconies: e.target.value ? parseInt(e.target.value, 10) : null }))}
+                        placeholder="e.g. 2"
+                        style={{ width: '100%', padding: '10px 14px', background: '#0d1710', border: '1px solid #1e3024', borderRadius: '8px', color: '#f8fdf8', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', color: '#7aaa8a', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Typical balcony size
+                      </label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {[
+                          { value: 'small',  label: 'Small (under 30 sq ft)' },
+                          { value: 'medium', label: 'Medium (30–60 sq ft)' },
+                          { value: 'large',  label: 'Large (over 60 sq ft)' },
+                        ].map(opt => {
+                          const sel = answers.balcony_size_category === opt.value;
+                          return (
+                            <button key={opt.value} type="button"
+                              onClick={() => setAnswers(prev => ({ ...prev, balcony_size_category: opt.value }))}
+                              style={{
+                                padding: '8px 12px',
+                                background: sel ? 'rgba(34,197,94,0.15)' : '#111e15',
+                                border: `1px solid ${sel ? '#22c55e' : '#1e3024'}`,
+                                borderRadius: '8px',
+                                color: sel ? '#22c55e' : '#c8ddd0',
+                                fontSize: '13px', fontWeight: sel ? 600 : 400,
+                                cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+                              }}
+                            >{opt.label}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Section B — Boundary / Compound Wall */}
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 600, color: '#f8fdf8', marginBottom: '12px' }}>
+                  Do you have a boundary or compound wall?
+                </div>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: answers.has_boundary_wall === true ? '16px' : 0 }}>
+                  {['Yes', 'No'].map(opt => {
+                    const sel = opt === 'Yes' ? answers.has_boundary_wall === true : answers.has_boundary_wall === false;
+                    return (
+                      <button key={opt} type="button"
+                        onClick={() => setAnswers(prev => ({
+                          ...prev,
+                          has_boundary_wall: opt === 'Yes',
+                          ...(opt === 'No' ? { boundary_wall_length_ft: null } : {}),
+                        }))}
+                        style={{
+                          padding: '10px 28px',
+                          background: sel ? 'rgba(34,197,94,0.15)' : '#111e15',
+                          border: `1px solid ${sel ? '#22c55e' : '#1e3024'}`,
+                          borderRadius: '10px',
+                          color: sel ? '#22c55e' : '#c8ddd0',
+                          fontSize: '14px', fontWeight: sel ? 600 : 400,
+                          cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                      >{opt}</button>
+                    );
+                  })}
+                </div>
+                {answers.has_boundary_wall === true && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#7aaa8a', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Approximate wall length (in feet)
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <input
+                        type="number" min="1"
+                        value={answers.boundary_wall_length_ft ?? ''}
+                        onChange={e => setAnswers(prev => ({ ...prev, boundary_wall_length_ft: e.target.value ? parseFloat(e.target.value) : null }))}
+                        placeholder="e.g. 80"
+                        style={{ width: '140px', padding: '10px 14px', background: '#0d1710', border: '1px solid #1e3024', borderRadius: '8px', color: '#f8fdf8', fontSize: '14px', fontWeight: 600, outline: 'none', boxSizing: 'border-box' }}
+                      />
+                      <span style={{ fontSize: '13px', color: '#4a6a4a' }}>ft</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* S4A-T2: Planting density slider — Page 2 only, authenticated users only */}
           {isAuthenticated && currentPage === 1 && (
             <div style={{ marginBottom: '28px' }}>

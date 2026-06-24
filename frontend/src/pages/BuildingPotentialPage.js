@@ -268,6 +268,26 @@ export default function BuildingPotentialPage() {
               {(data.widgets || []).map((w, i) => <PillarWidget key={w.key} widget={w} index={i} />)}
             </div>
 
+            {/* Balcony / boundary wall teaser */}
+            {(data.building?.has_balconies || data.building?.has_boundary_wall) && (
+              <Card className="mb-4 border-emerald-700/30 bg-slate-900/40">
+                <CardContent className="p-5 flex items-start gap-3">
+                  <span className="text-xl leading-none mt-0.5">🌿</span>
+                  <div>
+                    <div className="font-medium text-slate-200 mb-1">More green potential identified</div>
+                    <p className="text-sm text-muted-foreground">
+                      Your{' '}
+                      {[
+                        data.building.has_balconies && 'balconies',
+                        data.building.has_boundary_wall && 'boundary wall',
+                      ].filter(Boolean).join(' and ')}{' '}
+                      can support vertical gardens and container plants. Full balcony and wall potential calculations coming soon.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Biogas adjuster */}
             {showBiogasAdjuster && families && (
               <BiogasAdjuster families={families} waste={waste} onChange={onAdjusterChange} />

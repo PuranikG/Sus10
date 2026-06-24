@@ -4805,6 +4805,11 @@ class QuickCalcRequest(BaseModel):
     building_type: Optional[str] = "residential"
     name: Optional[str] = None
     email: Optional[str] = None
+    has_balconies: Optional[bool] = None
+    num_balconies: Optional[int] = Field(default=None, ge=0, le=100)
+    balcony_size_category: Optional[str] = None
+    has_boundary_wall: Optional[bool] = None
+    boundary_wall_length_ft: Optional[float] = Field(default=None, ge=0)
 
 
 @api_router.post("/calculate/quick-potential")
@@ -4844,6 +4849,11 @@ async def calculate_quick_potential(payload: QuickCalcRequest, request: Request)
         "monthly_gas_bill_inr": payload.monthly_gas_bill_inr,
         "family_size": payload.family_size,
         "families_estimated": families,
+        "has_balconies": payload.has_balconies or False,
+        "num_balconies": payload.num_balconies,
+        "balcony_size_category": payload.balcony_size_category,
+        "has_boundary_wall": payload.has_boundary_wall or False,
+        "boundary_wall_length_ft": payload.boundary_wall_length_ft,
         "status": "self_submitted",
         "is_approved": False,
         "data_source": "homeowner_calculator",
