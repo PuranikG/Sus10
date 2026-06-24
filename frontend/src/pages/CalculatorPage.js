@@ -263,8 +263,10 @@ function PlacesAddressField({ question, mapsLoaded, addressData, onPlaceSelected
     const places = window.google?.maps?.places;
     if (!places) return;
 
+    // ── Path A disabled — fetchFields requires Places API v1 billing tier
+    // Re-enable by removing `false &&` once billing is confirmed on the key.
     // ── Try new PlaceAutocompleteElement first ───────────────────────────────
-    if (places.PlaceAutocompleteElement && containerRef.current) {
+    if (false && places.PlaceAutocompleteElement && containerRef.current) {
       try {
         const el = new places.PlaceAutocompleteElement({
           includedRegionCodes: ['in'],
@@ -323,8 +325,8 @@ function PlacesAddressField({ question, mapsLoaded, addressData, onPlaceSelected
       const ac = new places.Autocomplete(inputRef.current, {
         componentRestrictions: { country: 'in' },
         types: ['geocode'],
-        fields: ['formatted_address', 'address_components', 'geometry', 'place_id'],
       });
+      ac.setFields(['address_components', 'geometry', 'formatted_address', 'place_id', 'name']);
       widgetRef.current = ac;
       ac.addListener('place_changed', () => {
         const place = ac.getPlace();
@@ -335,9 +337,11 @@ function PlacesAddressField({ question, mapsLoaded, addressData, onPlaceSelected
         }
         const lat = place.geometry.location.lat();
         const lng = place.geometry.location.lng();
-        handleStructured(_extractStructured(
+        const structured = _extractStructured(
           place.address_components, place.formatted_address, lat, lng, place.place_id, false
-        ));
+        );
+        console.log('[Sus10] City captured (legacy path):', structured?.city || 'none', '| state:', structured?.state || 'none');
+        handleStructured(structured);
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -381,11 +385,7 @@ function PlacesAddressField({ question, mapsLoaded, addressData, onPlaceSelected
       {question.helper_text && (
         <div style={{ fontSize: '12px', color: '#7aaa8a', marginBottom: '10px', lineHeight: 1.5 }}>{question.helper_text}</div>
       )}
-      {/* New API: PlaceAutocompleteElement mounts itself into containerRef */}
-      {mapsLoaded && (
-        <div ref={containerRef} style={{ width: '100%' }} />
-      )}
-      {/* Legacy fallback input — shown when Maps not loaded OR new API unavailable */}
+      {/* Legacy Autocomplete input — always shown once mapsLoaded */}
       {(!mapsLoaded || !usingNewApi) && (
         <input
           ref={inputRef}
