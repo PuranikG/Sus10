@@ -83,16 +83,7 @@ function SignInRedirect() {
   );
 }
 
-// App Router - handles session_id detection synchronously
 function AppRouter() {
-  const location = useLocation();
-
-  // CRITICAL: Check for session_id synchronously during render (not in useEffect)
-  // This prevents race conditions where ProtectedRoute runs before session is processed
-  if (location.hash?.includes('session_id=')) {
-    return <AuthCallback />;
-  }
-
   return (
     <Routes>
       {/* Public Routes */}
