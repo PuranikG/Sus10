@@ -6803,6 +6803,236 @@ async def test_email_send():
         }
 
 
+# ==================== SPRINT 7B: v2.0 MULTI-PERSONA SHADOW DEPLOYMENT ====================
+
+async def _check_calculation_version(request: Request) -> str:
+    """Returns 'v2.0' if query param or feature flag requests it, else 'v1.0'."""
+    if request.query_params.get("version") == "v2.0":
+        return "v2.0"
+    flag_doc = await db.feature_flags.find_one({"flag_name": "ENABLE_CALCULATION_V2_0"})
+    if flag_doc and flag_doc.get("enabled", False):
+        return "v2.0"
+    return "v1.0"
+
+
+# ── Homeowner calculator ──────────────────────────────────────────────────────
+
+@api_router.get("/buildings/{building_id}/calculate")
+async def calculate_homeowner(building_id: str, request: Request):
+    """
+    Homeowner plantation potential.
+    ?version=v1.0 (default) or ?version=v2.0 (shadow)
+    """
+    building = await db.buildings.find_one({"building_id": building_id})
+    if not building:
+        raise HTTPException(status_code=404, detail="Building not found")
+
+    version = await _check_calculation_version(request)
+    if version == "v2.0":
+        from services.homeowner_calculator_v2 import calculate_homeowner_v2
+        return await calculate_homeowner_v2(db, building_id, building)
+
+    raise HTTPException(status_code=501, detail="v1.0 homeowner calculator not yet wired — use ?version=v2.0")
+
+
+@api_router.get("/buildings/{building_id}/calculate-v2")
+async def calculate_homeowner_v2_shadow(building_id: str):
+    """Shadow endpoint: always runs v2.0."""
+    building = await db.buildings.find_one({"building_id": building_id})
+    if not building:
+        raise HTTPException(status_code=404, detail="Building not found")
+    from services.homeowner_calculator_v2 import calculate_homeowner_v2
+    return await calculate_homeowner_v2(db, building_id, building)
+
+
+# ── Colony calculator ─────────────────────────────────────────────────────────
+
+@api_router.get("/colonies/{colony_id}/calculate")
+async def calculate_colony(colony_id: str, request: Request):
+    """
+    Colony plantation potential.
+    ?version=v1.0 (default) or ?version=v2.0 (shadow)
+    """
+    colony = await db.colonies.find_one({"colony_id": colony_id})
+    if not colony:
+        raise HTTPException(status_code=404, detail="Colony not found")
+
+    version = await _check_calculation_version(request)
+    if version == "v2.0":
+        from services.colony_calculator_v2 import calculate_colony_v2
+        return await calculate_colony_v2(db, colony_id, colony)
+
+    raise HTTPException(status_code=501, detail="v1.0 colony calculator not yet wired — use ?version=v2.0")
+
+
+@api_router.get("/colonies/{colony_id}/calculate-v2")
+async def calculate_colony_v2_shadow(colony_id: str):
+    """Shadow endpoint: always runs v2.0."""
+    colony = await db.colonies.find_one({"colony_id": colony_id})
+    if not colony:
+        raise HTTPException(status_code=404, detail="Colony not found")
+    from services.colony_calculator_v2 import calculate_colony_v2
+    return await calculate_colony_v2(db, colony_id, colony)
+
+
+# ── Commercial calculator ─────────────────────────────────────────────────────
+
+@api_router.get("/commercial/{property_id}/calculate")
+async def calculate_commercial(property_id: str, request: Request):
+    """
+    Commercial plantation potential (BRSR/ESG).
+    ?version=v1.0 (default) or ?version=v2.0 (shadow)
+    """
+    prop = await db.commercial_properties.find_one({"property_id": property_id})
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    version = await _check_calculation_version(request)
+    if version == "v2.0":
+        from services.commercial_calculator_v2 import calculate_commercial_v2
+        return await calculate_commercial_v2(db, property_id, prop)
+
+    raise HTTPException(status_code=501, detail="v1.0 commercial calculator not yet wired — use ?version=v2.0")
+
+
+@api_router.get("/commercial/{property_id}/calculate-v2")
+async def calculate_commercial_v2_shadow(property_id: str):
+    """Shadow endpoint: always runs v2.0."""
+    prop = await db.commercial_properties.find_one({"property_id": property_id})
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    from services.commercial_calculator_v2 import calculate_commercial_v2
+    return await calculate_commercial_v2(db, property_id, prop)
+
+
+# ── Plant bulk actions ────────────────────────────────────────────────────────
+
+@api_router.get("/admin/plants")
+async def admin_list_plants(
+    request: Request,
+    category: Optional[str] = Query(default=None),
+    active: Optional[str] = Query(default=None),
+    limit: int = Query(default=25, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    """List plants with pagination (25/page default). Admin only."""
+    await require_admin(request)
+    from services.plant_bulk_actions import PlantBulkAction
+    active_bool = None if active is None else active.lower() == "true"
+    return await PlantBulkAction(db).list_plants(
+        category=category,
+        active=active_bool,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@api_router.post("/admin/plants/bulk-update")
+async def bulk_update_plants(request: Request):
+    """
+    Bulk update plants.
+    Body: {"filter_query": {...}, "field": "co2_kg_per_plant_yr", "value": 0.35}
+    """
+    user = await require_admin(request)
+    body = await request.json()
+    from services.plant_bulk_actions import PlantBulkAction
+    return await PlantBulkAction(db).bulk_update(
+        filter_query=body.get("filter_query", {}),
+        field_to_update=body.get("field"),
+        new_value=body.get("value"),
+        updated_by=user.email,
+    )
+
+
+@api_router.get("/admin/plants/bulk-logs")
+async def get_bulk_logs(
+    request: Request,
+    limit: int = Query(default=50, le=500),
+    offset: int = Query(default=0, ge=0),
+):
+    """Audit trail of bulk plant updates. Admin only."""
+    await require_admin(request)
+    from services.plant_bulk_actions import PlantBulkAction
+    return await PlantBulkAction(db).get_bulk_logs(limit=limit, offset=offset)
+
+
+# ── Test report (10 scenarios) ────────────────────────────────────────────────
+
+async def _run_report(request: Request) -> Dict[str, Any]:
+    await require_admin(request)
+    from services.test_report_generator import run_test_scenarios
+    from services.sustenance_calculator_v2 import calculate_plantation_potential_v2
+    return await run_test_scenarios(db=db, plantation_calc_v2=calculate_plantation_potential_v2)
+
+
+@api_router.get("/tests/run-scenarios")
+async def run_test_scenarios_endpoint(request: Request):
+    """Run 10 test scenarios and return summary + CSV/HTML download links."""
+    report = await _run_report(request)
+    return {
+        "status": "generated",
+        "scenarios_tested": len(report["results"]),
+        "generated_at": report["generated_at"],
+        "csv_download": "/api/tests/report.csv",
+        "html_download": "/api/tests/report.html",
+        "results_sample": report["results"][:2],
+    }
+
+
+@api_router.get("/tests/report.csv")
+async def download_test_csv(request: Request):
+    """Download test report as CSV. Admin only."""
+    report = await _run_report(request)
+    return Response(
+        content=report["csv_content"],
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=test_report.csv"},
+    )
+
+
+@api_router.get("/tests/report.html")
+async def download_test_html(request: Request):
+    """Download test report as HTML. Admin only."""
+    report = await _run_report(request)
+    return HTMLResponse(content=report["html_content"])
+
+
+# ── Feature flag admin ────────────────────────────────────────────────────────
+
+@api_router.get("/admin/feature-flags")
+async def get_feature_flags(request: Request):
+    """Read current state of ENABLE_CALCULATION_V2_0 flag."""
+    await require_admin(request)
+    flag = await db.feature_flags.find_one({"flag_name": "ENABLE_CALCULATION_V2_0"})
+    return {
+        "flag_name": "ENABLE_CALCULATION_V2_0",
+        "enabled": flag.get("enabled", False) if flag else False,
+        "description": "When true, all calculators default to v2.0. v1.0 available via ?version=v1.0",
+    }
+
+
+@api_router.post("/admin/feature-flags/toggle")
+async def toggle_feature_flag(request: Request):
+    """Flip ENABLE_CALCULATION_V2_0. ONLY after all 3 persona approval gates."""
+    user = await require_admin(request)
+    body = await request.json()
+    enabled = body.get("enabled", False)
+    now = datetime.now(timezone.utc).isoformat()
+    await db.feature_flags.update_one(
+        {"flag_name": "ENABLE_CALCULATION_V2_0"},
+        {"$set": {"enabled": enabled, "toggled_by": user.email, "toggled_at": now}},
+        upsert=True,
+    )
+    return {
+        "flag_name": "ENABLE_CALCULATION_V2_0",
+        "enabled": enabled,
+        "toggled_by": user.email,
+        "toggled_at": now,
+    }
+
+
+# ==================== END SPRINT 7B ====================
+
 # IMPORTANT: This must remain the last line before shutdown handler in the file.
 # All routes must be registered on api_router BEFORE this call.
 # Moving this line earlier will silently drop all routes defined after it.
