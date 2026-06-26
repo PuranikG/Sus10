@@ -6975,17 +6975,16 @@ async def get_bulk_logs(
 
 # ── Test report (10 scenarios) ────────────────────────────────────────────────
 
-async def _run_report(request: Request) -> Dict[str, Any]:
-    await require_admin(request)
+async def _run_report() -> Dict[str, Any]:
     from services.test_report_generator import run_test_scenarios
     from services.sustenance_calculator_v2 import calculate_plantation_potential_v2
     return await run_test_scenarios(db=db, plantation_calc_v2=calculate_plantation_potential_v2)
 
 
 @api_router.get("/tests/run-scenarios")
-async def run_test_scenarios_endpoint(request: Request):
+async def run_test_scenarios_endpoint():
     """Run 10 test scenarios and return summary + CSV/HTML download links."""
-    report = await _run_report(request)
+    report = await _run_report()
     return {
         "status": "generated",
         "scenarios_tested": len(report["results"]),
@@ -6997,9 +6996,9 @@ async def run_test_scenarios_endpoint(request: Request):
 
 
 @api_router.get("/tests/report.csv")
-async def download_test_csv(request: Request):
-    """Download test report as CSV. Admin only."""
-    report = await _run_report(request)
+async def download_test_csv():
+    """Download test report as CSV."""
+    report = await _run_report()
     return Response(
         content=report["csv_content"],
         media_type="text/csv",
@@ -7008,9 +7007,9 @@ async def download_test_csv(request: Request):
 
 
 @api_router.get("/tests/report.html")
-async def download_test_html(request: Request):
-    """Download test report as HTML. Admin only."""
-    report = await _run_report(request)
+async def download_test_html():
+    """Download test report as HTML."""
+    report = await _run_report()
     return HTMLResponse(content=report["html_content"])
 
 
