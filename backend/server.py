@@ -5032,6 +5032,23 @@ async def ensure_critical_flags():
     if await db.plants.count_documents({}) < len(_psd):
         await seed_plants(db)
 
+    # Sprint 7B: ensure v2.0 feature flag exists (off by default)
+    result = await db.feature_flags.update_one(
+        {"flag_name": "ENABLE_CALCULATION_V2_0"},
+        {"$setOnInsert": {
+            "flag_name": "ENABLE_CALCULATION_V2_0",
+            "enabled": False,
+            "description": "When true, all calculators default to v2.0. v1.0 available via ?version=v1.0",
+            "created_at": now,
+        }},
+        upsert=True,
+    )
+    if result.upserted_id:
+        logger.info("✓ Feature flag ENABLE_CALCULATION_V2_0 created (disabled)")
+    else:
+        flag = await db.feature_flags.find_one({"flag_name": "ENABLE_CALCULATION_V2_0"})
+        logger.info(f"✓ Feature flag ENABLE_CALCULATION_V2_0 exists: enabled={flag.get('enabled', False) if flag else False}")
+
 
 # ==================== SPRINT A: CALCULATOR & REPORT ====================
 
