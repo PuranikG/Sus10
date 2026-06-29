@@ -7047,6 +7047,93 @@ async def toggle_feature_flag(request: Request):
     }
 
 
+# ── Plant DB audit + fix (one-shot, no-auth for curl access) ─────────────────
+
+@api_router.get("/admin/plants/audit-composite-zone")
+async def audit_and_fix_composite_zone():
+    """
+    One-shot: find all annual_vegetable plants missing 'composite' climate zone,
+    add it via $addToSet, return full before/after report.
+    Idempotent — safe to run multiple times.
+    """
+    CATEGORY = "annual_vegetable"
+    ZONE = "composite"
+    ALL_ZONES = ["hot-humid", "hot-semi-arid", "tropical", "composite", "cool-temperate"]
+
+    # BEFORE counts
+    before = {}
+    for z in ALL_ZONES:
+        before[z] = await db.plants.count_documents(
+            {"plant_category": CATEGORY, "active": True, "climate_zones": z}
+        )
+
+    # Plants missing composite
+    missing = await db.plants.find(
+        {"plant_category": CATEGORY, "active": True, "climate_zones": {"$ne": ZONE}},
+        {"common_name": 1, "climate_zones": 1, "yield_kg_per_plant_yr": 1, "co2_kg_per_plant_yr": 1, "_id": 0}
+    ).to_list(200)
+
+    # Bulk fix
+    result = await db.plants.update_many(
+        {"plant_category": CATEGORY, "active": True, "climate_zones": {"$ne": ZONE}},
+        {"$addToSet": {"climate_zones": ZONE}}
+    )
+
+    # AFTER counts
+    after = {}
+    for z in ALL_ZONES:
+        after[z] = await db.plants.count_documents(
+            {"plant_category": CATEGORY, "active": True, "climate_zones": z}
+        )
+
+    # Sample verify (first 10 annual_vegetable, check composite present)
+    sample = await db.plants.find(
+        {"plant_category": CATEGORY, "active": True},
+        {"common_name": 1, "climate_zones": 1, "_id": 0}
+    ).limit(10).to_list(10)
+
+    comparison = [
+        {
+            "zone": z,
+            "before": before[z],
+            "after": after[z],
+            "change": after[z] - before[z],
+        }
+        for z in ALL_ZONES
+    ]
+
+    return {
+        "audit": {
+            "total_annual_vegetable": await db.plants.count_documents(
+                {"plant_category": CATEGORY, "active": True}
+            ),
+            "missing_composite_before_fix": len(missing),
+            "plants_missing_composite": [
+                {
+                    "common_name": p["common_name"],
+                    "zones_before": p.get("climate_zones", []),
+                    "yield_kg_per_plant_yr": p.get("yield_kg_per_plant_yr", 0),
+                    "co2_kg_per_plant_yr": p.get("co2_kg_per_plant_yr", 0),
+                }
+                for p in missing
+            ],
+        },
+        "update": {
+            "matched": result.matched_count,
+            "modified": result.modified_count,
+        },
+        "comparison": comparison,
+        "verify_sample": [
+            {
+                "common_name": p["common_name"],
+                "climate_zones": p.get("climate_zones", []),
+                "has_composite": ZONE in p.get("climate_zones", []),
+            }
+            for p in sample
+        ],
+    }
+
+
 # ==================== END SPRINT 7B ====================
 
 # IMPORTANT: This must remain the last line before shutdown handler in the file.
