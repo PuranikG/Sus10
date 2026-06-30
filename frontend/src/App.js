@@ -235,7 +235,6 @@ function AppRouter() {
       />
       <Route path="/for-installers/brochure" element={<VendorBrochurePage />} />
       <Route path="/vendor/dashboard" element={<ProtectedRoute><VendorDashboardPage /></ProtectedRoute>} />
-      <Route path="/vendor/projects/new" element={<ProtectedRoute><CommercialProjectPage /></ProtectedRoute>} />
       <Route path="/vendor/projects/:projectId" element={<ProtectedRoute><CommercialProjectPage /></ProtectedRoute>} />
       <Route path="/vendor/projects" element={<ProtectedRoute><CommercialProjectPage /></ProtectedRoute>} />
       <Route
