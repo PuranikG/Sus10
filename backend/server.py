@@ -5049,6 +5049,12 @@ async def ensure_critical_flags():
         flag = await db.feature_flags.find_one({"flag_name": "ENABLE_CALCULATION_V2_0"})
         logger.info(f"✓ Feature flag ENABLE_CALCULATION_V2_0 exists: enabled={flag.get('enabled', False) if flag else False}")
 
+    # Vendor projects collection indexes (idempotent — MongoDB ignores existing indexes)
+    await db.vendor_projects.create_index([("vendor_id", 1)])
+    await db.vendor_projects.create_index([("vendor_project_id", 1), ("vendor_id", 1)])
+    await db.vendor_projects.create_index([("created_at", -1)])
+    logger.info("✓ vendor_projects indexes ensured")
+
 
 # ==================== SPRINT A: CALCULATOR & REPORT ====================
 
@@ -7133,6 +7139,208 @@ async def audit_and_fix_composite_zone():
         ],
     }
 
+
+# ==================== VENDOR PROJECTS ====================
+from services.vendor_projects_service import (
+    create_vendor_project,
+    get_vendor_projects,
+    get_vendor_project,
+    update_vendor_project,
+    delete_vendor_project,
+    add_building_survey,
+    get_vendor_dashboard_stats,
+    generate_proposal_for_project,
+)
+
+@api_router.post("/vendor/projects")
+async def create_project(request: Request):
+    """Create new vendor project"""
+    user = await get_current_user(request)
+    if not user or user.user_type != UserType.provider:
+        raise HTTPException(status_code=403, detail="Not authorized - provider only")
+
+    provider = await db.solution_providers.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider profile not found")
+
+    data = await request.json()
+    try:
+        project = await create_vendor_project(
+            db,
+            provider["provider_id"],
+            user.user_id,
+            data
+        )
+        return project
+    except Exception as e:
+        logger.error(f"Project creation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.get("/vendor/projects")
+async def list_projects(request: Request):
+    """List all projects for current vendor"""
+    user = await get_current_user(request)
+    if not user or user.user_type != UserType.provider:
+        raise HTTPException(status_code=403, detail="Not authorized - provider only")
+
+    provider = await db.solution_providers.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider profile not found")
+
+    projects = await get_vendor_projects(db, provider["provider_id"])
+    return {"vendor_projects": projects, "count": len(projects)}
+
+@api_router.get("/vendor/dashboard/stats")
+async def vendor_stats(request: Request):
+    """Get vendor dashboard statistics"""
+    user = await get_current_user(request)
+    if not user or user.user_type != UserType.provider:
+        raise HTTPException(status_code=403, detail="Not authorized - provider only")
+
+    provider = await db.solution_providers.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider profile not found")
+
+    stats = await get_vendor_dashboard_stats(db, provider["provider_id"])
+    return stats
+
+@api_router.get("/vendor/projects/{vendor_project_id}")
+async def get_project(vendor_project_id: str, request: Request):
+    """Get single project with all details"""
+    user = await get_current_user(request)
+    if not user or user.user_type != UserType.provider:
+        raise HTTPException(status_code=403, detail="Not authorized - provider only")
+
+    provider = await db.solution_providers.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider profile not found")
+
+    project = await get_vendor_project(db, vendor_project_id, provider["provider_id"])
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    return project
+
+@api_router.patch("/vendor/projects/{vendor_project_id}")
+async def update_project(vendor_project_id: str, request: Request):
+    """Update project details"""
+    user = await get_current_user(request)
+    if not user or user.user_type != UserType.provider:
+        raise HTTPException(status_code=403, detail="Not authorized - provider only")
+
+    provider = await db.solution_providers.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider profile not found")
+
+    data = await request.json()
+    try:
+        project = await update_vendor_project(
+            db,
+            vendor_project_id,
+            provider["provider_id"],
+            data
+        )
+        return project
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Project update error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.delete("/vendor/projects/{vendor_project_id}")
+async def delete_project(vendor_project_id: str, request: Request):
+    """Delete project"""
+    user = await get_current_user(request)
+    if not user or user.user_type != UserType.provider:
+        raise HTTPException(status_code=403, detail="Not authorized - provider only")
+
+    provider = await db.solution_providers.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider profile not found")
+
+    deleted = await delete_vendor_project(
+        db,
+        vendor_project_id,
+        provider["provider_id"]
+    )
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    return {"deleted": True, "vendor_project_id": vendor_project_id}
+
+@api_router.post("/vendor/projects/{vendor_project_id}/buildings")
+async def add_building(vendor_project_id: str, request: Request):
+    """Add building survey to project"""
+    user = await get_current_user(request)
+    if not user or user.user_type != UserType.provider:
+        raise HTTPException(status_code=403, detail="Not authorized - provider only")
+
+    provider = await db.solution_providers.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider profile not found")
+
+    data = await request.json()
+    try:
+        survey = await add_building_survey(
+            db,
+            vendor_project_id,
+            provider["provider_id"],
+            data
+        )
+        return {"survey": survey, "status": "created"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Building survey error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.post("/vendor/projects/{vendor_project_id}/generate-proposal")
+async def generate_proposal(vendor_project_id: str, request: Request):
+    """Generate proposal using calculations"""
+    user = await get_current_user(request)
+    if not user or user.user_type != UserType.provider:
+        raise HTTPException(status_code=403, detail="Not authorized - provider only")
+
+    provider = await db.solution_providers.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider profile not found")
+
+    try:
+        proposal = await generate_proposal_for_project(
+            db,
+            vendor_project_id,
+            provider["provider_id"]
+        )
+        return {"proposal": proposal, "status": "generated"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Proposal generation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==================== END SPRINT 7B ====================
 

@@ -47,6 +47,8 @@ import ResourcesIndexPage from './pages/ResourcesIndexPage';
 import CalculatorPage from './pages/CalculatorPage';
 import ReportPage from './pages/ReportPage';
 import AdminCalculatorConfigPage from './pages/AdminCalculatorConfigPage';
+import VendorDashboardPage from './pages/VendorDashboardPage';
+import CommercialProjectPage from './pages/CommercialProjectPage';
 
 import './App.css';
 
@@ -232,6 +234,10 @@ function AppRouter() {
         }
       />
       <Route path="/for-installers/brochure" element={<VendorBrochurePage />} />
+      <Route path="/vendor/dashboard" element={<ProtectedRoute><VendorDashboardPage /></ProtectedRoute>} />
+      <Route path="/vendor/projects/new" element={<ProtectedRoute><CommercialProjectPage /></ProtectedRoute>} />
+      <Route path="/vendor/projects/:projectId" element={<ProtectedRoute><CommercialProjectPage /></ProtectedRoute>} />
+      <Route path="/vendor/projects" element={<ProtectedRoute><CommercialProjectPage /></ProtectedRoute>} />
       <Route
         path="/admin/subsidies"
         element={
