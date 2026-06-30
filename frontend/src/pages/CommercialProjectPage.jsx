@@ -16,7 +16,6 @@ import { Textarea } from '../components/ui/textarea';
 import { Badge } from '../components/ui/badge';
 import { apiRequest } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
-import Navbar from '../components/layout/Navbar';
 import { toast } from 'sonner';
 
 export default function CommercialProjectPage() {
@@ -197,42 +196,79 @@ export default function CommercialProjectPage() {
     );
   }
 
+  const totalRooftopSqft = project.building_surveys?.reduce(
+    (sum, b) => sum + (b.rooftop?.area_sqft || 0), 0
+  ) || 0;
+  const totalBalconies = project.building_surveys?.reduce(
+    (sum, b) => sum + (b.balconies?.count || 0), 0
+  ) || 0;
+
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/vendor/projects')}
-          className="mb-4 gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Projects
-        </Button>
-
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">{project.name}</h1>
-            {project.complex_city && (
-              <p className="text-muted-foreground flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                {project.complex_city} • {project.complex_type}
-              </p>
-            )}
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Sticky top nav */}
+      <header className="sticky top-0 z-30 bg-card/90 backdrop-blur-sm border-b border-border">
+        <div className="flex items-center gap-3 px-6 h-14">
+          <button
+            onClick={() => navigate('/vendor/projects')}
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors text-sm"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Projects</span>
+          </button>
+          <span className="text-border">|</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-semibold text-foreground truncate">{project.name}</h1>
+              {project.complex_city && (
+                <span className="text-xs text-muted-foreground hidden md:flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />{project.complex_city}
+                </span>
+              )}
+              {project.complex_type && (
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary hidden md:inline">
+                  {project.complex_type.replace('_', ' ')}
+                </span>
+              )}
+            </div>
           </div>
-          <Badge className="capitalize">{project.status}</Badge>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Building2 className="h-3.5 w-3.5" />
+              {project.building_surveys?.length || 0} buildings
+            </span>
+            <Badge className="capitalize text-[10px]">{project.status}</Badge>
+          </div>
         </div>
 
+        {/* Tab bar */}
+        <div className="flex border-t border-border px-6">
+          {[
+            { value: 'setup', label: 'Setup' },
+            { value: 'buildings', label: `Buildings (${project.building_surveys?.length || 0})` },
+            { value: 'solar', label: 'Solar' },
+            { value: 'greening', label: 'Greening' },
+            { value: 'proposal', label: 'Proposal' },
+            { value: 'map', label: 'Map' },
+          ].map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => setActiveTab(value)}
+              className={`px-4 py-2.5 text-sm border-b-2 transition-colors ${
+                activeTab === value
+                  ? 'border-primary text-primary font-medium'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <div className="flex-1 container mx-auto px-6 py-6 max-w-5xl">
+        {/* Hidden Tabs wrapper — just use conditional rendering below */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="setup">Setup</TabsTrigger>
-            <TabsTrigger value="buildings">Buildings <Badge className="ml-2">{project.building_surveys?.length || 0}</Badge></TabsTrigger>
-            <TabsTrigger value="solar">Solar</TabsTrigger>
-            <TabsTrigger value="greening">Greening</TabsTrigger>
-            <TabsTrigger value="proposal">Proposal</TabsTrigger>
-            <TabsTrigger value="map">Map</TabsTrigger>
-          </TabsList>
+          <TabsList className="hidden" />
 
           {/* Tab: Setup */}
           <TabsContent value="setup" className="mt-6">
@@ -280,11 +316,22 @@ export default function CommercialProjectPage() {
 
           {/* Tab: Buildings */}
           <TabsContent value="buildings" className="mt-6 space-y-6">
+            {/* Summary bar */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'Total Buildings', value: project.building_surveys?.length || 0 },
+                { label: 'Total Rooftop', value: totalRooftopSqft ? `${totalRooftopSqft.toLocaleString()} sqft` : '—' },
+                { label: 'Total Balconies', value: totalBalconies || '—' },
+              ].map(({ label, value }) => (
+                <div key={label} className="bg-muted/40 rounded-lg px-4 py-3 border border-border">
+                  <p className="text-lg font-bold font-mono text-foreground">{value}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+                </div>
+              ))}
+            </div>
+
             <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-semibold">Buildings in this project</h2>
-                <p className="text-sm text-muted-foreground">Total: {project.building_surveys?.length || 0}</p>
-              </div>
+              <h2 className="text-base font-semibold text-foreground">Buildings</h2>
               <Button onClick={() => setShowAddBuilding(true)} className="gap-2">
                 <Plus className="h-4 w-4" />
                 Add Building

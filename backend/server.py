@@ -7289,6 +7289,15 @@ async def vendor_stats(request: Request):
         raise HTTPException(status_code=404, detail="Provider profile not found")
 
     stats = await get_vendor_dashboard_stats(db, provider["provider_id"])
+    stats["vendor"] = {
+        "name": user.name,
+        "company_name": provider.get("company_name", user.name),
+        "city": provider.get("city") or (provider.get("service_areas") or [None])[0],
+        "pillars": provider.get("pillars", []),
+        "rating": provider.get("customer_rating"),
+        "verified": provider.get("verification_status") == "approved",
+        "provider_id": provider["provider_id"],
+    }
     return stats
 
 @api_router.get("/vendor/projects/{vendor_project_id}")

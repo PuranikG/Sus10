@@ -48,7 +48,10 @@ import CalculatorPage from './pages/CalculatorPage';
 import ReportPage from './pages/ReportPage';
 import AdminCalculatorConfigPage from './pages/AdminCalculatorConfigPage';
 import VendorDashboardPage from './pages/VendorDashboardPage';
+import VendorProjectsPage from './pages/VendorProjectsPage';
+import VendorStubPage from './pages/VendorStubPage';
 import CommercialProjectPage from './pages/CommercialProjectPage';
+import { Users, Package, Star, Receipt } from 'lucide-react';
 
 import './App.css';
 
@@ -236,7 +239,11 @@ function AppRouter() {
       <Route path="/for-installers/brochure" element={<VendorBrochurePage />} />
       <Route path="/vendor/dashboard" element={<ProtectedRoute><VendorDashboardPage /></ProtectedRoute>} />
       <Route path="/vendor/projects/:projectId" element={<ProtectedRoute><CommercialProjectPage /></ProtectedRoute>} />
-      <Route path="/vendor/projects" element={<ProtectedRoute><CommercialProjectPage /></ProtectedRoute>} />
+      <Route path="/vendor/projects" element={<ProtectedRoute><VendorProjectsPage /></ProtectedRoute>} />
+      <Route path="/vendor/leads" element={<ProtectedRoute><VendorStubPage title="New Leads" icon={Users} description="Lead management with score cards and status tracking — coming soon." /></ProtectedRoute>} />
+      <Route path="/vendor/catalog" element={<ProtectedRoute><VendorStubPage title="Product Catalog" icon={Package} description="Add and manage your product catalog with manual entry, CSV bulk upload, and URL import." /></ProtectedRoute>} />
+      <Route path="/vendor/showcase" element={<ProtectedRoute><VendorStubPage title="Project Showcase" icon={Star} description="Share verified case studies and project photos with potential clients." /></ProtectedRoute>} />
+      <Route path="/vendor/billing" element={<ProtectedRoute><VendorStubPage title="Billing & Accounting" icon={Receipt} description="Invoice management, payout tracking, and Tally sync — coming soon." /></ProtectedRoute>} />
       <Route
         path="/admin/subsidies"
         element={

@@ -2,16 +2,22 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Loader2, TrendingUp, Users, Zap, Plus,
-  ArrowRight, Clock, CheckCircle2, AlertCircle
+  Loader2, TrendingUp, TrendingDown, Users, Zap, AlertCircle,
+  Plus, ArrowRight, Receipt, Star, Package, Clock
 } from 'lucide-react';
-import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
 import { apiRequest } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
-import Navbar from '../components/layout/Navbar';
+import VendorLayout from '../components/vendor/VendorLayout';
 import { toast } from 'sonner';
+
+function fmtINR(n) {
+  if (!n) return '₹0';
+  if (n >= 1e7) return `₹${(n / 1e7).toFixed(2)} Cr`;
+  if (n >= 1e5) return `₹${(n / 1e5).toFixed(1)} L`;
+  return `₹${new Intl.NumberFormat('en-IN').format(n)}`;
+}
 
 export default function VendorDashboardPage() {
   const { isAuthenticated, loading: authLoading, user } = useAuth();
@@ -21,26 +27,20 @@ export default function VendorDashboardPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated) {
-      navigate('/');
-      return;
-    }
+    if (!isAuthenticated) { navigate('/'); return; }
     if (user?.user_type === 'provider') {
       loadStats();
     } else {
-      // User is authenticated but not a provider — stop spinner
       setLoading(false);
     }
-  }, [isAuthenticated, authLoading, user, navigate]);
+  }, [isAuthenticated, authLoading, user]);
 
   const loadStats = async () => {
     try {
-      setLoading(true);
       const data = await apiRequest('/vendor/dashboard/stats');
       setStats(data);
     } catch (e) {
-      toast.error('Failed to load dashboard stats');
-      console.error(e);
+      toast.error('Failed to load dashboard');
     } finally {
       setLoading(false);
     }
@@ -55,184 +55,139 @@ export default function VendorDashboardPage() {
   }
 
   if (!stats) {
-    const isWrongRole = user && user.user_type !== 'provider';
     return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-8">
-          <Card className="text-center py-16">
-            <CardContent>
-              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-              {isWrongRole ? (
-                <p className="text-red-600">
-                  This dashboard is for vendor accounts only. Your account type is <strong>{user.user_type}</strong>.<br />
-                  Contact support to request vendor access.
-                </p>
-              ) : (
-                <p className="text-red-600">Unable to load dashboard. Please refresh.</p>
-              )}
-            </CardContent>
-          </Card>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
+          <p className="text-muted-foreground">
+            {user?.user_type !== 'provider'
+              ? 'This portal is for vendor accounts only.'
+              : 'Failed to load dashboard. Please refresh.'}
+          </p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+  const vendor = stats.vendor || {};
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  })();
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-4xl font-bold mb-2">Vendor Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back! Manage your projects and leads.</p>
+  const STAT_CARDS = [
+    {
+      label: 'Revenue This Month',
+      value: fmtINR(stats.revenue_this_month),
+      sub: stats.revenue_trend_pct !== 0
+        ? `${stats.revenue_trend_pct > 0 ? '↑' : '↓'} ${Math.abs(stats.revenue_trend_pct)}% vs last month`
+        : 'No data yet',
+      icon: TrendingUp,
+      color: 'text-amber-500',
+      bg: 'bg-amber-500/10',
+    },
+    {
+      label: 'Active Projects',
+      value: stats.active_projects ?? 0,
+      sub: 'In progress',
+      icon: Zap,
+      color: 'text-primary',
+      bg: 'bg-primary/10',
+    },
+    {
+      label: 'New Leads',
+      value: stats.new_leads ?? 0,
+      sub: 'Waiting for action',
+      icon: Users,
+      color: 'text-blue-500',
+      bg: 'bg-blue-500/10',
+    },
+    {
+      label: 'Pending Payout',
+      value: fmtINR(stats.pending_payout ?? 0),
+      sub: stats.pending_payout > 0 ? 'Review in Billing' : 'All settled',
+      icon: Receipt,
+      color: stats.pending_payout > 0 ? 'text-red-500' : 'text-emerald-500',
+      bg: stats.pending_payout > 0 ? 'bg-red-500/10' : 'bg-emerald-500/10',
+    },
+  ];
+
+  const QUICK_ACTIONS = [
+    { label: 'View Leads',    sub: `${stats.new_leads} new`,    icon: Users,   path: '/vendor/leads' },
+    { label: 'My Projects',   sub: `${stats.active_projects} active`, icon: Zap, path: '/vendor/projects' },
+    { label: 'New Project',   sub: 'Commercial assessment',     icon: Plus,    path: '/vendor/projects/new' },
+    { label: 'Add Product',   sub: 'To your catalog',           icon: Package, path: '/vendor/catalog' },
+  ];
+
+  return (
+    <VendorLayout title="Dashboard" stats={stats}>
+      <div className="p-6 max-w-5xl">
+        {/* Greeting */}
+        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <h2 className="text-3xl font-bold text-foreground mb-1">
+            {greeting}, {vendor.company_name || user?.name?.split(' ')[0] || 'there'}
+          </h2>
+          <p className="text-muted-foreground text-sm">Here's what's happening with your projects today.</p>
         </motion.div>
 
         {/* Stat Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">New Leads</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-3xl font-bold">{stats.new_leads || 0}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Waiting for action</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {STAT_CARDS.map(({ label, value, sub, icon: Icon, color, bg }, i) => (
+            <motion.div
+              key={label}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.06 }}
+            >
+              <Card className="h-full">
+                <CardContent className="pt-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={`${bg} p-2 rounded-lg`}>
+                      <Icon className={`h-5 w-5 ${color}`} />
+                    </div>
                   </div>
-                  <div className="bg-blue-100 dark:bg-blue-950 p-3 rounded-lg">
-                    <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Active Projects</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-3xl font-bold">{stats.active_projects || 0}</p>
-                    <p className="text-xs text-muted-foreground mt-1">In progress</p>
-                  </div>
-                  <div className="bg-green-100 dark:bg-green-950 p-3 rounded-lg">
-                    <Zap className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-3xl font-bold">{stats.completed_projects || 0}</p>
-                    <p className="text-xs text-muted-foreground mt-1">All time</p>
-                  </div>
-                  <div className="bg-emerald-100 dark:bg-emerald-950 p-3 rounded-lg">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">This Month</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-3xl font-bold">₹{(stats.revenue_this_month || 0).toLocaleString('en-IN')}</p>
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                      {stats.revenue_trend_pct > 0 ? '↑' : '↓'} {Math.abs(stats.revenue_trend_pct || 0)}%
-                    </p>
-                  </div>
-                  <div className="bg-amber-100 dark:bg-amber-950 p-3 rounded-lg">
-                    <TrendingUp className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+                  <p className="text-2xl font-bold text-foreground font-mono mb-0.5">{value}</p>
+                  <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                  <p className={`text-xs ${color}`}>{sub}</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
         </div>
 
         {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mb-8"
-        >
-          <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button
-              onClick={() => navigate('/vendor/projects/new')}
-              className="h-24 justify-start flex-col items-start p-4 hover:bg-primary hover:text-primary-foreground"
-              variant="outline"
-            >
-              <Plus className="h-5 w-5 mb-2" />
-              <span>New Project</span>
-              <span className="text-xs text-muted-foreground mt-1">Commercial assessment</span>
-            </Button>
-
-            <Button
-              onClick={() => navigate('/vendor/projects')}
-              className="h-24 justify-start flex-col items-start p-4 hover:bg-primary hover:text-primary-foreground"
-              variant="outline"
-            >
-              <Zap className="h-5 w-5 mb-2" />
-              <span>My Projects</span>
-              <span className="text-xs text-muted-foreground mt-1">{stats.active_projects} active</span>
-            </Button>
-
-            <Button
-              onClick={() => navigate('/vendor/leads')}
-              className="h-24 justify-start flex-col items-start p-4 hover:bg-primary hover:text-primary-foreground"
-              variant="outline"
-            >
-              <Users className="h-5 w-5 mb-2" />
-              <span>Assigned Leads</span>
-              <span className="text-xs text-muted-foreground mt-1">{stats.new_leads} new</span>
-            </Button>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mb-8">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Quick Actions</h3>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {QUICK_ACTIONS.map(({ label, sub, icon: Icon, path }) => (
+              <button
+                key={label}
+                onClick={() => navigate(path)}
+                className="group flex flex-col items-start gap-2 p-4 rounded-xl border border-border bg-card hover:border-primary hover:bg-primary/5 transition-all text-left"
+              >
+                <Icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">{label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
+                </div>
+              </button>
+            ))}
           </div>
         </motion.div>
 
-        {/* Placeholder */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-        >
+        {/* Recent Activity */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Recent Activity</h3>
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Coming Soon
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Recent activity feed will appear here</p>
+            <CardContent className="py-10 text-center">
+              <Clock className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Activity feed coming soon</p>
             </CardContent>
           </Card>
         </motion.div>
       </div>
-    </div>
+    </VendorLayout>
   );
 }
