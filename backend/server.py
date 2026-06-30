@@ -7140,6 +7140,84 @@ async def audit_and_fix_composite_zone():
     }
 
 
+# ── Vendor user repair (no-auth, idempotent) ─────────────────────────────────
+@api_router.post("/admin/vendor/promote-user")
+async def promote_user_to_vendor(request: Request):
+    """Promote a user to provider type and ensure solution_providers record exists.
+    No auth — runs idempotently. Safe to re-run.
+    Body: {"email": "user@example.com"}
+    """
+    body = await request.json()
+    email = body.get("email", "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="email required")
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    user_doc = await db.users.find_one({"email": email}, {"_id": 0})
+    if not user_doc:
+        return {"found": False, "email": email, "message": "User not found in DB — user must log in once first"}
+
+    user_id = user_doc.get("user_id")
+    old_type = user_doc.get("user_type", "unknown")
+
+    await db.users.update_one(
+        {"email": email},
+        {"$set": {"user_type": "provider", "updated_at": now}}
+    )
+
+    provider_doc = await db.solution_providers.find_one({"user_id": user_id}, {"_id": 0})
+    if not provider_doc:
+        import uuid as _uuid
+        provider_id = f"prv_{_uuid.uuid4().hex[:12]}"
+        provider_doc = {
+            "provider_id": provider_id,
+            "user_id": user_id,
+            "company_name": user_doc.get("name", email.split("@")[0]),
+            "company_type": "Installation & Retrofit",
+            "description": "Vendor account",
+            "service_areas": [],
+            "verification_status": "approved",
+            "approval_date": now,
+            "customer_rating": None,
+            "review_count": 0,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await db.solution_providers.insert_one(provider_doc)
+        provider_doc.pop("_id", None)
+        provider_created = True
+    else:
+        provider_created = False
+
+    return {
+        "email": email,
+        "user_id": user_id,
+        "old_user_type": old_type,
+        "new_user_type": "provider",
+        "provider_id": provider_doc.get("provider_id"),
+        "provider_created": provider_created,
+        "message": "User promoted to provider successfully",
+    }
+
+@api_router.get("/admin/vendor/check-user")
+async def check_vendor_user(email: str):
+    """Check current user_type and provider record for an email. No auth."""
+    email = email.strip().lower()
+    user_doc = await db.users.find_one({"email": email}, {"_id": 0, "user_id": 1, "email": 1, "user_type": 1, "name": 1})
+    if not user_doc:
+        return {"found": False, "email": email}
+
+    provider_doc = await db.solution_providers.find_one(
+        {"user_id": user_doc.get("user_id")},
+        {"_id": 0, "provider_id": 1, "company_name": 1, "verification_status": 1}
+    )
+    return {
+        "found": True,
+        "user": user_doc,
+        "provider": provider_doc,
+    }
+
 # ==================== VENDOR PROJECTS ====================
 from services.vendor_projects_service import (
     create_vendor_project,

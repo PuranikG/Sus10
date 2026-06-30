@@ -20,13 +20,16 @@ export default function VendorDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (authLoading) return;
+    if (!isAuthenticated) {
       navigate('/');
       return;
     }
-
-    if (isAuthenticated && user?.user_type === 'provider') {
+    if (user?.user_type === 'provider') {
       loadStats();
+    } else {
+      // User is authenticated but not a provider — stop spinner
+      setLoading(false);
     }
   }, [isAuthenticated, authLoading, user, navigate]);
 
@@ -52,6 +55,7 @@ export default function VendorDashboardPage() {
   }
 
   if (!stats) {
+    const isWrongRole = user && user.user_type !== 'provider';
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
@@ -59,7 +63,14 @@ export default function VendorDashboardPage() {
           <Card className="text-center py-16">
             <CardContent>
               <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-              <p className="text-red-600">Unable to load dashboard. Please refresh.</p>
+              {isWrongRole ? (
+                <p className="text-red-600">
+                  This dashboard is for vendor accounts only. Your account type is <strong>{user.user_type}</strong>.<br />
+                  Contact support to request vendor access.
+                </p>
+              ) : (
+                <p className="text-red-600">Unable to load dashboard. Please refresh.</p>
+              )}
             </CardContent>
           </Card>
         </div>
