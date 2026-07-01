@@ -130,7 +130,12 @@ async def run_rooftop_benchmark(
     # 1. Fetch satellite image once (both providers share the same image)
     lat = building.get("latitude")
     lng = building.get("longitude")
-    img_info = await fetch_satellite_image_base64(lat, lng, zoom=19)
+    from services.gemini_rooftop_analyzer import auto_zoom
+    footprint_sqft = building.get("building_footprint_sqft") or (
+        (building.get("building_footprint_area") or 0) * 10.764
+    )
+    zoom = auto_zoom(footprint_sqft, lat=lat or 19.0)
+    img_info = await fetch_satellite_image_base64(lat, lng, zoom=zoom)
     if not img_info:
         return {
             "benchmark_id": benchmark_id,

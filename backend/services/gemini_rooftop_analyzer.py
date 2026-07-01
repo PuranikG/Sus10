@@ -31,6 +31,39 @@ GEMINI_MODEL = "gemini-2.5-flash"
 GOOGLE_STATIC_MAPS_URL = "https://maps.googleapis.com/maps/api/staticmap"
 
 
+def auto_zoom(footprint_sqft: float = 0, lat: float = 19.0) -> int:
+    """
+    Select the optimal satellite zoom level so the target building fills
+    25–50% of the image frame.
+
+    At Google Static Maps (640×640, scale=2) the image coverage in meters is:
+        coverage_m = 640 × (40_075_017 / (2^Z × 256)) × cos(lat_rad)
+
+    Zoom → coverage at lat=19° (Mumbai/Bengaluru):
+        21 → ~45 m   |  20 → ~90 m  |  19 → ~180 m
+        18 → ~360 m  |  17 → ~720 m |  16 → ~1,440 m
+
+    A building with footprint F sqft has linear dimension ≈ sqrt(F/10.764) m.
+    We want that dimension to be ~35% of image width → ideal coverage ≈ dim / 0.35.
+    """
+    if footprint_sqft <= 0:
+        return 19  # safe default
+
+    sqm = footprint_sqft / 10.764
+    dim_m = sqm ** 0.5            # approximate building linear dimension
+    ideal_coverage_m = dim_m / 0.35
+
+    cos_lat = math.cos(math.radians(lat))
+    earth_circ = 40_075_016.686
+
+    for z in range(21, 15, -1):   # try from closest to furthest
+        coverage_m = 640 * (earth_circ / (2 ** z * 256)) * cos_lat
+        if coverage_m >= ideal_coverage_m:
+            return z
+
+    return 16   # fallback for very large complexes
+
+
 def _build_system_prompt() -> str:
     return (
         "You are a rooftop sustainability assessor analyzing a satellite/aerial image of a building's roof. "
@@ -40,13 +73,16 @@ def _build_system_prompt() -> str:
     )
 
 
-def _build_analysis_prompt(building_name: str, footprint_sqm: float, city: str) -> str:
-    return f"""You are looking at a top-down satellite/aerial image (zoom 19, ~0.3 m/pixel) of an urban area.
+def _build_analysis_prompt(building_name: str, footprint_sqm: float, city: str, zoom: int = 19) -> str:
+    # Coverage at zoom Z for lat ~19° (Mumbai/Bengaluru)
+    coverage_m = int(640 * (40_075_017 / (2 ** zoom * 256)) * math.cos(math.radians(19)))
+    footprint_sqft = int(footprint_sqm * 10.764)
+    return f"""You are looking at a top-down satellite/aerial image (zoom {zoom}, image covers ~{coverage_m}m × {coverage_m}m) of an urban area.
 
 **THE TARGET BUILDING IS LOCATED AT THE GEOMETRIC CENTER OF THE IMAGE.** Focus your analysis on the structure(s) at the image center. The surrounding buildings are context only.
 
 Target Building: {building_name}
-Approximate footprint area: {footprint_sqm:.0f} m²
+Approximate rooftop footprint: {footprint_sqft:,} sq ft ({footprint_sqm:.0f} sqm)
 City: {city}
 
 Examine the CENTER building's rooftop carefully. Return ONLY this JSON (no markdown, no explanation):
@@ -235,16 +271,25 @@ async def analyze_rooftop(building: Dict[str, Any]) -> Dict[str, Any]:
         return {"error": "Missing latitude/longitude", "success": False}
 
     name = building.get("name") or building.get("address") or "Unknown building"
-    footprint = building.get("building_footprint_area") or building.get("usable_terrace_area") or 0
+    # Support both sqm (legacy) and sqft fields
+    footprint_sqft = (
+        building.get("building_footprint_sqft")
+        or building.get("rooftop_area_sqft")
+        or ((building.get("building_footprint_area") or building.get("usable_terrace_area") or 0) * 10.764)
+    )
+    footprint_sqm = footprint_sqft / 10.764
     city = building.get("city", "")
+
+    # Auto-select zoom unless explicitly overridden
+    requested_zoom = building.get("_zoom_override") or auto_zoom(footprint_sqft, lat=lat)
 
     # 1) Fetch satellite image + projection metadata
     # Accept pre-fetched image from benchmark service to avoid double-fetching
     if building.get("_prefetched_image_b64"):
         image_b64 = building["_prefetched_image_b64"]
-        img_info = {"source": "pre-fetched", "zoom": 19, "width": 640, "height": 640}
+        img_info = {"source": "pre-fetched", "zoom": requested_zoom, "width": 640, "height": 640}
     else:
-        img_info = await fetch_satellite_image_base64(lat, lng, zoom=19)
+        img_info = await fetch_satellite_image_base64(lat, lng, zoom=requested_zoom)
         if not img_info:
             return {"error": "Could not fetch satellite image", "success": False}
         image_b64 = img_info["image_b64"]
@@ -269,7 +314,7 @@ async def analyze_rooftop(building: Dict[str, Any]) -> Dict[str, Any]:
                     role="user",
                     parts=[
                         types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
-                        types.Part.from_text(text=_build_analysis_prompt(name, footprint, city)),
+                        types.Part.from_text(text=_build_analysis_prompt(name, footprint_sqm, city, requested_zoom)),
                     ]
                 )
             ],

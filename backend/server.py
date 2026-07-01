@@ -4146,7 +4146,7 @@ class TerraceAnalysisRequest(BaseModel):
     address: str
     building_name: Optional[str] = None
     city: Optional[str] = None
-    footprint_sqm: Optional[float] = None
+    footprint_sqft: Optional[float] = None   # sq ft — auto-zoom is calculated from this
     provider: str = "auto"  # gemini | claude | auto | gemini_with_fallback | claude_with_fallback
 
 
@@ -4174,13 +4174,15 @@ async def benchmark_rooftop_analysis(request: Request, body: dict):
         lng = body.get("lng")
         if not lat or not lng:
             raise HTTPException(status_code=400, detail="Provide building_id or lat+lng")
+        footprint_sqft = body.get("footprint_sqft") or (body.get("footprint_sqm", 0) * 10.764)
         building = {
             "latitude": lat,
             "longitude": lng,
             "name": body.get("building_name") or body.get("address", "Test Building"),
             "address": body.get("address", ""),
             "city": body.get("city", ""),
-            "building_footprint_area": body.get("footprint_sqm", 0),
+            "building_footprint_sqft": footprint_sqft,
+            "building_footprint_area": footprint_sqft / 10.764 if footprint_sqft else 0,
         }
 
     result = await run_rooftop_benchmark(db, building, providers=providers)
@@ -4235,13 +4237,169 @@ async def vendor_analyse_terrace(request: Request, body: TerraceAnalysisRequest)
         "name": body.building_name or body.address,
         "address": body.address,
         "city": body.city or "",
-        "building_footprint_area": body.footprint_sqm or 0,
+        "building_footprint_sqft": body.footprint_sqft or 0,
+        "building_footprint_area": (body.footprint_sqft / 10.764) if body.footprint_sqft else 0,
     }
 
     result = await get_production_analysis(db, building, provider=body.provider)
     # Don't send slides (large) in the vendor API response
     result.pop("slides", None)
     return result
+
+
+@api_router.get("/admin/ai-benchmark/building-candidates")
+async def get_building_candidates(limit: int = 10):
+    """
+    No-auth endpoint — returns approved buildings with lat/lng coordinates
+    suitable for AI rooftop analysis testing.
+    Excludes known internal test users.
+    """
+    SKIP_EMAILS = {"vgpuranik@gmail.com", "gaurav.a.puranik@gmail.com"}
+    SKIP_NAMES = {"test", "gaurav", "puranik", "shivani"}
+
+    pipeline = [
+        {"$match": {
+            "is_approved": True,
+            "is_rejected": {"$ne": True},
+            "latitude": {"$exists": True, "$ne": None},
+            "longitude": {"$exists": True, "$ne": None},
+        }},
+        {"$addFields": {
+            "_email_lc": {"$toLower": {"$ifNull": ["$submitted_by_email", "$user_email", ""]}},
+            "_name_lc": {"$toLower": {"$ifNull": ["$name", "$address", ""]}},
+        }},
+        {"$match": {
+            "_email_lc": {"$nin": list(SKIP_EMAILS)},
+        }},
+        {"$project": {
+            "_id": 0,
+            "building_id": 1,
+            "name": 1,
+            "address": 1,
+            "city": 1,
+            "building_type": 1,
+            "latitude": 1,
+            "longitude": 1,
+            "rooftop_area_sqft": 1,
+            "building_footprint_area": 1,
+            "submitted_by_email": 1,
+            "user_email": 1,
+        }},
+        {"$limit": limit},
+    ]
+
+    try:
+        candidates = await db.buildings.aggregate(pipeline).to_list(length=limit)
+        # Client-side name filter (MongoDB $toLower in $match is less reliable)
+        filtered = [
+            c for c in candidates
+            if not any(s in (c.get("name") or c.get("address") or "").lower() for s in SKIP_NAMES)
+        ]
+        return {"candidates": filtered, "total": len(filtered)}
+    except Exception as e:
+        logger.error(f"building-candidates error: {e}")
+        return {"candidates": [], "total": 0, "error": str(e)}
+
+
+@api_router.post("/admin/ai-benchmark/pipeline-test")
+async def run_pipeline_test(body: dict):
+    """
+    No-auth endpoint for end-to-end pipeline testing.
+
+    Finds real approved buildings with coordinates, runs AI analysis on each,
+    and returns a structured test report.
+
+    Body: {
+        "count": 2,          # how many buildings to test (default 2)
+        "providers": ["gemini"],  # which providers (default both)
+        "city": null          # optional city filter
+    }
+    """
+    count = min(body.get("count", 2), 5)
+    providers = body.get("providers", ["gemini", "claude"])
+    city_filter = body.get("city")
+
+    SKIP_EMAILS = {"vgpuranik@gmail.com", "gaurav.a.puranik@gmail.com"}
+
+    match_query: Dict[str, Any] = {
+        "is_approved": True,
+        "is_rejected": {"$ne": True},
+        "latitude": {"$exists": True, "$ne": None},
+        "longitude": {"$exists": True, "$ne": None},
+    }
+    if city_filter:
+        match_query["city"] = {"$regex": city_filter, "$options": "i"}
+
+    buildings_raw = await db.buildings.find(match_query, {"_id": 0}).limit(50).to_list(50)
+
+    # Filter out test-user buildings
+    buildings = [
+        b for b in buildings_raw
+        if (b.get("submitted_by_email") or b.get("user_email") or "") not in SKIP_EMAILS
+    ]
+
+    if not buildings:
+        return {"error": "No suitable buildings found", "candidates_tried": len(buildings_raw)}
+
+    test_buildings = buildings[:count]
+    results = []
+
+    for b in test_buildings:
+        footprint_sqft = (
+            b.get("rooftop_area_sqft")
+            or ((b.get("building_footprint_area") or 0) * 10.764)
+            or 5000  # default 5,000 sqft if unknown
+        )
+        test_building = {
+            **b,
+            "building_footprint_sqft": footprint_sqft,
+            "building_footprint_area": footprint_sqft / 10.764,
+        }
+        try:
+            bm = await run_rooftop_benchmark(db, test_building, providers=providers)
+            # Summarise — don't return full base64 in test report
+            bm.pop("satellite_image_b64", None)
+            result = {
+                "building_id": b.get("building_id"),
+                "name": b.get("name") or b.get("address"),
+                "city": b.get("city"),
+                "lat": b.get("latitude"),
+                "lng": b.get("longitude"),
+                "footprint_sqft": footprint_sqft,
+                "zoom_used": bm.get("image_zoom"),
+                "image_source": bm.get("image_source"),
+                "benchmark_id": bm.get("benchmark_id"),
+                "comparison": bm.get("comparison"),
+                "scores": bm.get("scores"),
+                "per_provider": {
+                    p: {
+                        "success": bm["providers"].get(p, {}).get("success"),
+                        "model": bm["providers"].get(p, {}).get("model"),
+                        "latency_ms": bm["providers"].get(p, {}).get("latency_ms"),
+                        "cost_usd": bm["providers"].get(p, {}).get("cost_usd"),
+                        "confidence": bm["providers"].get(p, {}).get("analysis", {}).get("confidence_score"),
+                        "usable_solar_pct": bm["providers"].get(p, {}).get("analysis", {}).get("usable_for_solar_pct"),
+                        "usable_plantation_pct": bm["providers"].get(p, {}).get("analysis", {}).get("usable_for_plantation_pct"),
+                        "obstacles_detected": len(bm["providers"].get(p, {}).get("analysis", {}).get("detected_objects", [])),
+                        "error": bm["providers"].get(p, {}).get("error"),
+                    }
+                    for p in providers
+                },
+            }
+        except Exception as e:
+            result = {
+                "building_id": b.get("building_id"),
+                "name": b.get("name") or b.get("address"),
+                "error": str(e),
+            }
+        results.append(result)
+
+    return {
+        "test_run_at": datetime.now(timezone.utc).isoformat(),
+        "buildings_tested": len(results),
+        "providers_tested": providers,
+        "results": results,
+    }
 
 
 @api_router.get("/admin/ai-benchmark/config/check")

@@ -227,7 +227,7 @@ export default function CommercialProjectPage() {
       toast.error('Add lat/lng coordinates to this building first');
       return;
     }
-    const footprintSqm = Math.round((survey.rooftop?.area_sqft || 500) * 0.0929);
+    const footprintSqft = survey.rooftop?.area_sqft || 5000;
     setAnalysisState({ ...ANALYSIS_EMPTY, loading: true, surveyId: survey.survey_id });
     try {
       const result = await apiRequest('/vendor/buildings/analyse-terrace', {
@@ -238,7 +238,7 @@ export default function CommercialProjectPage() {
           address: survey.building_name || '',
           building_name: survey.building_name,
           city: project?.complex_city || '',
-          footprint_sqm: footprintSqm,
+          footprint_sqft: footprintSqft,
           provider: 'auto',
         }),
       });
@@ -248,11 +248,11 @@ export default function CommercialProjectPage() {
         surveyId: survey.survey_id,
         imageB64: result.satellite_image_b64 || null,
         analysis: result.analysis,
-        provider: result.provider_used || result.model?.includes('gemini') ? 'gemini' : 'claude',
+        provider: result.provider_used || (result.model?.includes('gemini') ? 'gemini' : 'claude'),
         modelName: result.model,
         latencyMs: result.latency_ms,
         costUsd: result.cost_usd,
-        footprintSqm,
+        footprintSqft,
       });
     } catch (e) {
       toast.error(`AI analysis failed: ${e.message}`);
@@ -272,7 +272,7 @@ export default function CommercialProjectPage() {
         `/vendor/buildings/satellite-image?lat=${survey.latitude}&lng=${survey.longitude}`
       );
       const ta = survey.terrace_analysis;
-      const footprintSqm = Math.round((survey.rooftop?.area_sqft || 500) * 0.0929);
+      const footprintSqft = survey.rooftop?.area_sqft || 5000;
       setAnalysisState({
         open: true, loading: false, saving: false,
         surveyId: survey.survey_id,
@@ -284,7 +284,7 @@ export default function CommercialProjectPage() {
         modelName: ta?.model,
         latencyMs: null,
         costUsd: null,
-        footprintSqm,
+        footprintSqft,
         existingCorrections: ta?.corrected_annotations,
       });
     } catch (e) {
@@ -1067,7 +1067,7 @@ export default function CommercialProjectPage() {
           <TerraceAnnotationCanvas
             imageB64={analysisState.imageB64}
             analysis={analysisState.analysis}
-            footprintSqm={analysisState.footprintSqm || 500}
+            footprintSqft={analysisState.footprintSqft || 5000}
             city={project?.complex_city || ''}
             provider={analysisState.provider || 'gemini'}
             modelName={analysisState.modelName}

@@ -81,17 +81,17 @@ function analysisToBoxes(analysis) {
   return boxes;
 }
 
-// ── Live calculation from current box state ──────────────────────────────────
-function recalculate(boxes, footprintSqm) {
+// ── Live calculation from current box state (all areas in sq ft) ─────────────
+function recalculate(boxes, footprintSqft) {
   const boundary = boxes.find(b => b.type === 'boundary');
-  if (!boundary || footprintSqm <= 0) return null;
+  if (!boundary || footprintSqft <= 0) return null;
 
   const [by1, bx1, by2, bx2] = boundary.box_2d;
   const boundaryArea = (by2 - by1) * (bx2 - bx1);
   if (boundaryArea <= 0) return null;
 
   const obstacles = boxes.filter(b => b.type === 'obstacle');
-  const shadows = boxes.filter(b => b.type === 'shadow');
+  const shadows   = boxes.filter(b => b.type === 'shadow');
 
   const obstacleArea = obstacles.reduce((s, b) => {
     const [y1, x1, y2, x2] = b.box_2d;
@@ -103,27 +103,28 @@ function recalculate(boxes, footprintSqm) {
     return s + Math.max(0, (y2 - y1) * (x2 - x1));
   }, 0);
 
-  const obstaclePct = Math.min(50, (obstacleArea / boundaryArea) * 100);
-  const shadowPct   = Math.min(50, (shadowArea   / boundaryArea) * 100);
-  const usablePct   = Math.max(5, 100 - obstaclePct - shadowPct);
-  const usableSqm   = footprintSqm * (usablePct / 100);
+  const obstaclePct  = Math.min(50, (obstacleArea / boundaryArea) * 100);
+  const shadowPct    = Math.min(50, (shadowArea   / boundaryArea) * 100);
+  const usablePct    = Math.max(5, 100 - obstaclePct - shadowPct);
+  const usableSqft   = Math.round(footprintSqft * (usablePct / 100));
 
-  // Solar: 150 W/sqm panel efficiency × 1800 kWh/kW/yr (avg India)
-  const solarKw       = usableSqm * 0.15;
-  const annualKwh     = Math.round(solarKw * 1800);
-  const savingsInr    = Math.round(annualKwh * 8);            // ₹8/kWh avg
-  const co2SolarTonnes = Math.round(annualKwh * 0.00082 * 10) / 10; // India grid factor
+  // Solar: 13.94 W per sq ft (= 150 W/sqm ÷ 10.764 sqft/sqm)
+  // 1 kW per 71.7 sq ft of usable panel area
+  const solarKw         = Math.round((usableSqft / 71.7) * 10) / 10;
+  const annualKwh       = Math.round(solarKw * 1800);           // 1,800 kWh/kW/yr India avg
+  const savingsInr      = Math.round(annualKwh * 8);            // ₹8/kWh avg
+  const co2SolarTonnes  = Math.round(annualKwh * 0.00082 * 10) / 10; // India grid factor
 
-  // Greening: 4 plants per sqm at container spacing
-  const plants         = Math.floor(usableSqm * 4);
+  // Greening: ~1 plant per 2.7 sq ft (= 4 plants/sqm × 0.0929 sqm/sqft)
+  const plants         = Math.floor(usableSqft / 2.7);
   const co2GreeningKg  = Math.round(plants * 20);
 
   return {
     usable_pct:          Math.round(usablePct),
-    usable_sqm:          Math.round(usableSqm),
+    usable_sqft:         usableSqft,
     obstacle_pct:        Math.round(obstaclePct),
     shadow_pct:          Math.round(shadowPct),
-    solar_kw:            Math.round(solarKw * 10) / 10,
+    solar_kw:            solarKw,
     annual_kwh:          annualKwh,
     savings_inr_yr1:     savingsInr,
     co2_solar_tonnes_yr: co2SolarTonnes,
@@ -241,7 +242,7 @@ function AnnotationBox({ box, isActive, onDelete }) {
 export default function TerraceAnnotationCanvas({
   imageB64,
   analysis,
-  footprintSqm = 0,
+  footprintSqft = 0,
   city = '',
   provider = 'gemini',
   modelName,
@@ -260,8 +261,8 @@ export default function TerraceAnnotationCanvas({
   const [isDirty, setIsDirty] = useState(false);
 
   const calculations = useMemo(
-    () => recalculate(boxes, footprintSqm || (analysis?.usable_for_solar_pct ? footprintSqm : 500)),
-    [boxes, footprintSqm]
+    () => recalculate(boxes, footprintSqft || 5000),
+    [boxes, footprintSqft]
   );
 
   const getSVGCoords = useCallback((e) => {
@@ -564,7 +565,7 @@ export default function TerraceAnnotationCanvas({
               <div className="bg-muted/40 rounded-lg p-3 border border-border">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Usable Rooftop</p>
                 <p className="text-xl font-bold text-foreground font-mono">
-                  {calculations.usable_sqm.toLocaleString()} <span className="text-sm font-normal">sqm</span>
+                  {calculations.usable_sqft.toLocaleString()} <span className="text-sm font-normal">sq ft</span>
                 </p>
                 <div className="mt-1.5 space-y-0.5">
                   <div className="flex justify-between text-[10px]">
@@ -633,11 +634,11 @@ export default function TerraceAnnotationCanvas({
                 <summary className="cursor-pointer hover:text-foreground">How are these calculated?</summary>
                 <div className="mt-2 space-y-1 pl-2 border-l border-border">
                   <p>Usable area = rooftop footprint × (1 − obstacles% − shadow%)</p>
-                  <p>Solar kW = usable sqm × 0.15 kW/sqm</p>
+                  <p>Solar kW = usable sq ft ÷ 71.7 (= 150W per sqm)</p>
                   <p>Annual kWh = solar kW × 1,800 hrs/yr (India average)</p>
-                  <p>Savings = kWh × ₹8/kWh</p>
-                  <p>CO₂ solar = kWh × 0.82 kg/kWh (India grid)</p>
-                  <p>Plants = usable sqm × 4 plants/sqm</p>
+                  <p>Year 1 savings = kWh × ₹8/kWh</p>
+                  <p>CO₂ solar = kWh × 0.82 kg/kWh (India grid factor)</p>
+                  <p>Plants = usable sq ft ÷ 2.7 (container garden spacing)</p>
                   <p>CO₂ greening = plants × 20 kg/yr each</p>
                 </div>
               </details>
