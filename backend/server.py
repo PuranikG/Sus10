@@ -4408,7 +4408,7 @@ async def check_ai_keys():
     import os
     return {
         "gemini": {
-            "key_present": bool(os.environ.get("EMERGENT_LLM_KEY")),
+            "key_present": bool(os.environ.get("Gemini_API_Key") or os.environ.get("GEMINI_API_KEY") or os.environ.get("EMERGENT_LLM_KEY")),
             "model": "gemini-2.5-flash",
             "estimated_cost_per_analysis_usd": 0.002,
         },

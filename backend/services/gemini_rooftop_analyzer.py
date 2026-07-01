@@ -295,9 +295,9 @@ async def analyze_rooftop(building: Dict[str, Any]) -> Dict[str, Any]:
         image_b64 = img_info["image_b64"]
 
     # 2) Send to Gemini
-    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    api_key = os.environ.get("Gemini_API_Key") or os.environ.get("GEMINI_API_KEY") or os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
-        return {"error": "EMERGENT_LLM_KEY not configured", "success": False}
+        return {"error": "Gemini_API_Key not configured", "success": False}
 
     try:
         import time as _time
