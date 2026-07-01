@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Loader2, Plus, Building2, Zap, Leaf,
-  MapPin, Download, FileText, CheckCircle2, Scan, ShieldCheck, Brain
+  MapPin, Download, FileText, CheckCircle2, Scan, ShieldCheck, Brain, Pencil
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -30,6 +30,7 @@ export default function CommercialProjectPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('setup');
   const [showAddBuilding, setShowAddBuilding] = useState(false);
+  const [editingSurveyId, setEditingSurveyId] = useState(null);
   const [generatingProposal, setGeneratingProposal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createForm, setCreateForm] = useState({
@@ -202,6 +203,46 @@ export default function CommercialProjectPage() {
       loadProject();
     } catch (e) {
       toast.error('Failed to add building');
+    }
+  };
+
+  const openEditBuilding = (building) => {
+    setFormData({
+      building_name: building.building_name || '',
+      building_type: building.building_type || 'office',
+      latitude: building.latitude != null ? String(building.latitude) : '',
+      longitude: building.longitude != null ? String(building.longitude) : '',
+      rooftop: { area_sqft: building.rooftop?.area_sqft || '', condition: building.rooftop?.condition || 'good', waterproofing: building.rooftop?.waterproofing || 'present', load_capacity_kg_per_sqm: building.rooftop?.load_capacity_kg_per_sqm || '', access_type: building.rooftop?.access_type || 'staircase', existing_structures: building.rooftop?.existing_structures || [], shading_percentage: building.rooftop?.shading_percentage || '' },
+      balconies: { has_balconies: building.balconies?.has_balconies || false, count: building.balconies?.count || '', avg_size_sqft: building.balconies?.avg_size_sqft || '', material: building.balconies?.material || 'rcc', orientation: building.balconies?.orientation || [], railing_type: building.balconies?.railing_type || 'grill' },
+      walls: { has_boundary_walls: building.walls?.has_boundary_walls || false, perimeter_meters: building.walls?.perimeter_meters || '', avg_height_meters: building.walls?.avg_height_meters || '', material: building.walls?.material || 'brick', sun_exposure: building.walls?.sun_exposure || 'full', moisture_issues: building.walls?.moisture_issues || false },
+      utility: { annual_electricity_kwh: building.utility?.annual_electricity_kwh || '', monthly_avg_kwh: building.utility?.monthly_avg_kwh || '', rate_per_unit_rupees: building.utility?.rate_per_unit_rupees || '', escalation_pct_per_year: building.utility?.escalation_pct_per_year || 5 },
+      existing_solar: { has_solar: building.existing_solar?.has_solar || false, capacity_kw: building.existing_solar?.capacity_kw || '', expansion_possible: building.existing_solar?.expansion_possible ?? true, max_expansion_kw: building.existing_solar?.max_expansion_kw || '' },
+      survey_notes: building.survey_notes || '',
+    });
+    setEditingSurveyId(building.survey_id);
+    setShowAddBuilding(true);
+  };
+
+  const handleUpdateBuilding = async () => {
+    try {
+      const payload = {
+        building_name: formData.building_name,
+        building_type: formData.building_type,
+        latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+        rooftop: { ...formData.rooftop, area_sqft: parseFloat(formData.rooftop.area_sqft) || 0 },
+        notes: formData.survey_notes,
+      };
+      await apiRequest(`/vendor/projects/${projectId}/buildings/${editingSurveyId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      toast.success('Building updated');
+      setShowAddBuilding(false);
+      setEditingSurveyId(null);
+      loadProject();
+    } catch (e) {
+      toast.error('Failed to update building');
     }
   };
 
@@ -616,6 +657,15 @@ export default function CommercialProjectPage() {
                             </CardDescription>
                           </div>
                           <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              title="Edit building"
+                              onClick={() => openEditBuilding(building)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
                             <Badge className="capitalize">{building.status}</Badge>
                             {hasAnalysis ? (
                               <Button
@@ -857,10 +907,10 @@ export default function CommercialProjectPage() {
       </div>
 
       {/* Add Building Dialog */}
-      <Dialog open={showAddBuilding} onOpenChange={setShowAddBuilding}>
+      <Dialog open={showAddBuilding} onOpenChange={(open) => { setShowAddBuilding(open); if (!open) setEditingSurveyId(null); }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add Building Survey</DialogTitle>
+            <DialogTitle>{editingSurveyId ? 'Edit Building' : 'Add Building Survey'}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6">
@@ -1053,7 +1103,9 @@ export default function CommercialProjectPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddBuilding(false)}>Cancel</Button>
-            <Button onClick={handleAddBuilding}>Add Building</Button>
+            <Button onClick={editingSurveyId ? handleUpdateBuilding : handleAddBuilding}>
+              {editingSurveyId ? 'Save Changes' : 'Add Building'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

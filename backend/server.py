@@ -7780,6 +7780,51 @@ async def add_building(vendor_project_id: str, request: Request):
         logger.error(f"Building survey error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
+@api_router.patch("/vendor/projects/{vendor_project_id}/buildings/{survey_id}")
+async def update_building(vendor_project_id: str, survey_id: str, request: Request):
+    """Update building survey fields (lat/lng, area, notes, etc.) — provider auth required."""
+    user = await get_current_user(request)
+    if not user or user.user_type != UserType.provider:
+        raise HTTPException(status_code=403, detail="Not authorized - provider only")
+
+    provider = await db.solution_providers.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider profile not found")
+
+    data = await request.json()
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Build $set payload — only update fields that were actually sent
+    allowed = {
+        "building_name", "building_type", "latitude", "longitude",
+        "rooftop", "balconies", "walls", "utility", "existing_solar", "notes",
+    }
+    set_payload = {
+        f"building_surveys.$[survey].{k}": v
+        for k, v in data.items() if k in allowed
+    }
+    if not set_payload:
+        raise HTTPException(status_code=400, detail="No updatable fields provided")
+    set_payload["building_surveys.$[survey].updated_at"] = now
+    set_payload["updated_at"] = now
+
+    result = await db.vendor_projects.update_one(
+        {"vendor_project_id": vendor_project_id, "vendor_id": provider["provider_id"]},
+        {"$set": set_payload},
+        array_filters=[{"survey.survey_id": survey_id}]
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Project or building survey not found")
+
+    updated = await db.vendor_projects.find_one(
+        {"vendor_project_id": vendor_project_id},
+        {"_id": 0, "building_surveys": 1}
+    )
+    surveys = updated.get("building_surveys", [])
+    survey = next((s for s in surveys if s.get("survey_id") == survey_id), None)
+    return {"survey": survey, "status": "updated"}
+
+
 @api_router.post("/vendor/projects/{vendor_project_id}/generate-proposal")
 async def generate_proposal(vendor_project_id: str, request: Request):
     """Generate proposal using calculations"""
