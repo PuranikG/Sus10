@@ -23,11 +23,26 @@ export default function CommercialProjectPage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
 
+  const isNew = projectId === 'new';
+
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('setup');
   const [showAddBuilding, setShowAddBuilding] = useState(false);
   const [generatingProposal, setGeneratingProposal] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    complex_name: '',
+    complex_address: '',
+    complex_city: '',
+    complex_type: 'it_park',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    budget_range: '',
+    timeline_months: 6,
+  });
 
   const [formData, setFormData] = useState({
     building_name: '',
@@ -73,13 +88,11 @@ export default function CommercialProjectPage() {
   });
 
   useEffect(() => {
-    if (isAuthenticated && (projectId || projectId === 'new')) {
-      if (projectId === 'new') {
-        setProject({ name: 'New Project', building_surveys: [], status: 'draft' });
-        setLoading(false);
-      } else {
-        loadProject();
-      }
+    if (!isAuthenticated) return;
+    if (isNew) {
+      setLoading(false);
+    } else {
+      loadProject();
     }
   }, [isAuthenticated, projectId]);
 
@@ -93,6 +106,26 @@ export default function CommercialProjectPage() {
       navigate('/vendor/projects');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateProject = async () => {
+    if (!createForm.name.trim()) {
+      toast.error('Project name is required');
+      return;
+    }
+    try {
+      setCreating(true);
+      const data = await apiRequest('/vendor/projects', {
+        method: 'POST',
+        body: JSON.stringify({ ...createForm, timeline_months: Number(createForm.timeline_months) }),
+      });
+      toast.success('Project created');
+      navigate(`/vendor/projects/${data.vendor_project_id}`, { replace: true });
+    } catch (e) {
+      toast.error('Failed to create project');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -181,25 +214,18 @@ export default function CommercialProjectPage() {
     );
   }
 
-  if (!project) {
+  if (!isNew && !project) {
     return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-8">
-          <Card className="text-center py-16">
-            <CardContent>
-              <p className="text-red-600">Project not found</p>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Project not found.</p>
       </div>
     );
   }
 
-  const totalRooftopSqft = project.building_surveys?.reduce(
+  const totalRooftopSqft = project?.building_surveys?.reduce(
     (sum, b) => sum + (b.rooftop?.area_sqft || 0), 0
   ) || 0;
-  const totalBalconies = project.building_surveys?.reduce(
+  const totalBalconies = project?.building_surveys?.reduce(
     (sum, b) => sum + (b.balconies?.count || 0), 0
   ) || 0;
 
@@ -218,13 +244,15 @@ export default function CommercialProjectPage() {
           <span className="text-border">|</span>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-sm font-semibold text-foreground truncate">{project.name}</h1>
-              {project.complex_city && (
+              <h1 className="text-sm font-semibold text-foreground truncate">
+                {isNew ? 'New Project' : project?.name}
+              </h1>
+              {project?.complex_city && (
                 <span className="text-xs text-muted-foreground hidden md:flex items-center gap-1">
                   <MapPin className="h-3 w-3" />{project.complex_city}
                 </span>
               )}
-              {project.complex_type && (
+              {project?.complex_type && (
                 <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary hidden md:inline">
                   {project.complex_type.replace('_', ' ')}
                 </span>
@@ -232,31 +260,36 @@ export default function CommercialProjectPage() {
             </div>
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Building2 className="h-3.5 w-3.5" />
-              {project.building_surveys?.length || 0} buildings
-            </span>
-            <Badge className="capitalize text-[10px]">{project.status}</Badge>
+            {!isNew && (
+              <span className="flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                {project?.building_surveys?.length || 0} buildings
+              </span>
+            )}
+            <Badge className="capitalize text-[10px]">{isNew ? 'new' : project?.status}</Badge>
           </div>
         </div>
 
         {/* Tab bar */}
         <div className="flex border-t border-border px-6">
           {[
-            { value: 'setup', label: 'Setup' },
-            { value: 'buildings', label: `Buildings (${project.building_surveys?.length || 0})` },
-            { value: 'solar', label: 'Solar' },
-            { value: 'greening', label: 'Greening' },
-            { value: 'proposal', label: 'Proposal' },
-            { value: 'map', label: 'Map' },
-          ].map(({ value, label }) => (
+            { value: 'setup', label: 'Setup', locked: false },
+            { value: 'buildings', label: `Buildings (${project?.building_surveys?.length || 0})`, locked: isNew },
+            { value: 'solar', label: 'Solar', locked: isNew },
+            { value: 'greening', label: 'Greening', locked: isNew },
+            { value: 'proposal', label: 'Proposal', locked: isNew },
+            { value: 'map', label: 'Map', locked: isNew },
+          ].map(({ value, label, locked }) => (
             <button
               key={value}
-              onClick={() => setActiveTab(value)}
+              onClick={() => !locked && setActiveTab(value)}
+              disabled={locked}
               className={`px-4 py-2.5 text-sm border-b-2 transition-colors ${
-                activeTab === value
-                  ? 'border-primary text-primary font-medium'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
+                locked
+                  ? 'border-transparent text-muted-foreground/40 cursor-not-allowed'
+                  : activeTab === value
+                    ? 'border-primary text-primary font-medium'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               {label}
@@ -272,46 +305,143 @@ export default function CommercialProjectPage() {
 
           {/* Tab: Setup */}
           <TabsContent value="setup" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Project Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-6">
-                  {project.complex_name && (
-                    <>
-                      <div>
-                        <Label className="text-sm">Complex Name</Label>
-                        <p className="font-medium">{project.complex_name}</p>
+            {isNew ? (
+              <Card className="max-w-2xl">
+                <CardHeader>
+                  <CardTitle>Create New Project</CardTitle>
+                  <CardDescription>Fill in the complex details to get started. You can add buildings after saving.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>Project Name *</Label>
+                    <Input
+                      placeholder="e.g. TechPark Mumbai Assessment"
+                      value={createForm.name}
+                      onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Complex Name</Label>
+                      <Input
+                        placeholder="e.g. Mindspace IT Park"
+                        value={createForm.complex_name}
+                        onChange={e => setCreateForm({ ...createForm, complex_name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Complex Type</Label>
+                      <Select value={createForm.complex_type} onValueChange={v => setCreateForm({ ...createForm, complex_type: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {[
+                            ['it_park', 'IT Park'], ['hospital', 'Hospital'], ['mall', 'Mall'],
+                            ['residential', 'Residential Complex'], ['industrial', 'Industrial'],
+                            ['educational', 'Educational'], ['mixed_use', 'Mixed Use'],
+                          ].map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>City</Label>
+                      <Input
+                        placeholder="Mumbai"
+                        value={createForm.complex_city}
+                        onChange={e => setCreateForm({ ...createForm, complex_city: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Address</Label>
+                      <Input
+                        placeholder="Street / locality"
+                        value={createForm.complex_address}
+                        onChange={e => setCreateForm({ ...createForm, complex_address: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Budget Range</Label>
+                      <Input
+                        placeholder="e.g. 10L – 25L"
+                        value={createForm.budget_range}
+                        onChange={e => setCreateForm({ ...createForm, budget_range: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Timeline (months)</Label>
+                      <Input
+                        type="number"
+                        value={createForm.timeline_months}
+                        onChange={e => setCreateForm({ ...createForm, timeline_months: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="border-t pt-4 grid grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Contact Name</Label>
+                      <Input
+                        placeholder="Facilities Manager"
+                        value={createForm.contact_name}
+                        onChange={e => setCreateForm({ ...createForm, contact_name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Contact Email</Label>
+                      <Input
+                        type="email"
+                        placeholder="fm@company.com"
+                        value={createForm.contact_email}
+                        onChange={e => setCreateForm({ ...createForm, contact_email: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Contact Phone</Label>
+                      <Input
+                        placeholder="+91 98765 43210"
+                        value={createForm.contact_phone}
+                        onChange={e => setCreateForm({ ...createForm, contact_phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <Button onClick={handleCreateProject} disabled={creating} className="gap-2">
+                      {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      {creating ? 'Creating…' : 'Create Project'}
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate('/vendor/projects')}>Cancel</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader><CardTitle>Project Details</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-6">
+                    {[
+                      ['Complex Name', project?.complex_name],
+                      ['Type', project?.complex_type],
+                      ['Address', project?.complex_address],
+                      ['City', project?.complex_city],
+                      ['Budget Range', project?.budget_range],
+                      ['Timeline', project?.timeline_months ? `${project.timeline_months} months` : null],
+                      ['Contact', project?.contact_name],
+                      ['Email', project?.contact_email],
+                    ].filter(([, v]) => v).map(([label, value]) => (
+                      <div key={label}>
+                        <Label className="text-xs text-muted-foreground">{label}</Label>
+                        <p className="font-medium mt-0.5">{value}</p>
                       </div>
-                      <div>
-                        <Label className="text-sm">Type</Label>
-                        <p className="font-medium capitalize">{project.complex_type}</p>
-                      </div>
-                      <div>
-                        <Label className="text-sm">Address</Label>
-                        <p className="font-medium">{project.complex_address}</p>
-                      </div>
-                      <div>
-                        <Label className="text-sm">City</Label>
-                        <p className="font-medium">{project.complex_city}</p>
-                      </div>
-                      <div>
-                        <Label className="text-sm">Budget Range</Label>
-                        <p className="font-medium">{project.budget_range}</p>
-                      </div>
-                      <div>
-                        <Label className="text-sm">Timeline</Label>
-                        <p className="font-medium">{project.timeline_months} months</p>
-                      </div>
-                    </>
-                  )}
-                  {!project.complex_name && (
-                    <p className="text-muted-foreground col-span-2">Setup details coming soon. Start by adding buildings.</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                    {!project?.complex_name && (
+                      <p className="text-muted-foreground col-span-2 text-sm">No complex details added.</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Tab: Buildings */}
