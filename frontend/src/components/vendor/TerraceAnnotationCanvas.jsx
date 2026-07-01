@@ -2,12 +2,13 @@
  * TerraceAnnotationCanvas
  *
  * Interactive satellite image overlay for rooftop AI analysis.
- * - Draggable/resizable bounding boxes (building boundary, obstacles, shadows)
+ * - Scroll / pinch to zoom, drag empty area to pan
+ * - Draggable/resizable bounding boxes (boundary, obstacles, shadows)
  * - Live calculations update as boxes are adjusted
- * - "Save & Verify" stores corrected annotations as ground truth (training data)
+ * - "Save & Verify" stores corrected annotations as ground truth
  *
- * Coordinate system: SVG viewBox="0 0 1000 1000" maps directly to the AI's
- * normalized 0-1000 bounding box coords [ymin, xmin, ymax, xmax].
+ * Coordinate system: SVG viewBox maps to the AI's normalized 0-1000 coords.
+ * Dynamic viewBox implements zoom/pan without touching box coordinates.
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -15,15 +16,15 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import {
   X, RotateCcw, CheckCircle2, Loader2, Zap, Leaf, Maximize2, Info,
-  Brain, Cpu
+  Brain, Cpu, ZoomIn, ZoomOut,
 } from 'lucide-react';
 
 // ── Colors per box type ─────────────────────────────────────────────────────
 const BOX_STYLES = {
-  boundary:   { stroke: '#3b82f6', fill: 'none',       label: 'Boundary',  dash: '8 4' },
-  obstacle:   { stroke: '#ef4444', fill: '#ef444428',  label: 'Obstacle',  dash: null  },
-  shadow:     { stroke: '#f59e0b', fill: '#f59e0b28',  label: 'Shadow',    dash: null  },
-  vegetation: { stroke: '#22c55e', fill: '#22c55e28',  label: 'Vegetation',dash: null  },
+  boundary:   { stroke: '#60a5fa', fill: 'none',       label: 'Boundary',   dash: '12 5' },
+  obstacle:   { stroke: '#f87171', fill: '#f8717140',  label: 'Obstacle',   dash: null   },
+  shadow:     { stroke: '#fbbf24', fill: '#fbbf2440',  label: 'Shadow',     dash: null   },
+  vegetation: { stroke: '#4ade80', fill: '#4ade8040',  label: 'Vegetation', dash: null   },
 };
 
 const PROVIDER_ICON = { gemini: '✦', claude: '◆', auto: '⬡' };
@@ -66,7 +67,6 @@ function analysisToBoxes(analysis) {
   });
 
   if (analysis.existing_vegetation?.present) {
-    // Vegetation doesn't always have a bounding box; use a small default if missing
     const vegBox = analysis.existing_vegetation.box_2d;
     if (vegBox?.length === 4) {
       boxes.push({
@@ -103,21 +103,18 @@ function recalculate(boxes, footprintSqft) {
     return s + Math.max(0, (y2 - y1) * (x2 - x1));
   }, 0);
 
-  const obstaclePct  = Math.min(50, (obstacleArea / boundaryArea) * 100);
-  const shadowPct    = Math.min(50, (shadowArea   / boundaryArea) * 100);
-  const usablePct    = Math.max(5, 100 - obstaclePct - shadowPct);
-  const usableSqft   = Math.round(footprintSqft * (usablePct / 100));
+  const obstaclePct = Math.min(50, (obstacleArea / boundaryArea) * 100);
+  const shadowPct   = Math.min(50, (shadowArea   / boundaryArea) * 100);
+  const usablePct   = Math.max(5, 100 - obstaclePct - shadowPct);
+  const usableSqft  = Math.round(footprintSqft * (usablePct / 100));
 
-  // Solar: 13.94 W per sq ft (= 150 W/sqm ÷ 10.764 sqft/sqm)
-  // 1 kW per 71.7 sq ft of usable panel area
   const solarKw         = Math.round((usableSqft / 71.7) * 10) / 10;
-  const annualKwh       = Math.round(solarKw * 1800);           // 1,800 kWh/kW/yr India avg
-  const savingsInr      = Math.round(annualKwh * 8);            // ₹8/kWh avg
-  const co2SolarTonnes  = Math.round(annualKwh * 0.00082 * 10) / 10; // India grid factor
+  const annualKwh       = Math.round(solarKw * 1800);
+  const savingsInr      = Math.round(annualKwh * 8);
+  const co2SolarTonnes  = Math.round(annualKwh * 0.00082 * 10) / 10;
 
-  // Greening: ~1 plant per 2.7 sq ft (= 4 plants/sqm × 0.0929 sqm/sqft)
-  const plants         = Math.floor(usableSqft / 2.7);
-  const co2GreeningKg  = Math.round(plants * 20);
+  const plants        = Math.floor(usableSqft / 2.7);
+  const co2GreeningKg = Math.round(plants * 20);
 
   return {
     usable_pct:          Math.round(usablePct),
@@ -139,16 +136,17 @@ function AnnotationBox({ box, isActive, onDelete }) {
   const style = BOX_STYLES[box.type] || BOX_STYLES.obstacle;
   const w = x2 - x1;
   const h = y2 - y1;
-  const HANDLE_R = 10;
+  const HANDLE_R = 12;
+  const labelW = Math.min(w, Math.max(70, box.label.length * 7.5));
 
   return (
-    <g>
+    <g filter="url(#box-shadow)">
       {/* Main rect */}
       <rect
         x={x1} y={y1} width={w} height={h}
         fill={style.fill}
         stroke={style.stroke}
-        strokeWidth={isActive ? 3 : 2}
+        strokeWidth={isActive ? 4 : 3}
         strokeDasharray={style.dash || undefined}
         rx={3}
         style={{ cursor: 'move' }}
@@ -156,57 +154,61 @@ function AnnotationBox({ box, isActive, onDelete }) {
         data-handle="move"
       />
 
-      {/* Label pill */}
-      {h > 30 || isActive ? (
+      {/* Label pill — always show if box is tall enough or active */}
+      {(h > 20 || isActive) && (
         <g>
           <rect
-            x={x1} y={Math.max(0, y1 - 22)}
-            width={Math.min(w, Math.max(60, box.label.length * 7.5))}
-            height={18}
+            x={x1} y={Math.max(0, y1 - 24)}
+            width={labelW}
+            height={20}
             fill={style.stroke}
-            rx={3}
+            rx={4}
             style={{ pointerEvents: 'none' }}
           />
           <text
-            x={x1 + 5} y={Math.max(0, y1 - 22) + 12}
+            x={x1 + 5} y={Math.max(0, y1 - 24) + 14}
             fill="white"
-            fontSize={10}
+            fontSize={11}
             fontWeight="bold"
+            fontFamily="system-ui, sans-serif"
             style={{ pointerEvents: 'none', userSelect: 'none' }}
           >
             {box.label.length > 20 ? box.label.slice(0, 18) + '…' : box.label}
           </text>
+
           {/* Delete button */}
           <g
             style={{ cursor: 'pointer' }}
             onClick={(e) => { e.stopPropagation(); onDelete(box.id); }}
           >
             <circle
-              cx={x1 + Math.min(w, Math.max(60, box.label.length * 7.5)) + 8}
-              cy={Math.max(0, y1 - 22) + 9}
-              r={8}
+              cx={x1 + labelW + 10}
+              cy={Math.max(0, y1 - 24) + 10}
+              r={10}
               fill={style.stroke}
             />
             <text
-              x={x1 + Math.min(w, Math.max(60, box.label.length * 7.5)) + 8}
-              y={Math.max(0, y1 - 22) + 13}
+              x={x1 + labelW + 10}
+              y={Math.max(0, y1 - 24) + 14}
               fill="white"
-              fontSize={10}
+              fontSize={12}
               textAnchor="middle"
+              fontFamily="system-ui, sans-serif"
               style={{ pointerEvents: 'none', userSelect: 'none' }}
             >×</text>
           </g>
         </g>
-      ) : null}
+      )}
 
       {/* Confidence badge */}
       {box.confidence != null && (
         <text
-          x={x1 + w - 4} y={y1 + 12}
-          fill={style.stroke}
-          fontSize={9}
+          x={x1 + w - 4} y={y1 + 14}
+          fill="white"
+          fontSize={10}
           textAnchor="end"
           fontWeight="bold"
+          fontFamily="system-ui, sans-serif"
           style={{ pointerEvents: 'none', userSelect: 'none' }}
         >
           {Math.round(box.confidence * 100)}%
@@ -226,9 +228,10 @@ function AnnotationBox({ box, isActive, onDelete }) {
           r={HANDLE_R}
           fill="white"
           stroke={style.stroke}
-          strokeWidth={2}
+          strokeWidth={3}
           style={{
             cursor: handle === 'nw' || handle === 'se' ? 'nwse-resize' : 'nesw-resize',
+            filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))',
           }}
           data-box-id={box.id}
           data-handle={handle}
@@ -254,6 +257,13 @@ export default function TerraceAnnotationCanvas({
 }) {
   const svgRef = useRef(null);
   const dragRef = useRef({ active: false });
+  const panRef  = useRef({ active: false });
+
+  // ── Zoom/pan state via dynamic viewBox ──────────────────────────────────
+  const [vb, setVb] = useState({ x: 0, y: 0, w: 1000, h: 1000 });
+  // Keep a ref so pointer handlers always read latest vb without stale closure
+  const vbRef = useRef(vb);
+  useEffect(() => { vbRef.current = vb; }, [vb]);
 
   const initialBoxes = useMemo(() => analysisToBoxes(analysis), [analysis]);
   const [boxes, setBoxes] = useState(initialBoxes);
@@ -265,22 +275,67 @@ export default function TerraceAnnotationCanvas({
     [boxes, footprintSqft]
   );
 
+  // ── Zoom utility ─────────────────────────────────────────────────────────
+  const zoomTo = useCallback((factor, cx = 500, cy = 500) => {
+    setVb(prev => {
+      const newW = clamp(prev.w * factor, 80, 2000);
+      const rf   = newW / prev.w;
+      const newX = cx - (cx - prev.x) * rf;
+      const newY = cy - (cy - prev.y) * rf;
+      return {
+        x: clamp(newX, -newW * 0.4, 1000 - newW * 0.6),
+        y: clamp(newY, -newW * 0.4, 1000 - newW * 0.6),
+        w: newW,
+        h: newW,
+      };
+    });
+  }, []);
+
+  // Attach wheel listener (passive:false so we can preventDefault)
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (e) => {
+      e.preventDefault();
+      const pt = svg.createSVGPoint();
+      pt.x = e.clientX;
+      pt.y = e.clientY;
+      const sp = pt.matrixTransform(svg.getScreenCTM().inverse());
+      // Normalize across different wheel delta modes
+      const delta = e.deltaMode === 1 ? e.deltaY * 30 : e.deltaMode === 2 ? e.deltaY * 300 : e.deltaY;
+      zoomTo(delta < 0 ? 0.8 : 1.25, sp.x, sp.y);
+    };
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', onWheel);
+  }, [zoomTo]);
+
+  // ── SVG coordinate helper ────────────────────────────────────────────────
   const getSVGCoords = useCallback((e) => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
     const pt = svg.createSVGPoint();
     pt.x = e.clientX;
     pt.y = e.clientY;
-    const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
-    return { x: svgPt.x, y: svgPt.y };
+    const sp = pt.matrixTransform(svg.getScreenCTM().inverse());
+    return { x: sp.x, y: sp.y };
   }, []);
 
+  // ── Pointer handlers ─────────────────────────────────────────────────────
   const handlePointerDown = useCallback((e) => {
     const target = e.target;
-    const boxId = target.dataset.boxId;
+    const boxId  = target.dataset.boxId;
     const handle = target.dataset.handle;
+
     if (!boxId || !handle) {
+      // Start pan on empty canvas click
       setActiveBoxId(null);
+      panRef.current = {
+        active: true,
+        startX:  e.clientX,
+        startY:  e.clientY,
+        startVb: { ...vbRef.current },
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
       return;
     }
 
@@ -302,36 +357,57 @@ export default function TerraceAnnotationCanvas({
   }, [boxes, getSVGCoords]);
 
   const handlePointerMove = useCallback((e) => {
-    if (!dragRef.current.active) return;
-    const { boxId, handle, startX, startY, originalBox } = dragRef.current;
-    const { x, y } = getSVGCoords(e);
-    const dx = x - startX;
-    const dy = y - startY;
+    // Box drag
+    if (dragRef.current.active) {
+      const { boxId, handle, startX, startY, originalBox } = dragRef.current;
+      const { x, y } = getSVGCoords(e);
+      const dx = x - startX;
+      const dy = y - startY;
 
-    setBoxes(prev => prev.map(box => {
-      if (box.id !== boxId) return box;
-      let [y1, x1, y2, x2] = originalBox;
-      const MIN = 20;
+      setBoxes(prev => prev.map(box => {
+        if (box.id !== boxId) return box;
+        let [y1, x1, y2, x2] = originalBox;
+        const MIN = 20;
 
-      if (handle === 'move') {
-        return { ...box, box_2d: [
-          clamp(y1 + dy, 0, 1000 - (y2 - y1)),
-          clamp(x1 + dx, 0, 1000 - (x2 - x1)),
-          clamp(y2 + dy, y2 - y1, 1000),
-          clamp(x2 + dx, x2 - x1, 1000),
-        ]};
-      }
-      if (handle === 'nw') return { ...box, box_2d: [clamp(y1+dy, 0, y2-MIN), clamp(x1+dx, 0, x2-MIN), y2, x2] };
-      if (handle === 'ne') return { ...box, box_2d: [clamp(y1+dy, 0, y2-MIN), x1, y2, clamp(x2+dx, x1+MIN, 1000)] };
-      if (handle === 'sw') return { ...box, box_2d: [y1, clamp(x1+dx, 0, x2-MIN), clamp(y2+dy, y1+MIN, 1000), x2] };
-      if (handle === 'se') return { ...box, box_2d: [y1, x1, clamp(y2+dy, y1+MIN, 1000), clamp(x2+dx, x1+MIN, 1000)] };
-      return box;
-    }));
-    setIsDirty(true);
+        if (handle === 'move') {
+          return { ...box, box_2d: [
+            clamp(y1 + dy, 0, 1000 - (y2 - y1)),
+            clamp(x1 + dx, 0, 1000 - (x2 - x1)),
+            clamp(y2 + dy, y2 - y1, 1000),
+            clamp(x2 + dx, x2 - x1, 1000),
+          ]};
+        }
+        if (handle === 'nw') return { ...box, box_2d: [clamp(y1+dy, 0, y2-MIN), clamp(x1+dx, 0, x2-MIN), y2, x2] };
+        if (handle === 'ne') return { ...box, box_2d: [clamp(y1+dy, 0, y2-MIN), x1, y2, clamp(x2+dx, x1+MIN, 1000)] };
+        if (handle === 'sw') return { ...box, box_2d: [y1, clamp(x1+dx, 0, x2-MIN), clamp(y2+dy, y1+MIN, 1000), x2] };
+        if (handle === 'se') return { ...box, box_2d: [y1, x1, clamp(y2+dy, y1+MIN, 1000), clamp(x2+dx, x1+MIN, 1000)] };
+        return box;
+      }));
+      setIsDirty(true);
+      return;
+    }
+
+    // Pan
+    if (panRef.current.active) {
+      const { startX, startY, startVb } = panRef.current;
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const scaleX = startVb.w / rect.width;
+      const scaleY = startVb.h / rect.height;
+      const newX = startVb.x - (e.clientX - startX) * scaleX;
+      const newY = startVb.y - (e.clientY - startY) * scaleY;
+      setVb({
+        ...startVb,
+        x: clamp(newX, -startVb.w * 0.4, 1000 - startVb.w * 0.6),
+        y: clamp(newY, -startVb.h * 0.4, 1000 - startVb.h * 0.6),
+      });
+    }
   }, [getSVGCoords]);
 
   const handlePointerUp = useCallback(() => {
     dragRef.current.active = false;
+    panRef.current.active  = false;
   }, []);
 
   const handleDelete = useCallback((boxId) => {
@@ -344,6 +420,7 @@ export default function TerraceAnnotationCanvas({
     setBoxes(initialBoxes);
     setIsDirty(false);
     setActiveBoxId(null);
+    setVb({ x: 0, y: 0, w: 1000, h: 1000 });
   };
 
   const handleSave = () => {
@@ -354,14 +431,15 @@ export default function TerraceAnnotationCanvas({
       original_analysis: analysis,
       calculations,
       delta: {
-        boxes_from_ai: initialBoxes.length,
+        boxes_from_ai:    initialBoxes.length,
         boxes_after_edit: boxes.length,
-        was_modified: isDirty,
+        was_modified:     isDirty,
       },
     });
   };
 
   const conf = analysis?.confidence_score;
+  const zoomLevel = Math.round((1000 / vb.w) * 100);
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
@@ -400,11 +478,11 @@ export default function TerraceAnnotationCanvas({
             variant="outline"
             size="sm"
             onClick={handleReset}
-            disabled={!isDirty}
+            disabled={!isDirty && vb.w === 1000}
             className="gap-1.5 text-xs h-7"
           >
             <RotateCcw className="h-3 w-3" />
-            Reset to AI
+            Reset
           </Button>
           <Button
             size="sm"
@@ -433,26 +511,62 @@ export default function TerraceAnnotationCanvas({
       <div className="flex flex-1 overflow-hidden">
 
         {/* Annotation canvas */}
-        <div className="flex-1 bg-black/80 flex items-center justify-center overflow-hidden relative">
+        <div className="flex-1 bg-black flex items-center justify-center overflow-hidden relative">
 
           {/* Instructions hint */}
-          <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 text-[10px] text-white/60 bg-black/40 rounded px-2 py-1">
-            <Info className="h-3 w-3" />
-            Drag boxes to adjust · Click corner handles to resize · ✕ to remove
+          <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 text-[10px] text-white/70 bg-black/60 rounded px-2 py-1 backdrop-blur-sm">
+            <Info className="h-3 w-3 flex-shrink-0" />
+            Scroll/pinch to zoom · Drag canvas to pan · Drag box handles to resize
+          </div>
+
+          {/* Zoom controls */}
+          <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
+            <button
+              onClick={() => zoomTo(0.7, vb.x + vb.w / 2, vb.y + vb.h / 2)}
+              title="Zoom in"
+              className="w-7 h-7 flex items-center justify-center bg-black/70 hover:bg-black/90 text-white rounded backdrop-blur-sm border border-white/20 transition-colors"
+            >
+              <ZoomIn className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => zoomTo(1.43, vb.x + vb.w / 2, vb.y + vb.h / 2)}
+              title="Zoom out"
+              className="w-7 h-7 flex items-center justify-center bg-black/70 hover:bg-black/90 text-white rounded backdrop-blur-sm border border-white/20 transition-colors"
+            >
+              <ZoomOut className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setVb({ x: 0, y: 0, w: 1000, h: 1000 })}
+              title="Fit to screen"
+              className="w-7 h-7 flex items-center justify-center bg-black/70 hover:bg-black/90 text-white rounded backdrop-blur-sm border border-white/20 transition-colors"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </button>
+            {/* Zoom % indicator */}
+            <div className="text-[10px] text-white/60 text-center mt-0.5 font-mono">
+              {zoomLevel}%
+            </div>
           </div>
 
           {imageB64 ? (
             <svg
               ref={svgRef}
-              viewBox="0 0 1000 1000"
+              viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
               className="max-w-full max-h-full"
-              style={{ aspectRatio: '1', display: 'block', touchAction: 'none' }}
+              style={{ aspectRatio: '1', display: 'block', touchAction: 'none', cursor: 'grab' }}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerLeave={handlePointerUp}
             >
-              {/* Satellite image fills the viewBox */}
+              <defs>
+                {/* Drop shadow for boxes — improves contrast against satellite image */}
+                <filter id="box-shadow" x="-10%" y="-10%" width="120%" height="120%">
+                  <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#000" floodOpacity="0.9" />
+                </filter>
+              </defs>
+
+              {/* Satellite image fills the viewBox content area */}
               <image
                 href={`data:image/jpeg;base64,${imageB64}`}
                 x="0" y="0"
@@ -469,14 +583,6 @@ export default function TerraceAnnotationCanvas({
                   onDelete={handleDelete}
                 />
               ))}
-
-              {/* Click on SVG background to deselect */}
-              <rect
-                x="0" y="0" width="1000" height="1000"
-                fill="transparent"
-                style={{ cursor: 'default' }}
-                onPointerDown={(e) => { if (e.target === e.currentTarget) setActiveBoxId(null); }}
-              />
             </svg>
           ) : (
             <div className="flex flex-col items-center gap-3 text-white/40">
