@@ -4262,6 +4262,97 @@ async def check_ai_keys():
     }
 
 
+@api_router.get("/vendor/buildings/satellite-image")
+async def get_satellite_image(lat: float, lng: float, request: Request):
+    """
+    Proxy endpoint — fetches the satellite image for a given lat/lng and returns it
+    as base64. Used by the frontend to re-display the image for an existing analysis
+    without storing the image in MongoDB.
+    Requires provider auth.
+    """
+    user = await get_current_user(request)
+    if not user or user.user_type != UserType.provider:
+        raise HTTPException(status_code=403, detail="Not authorized - provider only")
+
+    from services.gemini_rooftop_analyzer import fetch_satellite_image_base64
+    img_info = await fetch_satellite_image_base64(lat, lng, zoom=19)
+    if not img_info:
+        raise HTTPException(status_code=503, detail="Could not fetch satellite image")
+    return {
+        "image_b64": img_info["image_b64"],
+        "source": img_info["source"],
+        "zoom": img_info["zoom"],
+    }
+
+
+@api_router.patch("/vendor/projects/{vendor_project_id}/buildings/{survey_id}/terrace")
+async def save_terrace_analysis(
+    vendor_project_id: str,
+    survey_id: str,
+    request: Request,
+    body: dict,
+):
+    """
+    Save AI terrace analysis + human corrections to a building survey.
+    Stores the result on building_surveys[].terrace_analysis.
+    Also writes a training correction record to ai_training_corrections.
+
+    Requires provider auth.
+    """
+    user = await get_current_user(request)
+    if not user or user.user_type != UserType.provider:
+        raise HTTPException(status_code=403, detail="Not authorized - provider only")
+
+    provider = await db.solution_providers.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not provider:
+        raise HTTPException(status_code=403, detail="Provider profile not found")
+    vendor_id = provider["provider_id"]
+
+    terrace_data = body.get("terrace_analysis")
+    if not terrace_data:
+        raise HTTPException(status_code=400, detail="terrace_analysis field required")
+
+    now = datetime.now(timezone.utc)
+    terrace_data["saved_at"] = now
+
+    # Update the specific building survey using arrayFilters
+    result = await db.vendor_projects.update_one(
+        {"vendor_project_id": vendor_project_id, "vendor_id": vendor_id},
+        {"$set": {
+            "building_surveys.$[survey].terrace_analysis": terrace_data,
+            "updated_at": now,
+        }},
+        array_filters=[{"survey.survey_id": survey_id}],
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Project or building survey not found")
+
+    # Store training correction record if human-verified
+    corrections = terrace_data.get("corrected_annotations", {})
+    if corrections.get("is_human_verified") and terrace_data.get("ai_result"):
+        try:
+            correction_doc = {
+                "correction_id": f"corr_{uuid.uuid4().hex[:12]}",
+                "vendor_project_id": vendor_project_id,
+                "survey_id": survey_id,
+                "vendor_id": vendor_id,
+                "provider": terrace_data.get("provider"),
+                "model": terrace_data.get("model"),
+                "ai_result": terrace_data.get("ai_result"),
+                "corrected_boxes": corrections.get("boxes", []),
+                "calculations": terrace_data.get("calculations"),
+                "delta": terrace_data.get("delta", {}),
+                "created_at": now,
+            }
+            await db.ai_training_corrections.insert_one(correction_doc)
+            logger.info(f"Saved training correction: {correction_doc['correction_id']}")
+        except Exception as e:
+            logger.warning(f"Failed to save training correction (non-fatal): {e}")
+
+    return {"success": True, "survey_id": survey_id}
+
+
 # ==================== END AI BENCHMARK ====================
 
 

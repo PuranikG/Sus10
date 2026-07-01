@@ -250,26 +250,28 @@ async def get_production_analysis(
     image_zoom = img_info["zoom"]
 
     if provider == "gemini":
-        return await _run_gemini_timed(building, image_b64, image_source, image_zoom)
+        r = await _run_gemini_timed(building, image_b64, image_source, image_zoom)
+        return {**r, "satellite_image_b64": image_b64}
 
     if provider == "claude":
-        return await analyze_rooftop_claude(building, image_b64=image_b64, image_source=image_source, image_zoom=image_zoom)
+        r = await analyze_rooftop_claude(building, image_b64=image_b64, image_source=image_source, image_zoom=image_zoom)
+        return {**r, "satellite_image_b64": image_b64}
 
     if provider == "gemini_with_fallback":
         result = await _run_gemini_timed(building, image_b64, image_source, image_zoom)
         if result.get("success"):
-            return {**result, "provider_used": "gemini"}
+            return {**result, "provider_used": "gemini", "satellite_image_b64": image_b64}
         logger.warning("Gemini failed, falling back to Claude")
         result = await analyze_rooftop_claude(building, image_b64=image_b64, image_source=image_source, image_zoom=image_zoom)
-        return {**result, "provider_used": "claude", "fallback_used": True}
+        return {**result, "provider_used": "claude", "fallback_used": True, "satellite_image_b64": image_b64}
 
     if provider == "claude_with_fallback":
         result = await analyze_rooftop_claude(building, image_b64=image_b64, image_source=image_source, image_zoom=image_zoom)
         if result.get("success"):
-            return {**result, "provider_used": "claude"}
+            return {**result, "provider_used": "claude", "satellite_image_b64": image_b64}
         logger.warning("Claude failed, falling back to Gemini")
         result = await _run_gemini_timed(building, image_b64, image_source, image_zoom)
-        return {**result, "provider_used": "gemini", "fallback_used": True}
+        return {**result, "provider_used": "gemini", "fallback_used": True, "satellite_image_b64": image_b64}
 
     # 'auto' — run both, pick higher quality
     gemini_task = _run_gemini_timed(building, image_b64, image_source, image_zoom)
@@ -288,13 +290,13 @@ async def get_production_analysis(
         g_score = _score_analysis(g_result)["total"]
         c_score = _score_analysis(c_result)["total"]
         if g_score >= c_score:
-            return {**g_result, "provider_used": "gemini", "alt_provider_score": c_score}
-        return {**c_result, "provider_used": "claude", "alt_provider_score": g_score}
+            return {**g_result, "provider_used": "gemini", "alt_provider_score": c_score, "satellite_image_b64": image_b64}
+        return {**c_result, "provider_used": "claude", "alt_provider_score": g_score, "satellite_image_b64": image_b64}
 
     if g_success:
-        return {**g_result, "provider_used": "gemini"}
+        return {**g_result, "provider_used": "gemini", "satellite_image_b64": image_b64}
     if c_success:
-        return {**c_result, "provider_used": "claude"}
+        return {**c_result, "provider_used": "claude", "satellite_image_b64": image_b64}
 
     return {
         "success": False,
