@@ -239,11 +239,15 @@ async def analyze_rooftop(building: Dict[str, Any]) -> Dict[str, Any]:
     city = building.get("city", "")
 
     # 1) Fetch satellite image + projection metadata
-    img_info = await fetch_satellite_image_base64(lat, lng, zoom=19)
-    if not img_info:
-        return {"error": "Could not fetch satellite image", "success": False}
-
-    image_b64 = img_info["image_b64"]
+    # Accept pre-fetched image from benchmark service to avoid double-fetching
+    if building.get("_prefetched_image_b64"):
+        image_b64 = building["_prefetched_image_b64"]
+        img_info = {"source": "pre-fetched", "zoom": 19, "width": 640, "height": 640}
+    else:
+        img_info = await fetch_satellite_image_base64(lat, lng, zoom=19)
+        if not img_info:
+            return {"error": "Could not fetch satellite image", "success": False}
+        image_b64 = img_info["image_b64"]
 
     # 2) Send to Gemini
     api_key = os.environ.get("EMERGENT_LLM_KEY")
@@ -251,10 +255,12 @@ async def analyze_rooftop(building: Dict[str, Any]) -> Dict[str, Any]:
         return {"error": "EMERGENT_LLM_KEY not configured", "success": False}
 
     try:
+        import time as _time
         client = genai.Client(api_key=api_key)
 
         image_bytes = base64.b64decode(image_b64)
 
+        _t0 = _time.monotonic()
         response = await asyncio.to_thread(
             client.models.generate_content,
             model=GEMINI_MODEL,
@@ -272,8 +278,18 @@ async def analyze_rooftop(building: Dict[str, Any]) -> Dict[str, Any]:
                 response_mime_type="application/json",
             )
         )
+        _latency_ms = int((_time.monotonic() - _t0) * 1000)
 
         raw = response.text
+
+        # Extract token counts if available
+        _input_tokens = None
+        _output_tokens = None
+        try:
+            _input_tokens = response.usage_metadata.prompt_token_count
+            _output_tokens = response.usage_metadata.candidates_token_count
+        except Exception:
+            pass
 
         cleaned = raw.strip()
         if cleaned.startswith("```"):
@@ -293,6 +309,7 @@ async def analyze_rooftop(building: Dict[str, Any]) -> Dict[str, Any]:
                     "success": False,
                     "error": "Gemini returned non-JSON response",
                     "raw_response": cleaned[:500],
+                    "latency_ms": _latency_ms,
                 }
 
         # 3) Annotate — produce multi-slide PPT-style output
@@ -314,6 +331,14 @@ async def analyze_rooftop(building: Dict[str, Any]) -> Dict[str, Any]:
             except Exception as e:
                 logger.exception(f"Slide generation failed: {e}")
 
+        # Estimate cost if token counts unavailable
+        _cost = None
+        if _input_tokens and _output_tokens:
+            _cost = round(
+                (_input_tokens / 1_000_000) * 0.30 + (_output_tokens / 1_000_000) * 2.50,
+                6,
+            )
+
         return {
             "success": True,
             "model": GEMINI_MODEL,
@@ -323,6 +348,10 @@ async def analyze_rooftop(building: Dict[str, Any]) -> Dict[str, Any]:
             "image_source": img_info["source"],
             "analysis": parsed,
             "slides": slides,
+            "latency_ms": _latency_ms,
+            "input_tokens": _input_tokens,
+            "output_tokens": _output_tokens,
+            "cost_usd": _cost,
         }
     except Exception as e:
         logger.exception(f"Gemini analysis failed: {e}")

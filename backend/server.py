@@ -2716,6 +2716,8 @@ from services.sustenance_calculator import (
 )
 from services.city_data import seed_city_parameters, get_city_params
 from services.gemini_rooftop_analyzer import analyze_rooftop
+from services.claude_rooftop_analyzer import analyze_rooftop_claude
+from services.ai_benchmark_service import run_rooftop_benchmark, get_production_analysis
 from services.email_service import send_report_email, send_admin_notification
 
 class GroupCreate(BaseModel):
@@ -4134,6 +4136,133 @@ async def gemini_analyze_rooftop(building_id: str, request: Request):
         )
 
     return {**result, "cached": False}
+
+
+# ==================== AI BENCHMARK: GEMINI vs CLAUDE ====================
+
+class TerraceAnalysisRequest(BaseModel):
+    lat: float
+    lng: float
+    address: str
+    building_name: Optional[str] = None
+    city: Optional[str] = None
+    footprint_sqm: Optional[float] = None
+    provider: str = "auto"  # gemini | claude | auto | gemini_with_fallback | claude_with_fallback
+
+
+@api_router.post("/admin/ai-benchmark/rooftop")
+async def benchmark_rooftop_analysis(request: Request, body: dict):
+    """
+    Run Gemini and Claude rooftop analysis on the same satellite image in parallel.
+    Accepts either building_id (looks up from DB) or lat/lng + name directly.
+
+    Body: { building_id? } OR { lat, lng, address, building_name?, city?, footprint_sqm? }
+    Optional: { providers: ["gemini", "claude"] }  — default both
+
+    No auth required (admin tool).
+    Returns: full benchmark comparison with latency, cost, quality scores for each provider.
+    """
+    providers = body.get("providers", ["gemini", "claude"])
+
+    building_id = body.get("building_id")
+    if building_id:
+        building = await db.buildings.find_one({"building_id": building_id}, {"_id": 0})
+        if not building:
+            raise HTTPException(status_code=404, detail=f"Building {building_id} not found")
+    else:
+        lat = body.get("lat")
+        lng = body.get("lng")
+        if not lat or not lng:
+            raise HTTPException(status_code=400, detail="Provide building_id or lat+lng")
+        building = {
+            "latitude": lat,
+            "longitude": lng,
+            "name": body.get("building_name") or body.get("address", "Test Building"),
+            "address": body.get("address", ""),
+            "city": body.get("city", ""),
+            "building_footprint_area": body.get("footprint_sqm", 0),
+        }
+
+    result = await run_rooftop_benchmark(db, building, providers=providers)
+    # Don't return raw image b64 in the response (too large) — frontend fetches separately
+    result.pop("satellite_image_b64", None)
+    return result
+
+
+@api_router.get("/admin/ai-benchmark/results")
+async def list_benchmark_results(limit: int = 20, skip: int = 0):
+    """List recent benchmark runs (most recent first). No auth required."""
+    cursor = db.ai_benchmarks.find(
+        {},
+        {"_id": 0, "satellite_image_b64": 0}
+    ).sort("created_at", -1).skip(skip).limit(limit)
+    results = await cursor.to_list(length=limit)
+    total = await db.ai_benchmarks.count_documents({})
+    return {"results": results, "total": total, "limit": limit, "skip": skip}
+
+
+@api_router.get("/admin/ai-benchmark/{benchmark_id}")
+async def get_benchmark_result(benchmark_id: str):
+    """Get a specific benchmark result by ID. No auth required."""
+    doc = await db.ai_benchmarks.find_one({"benchmark_id": benchmark_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Benchmark not found")
+    return doc
+
+
+@api_router.post("/vendor/buildings/analyse-terrace")
+async def vendor_analyse_terrace(request: Request, body: TerraceAnalysisRequest):
+    """
+    Production terrace analysis endpoint for the vendor commercial tool.
+    Requires provider auth.
+
+    provider options:
+      'gemini'               — Gemini 2.5 Flash only
+      'claude'               — Claude Haiku Vision only
+      'auto'                 — both in parallel, returns higher-quality result
+      'gemini_with_fallback' — Gemini first, Claude if Gemini fails
+      'claude_with_fallback' — Claude first, Gemini if Claude fails
+
+    Results are NOT cached here — vendor project service caches per building_survey.
+    """
+    user = await get_current_user(request)
+    if not user or user.user_type != UserType.provider:
+        raise HTTPException(status_code=403, detail="Not authorized - provider only")
+
+    building = {
+        "latitude": body.lat,
+        "longitude": body.lng,
+        "name": body.building_name or body.address,
+        "address": body.address,
+        "city": body.city or "",
+        "building_footprint_area": body.footprint_sqm or 0,
+    }
+
+    result = await get_production_analysis(db, building, provider=body.provider)
+    # Don't send slides (large) in the vendor API response
+    result.pop("slides", None)
+    return result
+
+
+@api_router.get("/admin/ai-benchmark/config/check")
+async def check_ai_keys():
+    """Check which AI provider keys are configured. No auth required (key presence only, no values)."""
+    import os
+    return {
+        "gemini": {
+            "key_present": bool(os.environ.get("EMERGENT_LLM_KEY")),
+            "model": "gemini-2.5-flash",
+            "estimated_cost_per_analysis_usd": 0.002,
+        },
+        "claude": {
+            "key_present": bool(os.environ.get("ANTHROPIC_API_KEY")),
+            "model": "claude-haiku-4-5-20251001",
+            "estimated_cost_per_analysis_usd": 0.004,
+        },
+    }
+
+
+# ==================== END AI BENCHMARK ====================
 
 
 # ==================== ADMIN AUDIT LOG ====================
