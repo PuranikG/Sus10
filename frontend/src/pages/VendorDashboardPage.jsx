@@ -28,7 +28,7 @@ export default function VendorDashboardPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) { navigate('/'); return; }
-    if (user?.user_type === 'provider') {
+    if (user?.user_type === 'provider' || user?.user_type === 'admin') {
       loadStats();
     } else {
       setLoading(false);
@@ -60,7 +60,7 @@ export default function VendorDashboardPage() {
         <div className="text-center">
           <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
           <p className="text-muted-foreground">
-            {user?.user_type !== 'provider'
+            {user?.user_type !== 'provider' && user?.user_type !== 'admin'
               ? 'This portal is for vendor accounts only.'
               : 'Failed to load dashboard. Please refresh.'}
           </p>

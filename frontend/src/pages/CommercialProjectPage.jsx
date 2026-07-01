@@ -566,7 +566,7 @@ export default function CommercialProjectPage() {
             {/* Summary bar */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: 'Total Buildings', value: project.building_surveys?.length || 0 },
+                { label: 'Total Buildings', value: project?.building_surveys?.length || 0 },
                 { label: 'Total Rooftop', value: totalRooftopSqft ? `${totalRooftopSqft.toLocaleString()} sqft` : '—' },
                 { label: 'Total Balconies', value: totalBalconies || '—' },
               ].map(({ label, value }) => (
@@ -585,7 +585,7 @@ export default function CommercialProjectPage() {
               </Button>
             </div>
 
-            {project.building_surveys && project.building_surveys.length > 0 ? (
+            {project?.building_surveys && project.building_surveys.length > 0 ? (
               <div className="space-y-4">
                 {project.building_surveys.map((building) => {
                   const ta = building.terrace_analysis;
@@ -742,7 +742,7 @@ export default function CommercialProjectPage() {
 
           {/* Tab: Proposal */}
           <TabsContent value="proposal" className="mt-6 space-y-6">
-            {project.proposal ? (
+            {project?.proposal ? (
               <div className="space-y-6">
                 <Card>
                   <CardHeader>
