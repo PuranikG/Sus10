@@ -301,6 +301,7 @@ export default function TerraceAnnotationCanvas({
   centerLng,          // lng of the satellite image center
   zoomUsed,           // Google Maps zoom level used when fetching the satellite image
   otherBuildings,     // [{survey_id, building_name, latitude, longitude}] — other wings
+  savedBoxes,         // corrected_annotations from a prior human save — used instead of AI analysis
   provider = 'gemini', modelName, latencyMs, costUsd,
   onSave, onClose, saving = false,
 }) {
@@ -312,10 +313,14 @@ export default function TerraceAnnotationCanvas({
   useEffect(() => { vbRef.current = vb; }, [vb]);
 
   const initialBoxes = useMemo(() => {
-    const aiBoxes   = analysisToBoxes(analysis, buildingName);
     const zoneBoxes = otherBuildingsToZones(otherBuildings, centerLat, centerLng, zoomUsed);
+    if (savedBoxes?.boxes?.length) {
+      // Human-corrected boxes exist — use them directly, skip AI re-parse
+      return [...savedBoxes.boxes, ...zoneBoxes];
+    }
+    const aiBoxes = analysisToBoxes(analysis, buildingName);
     return [...aiBoxes, ...zoneBoxes];
-  }, [analysis, buildingName, otherBuildings, centerLat, centerLng, zoomUsed]);
+  }, [savedBoxes, analysis, buildingName, otherBuildings, centerLat, centerLng, zoomUsed]);
   const [boxes, setBoxes]               = useState(initialBoxes);
   const [activeBoxId, setActiveBoxId]   = useState(null);
   const [hoveredBoxId, setHoveredBoxId] = useState(null);

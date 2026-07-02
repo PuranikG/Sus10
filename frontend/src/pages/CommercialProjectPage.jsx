@@ -1244,6 +1244,7 @@ export default function CommercialProjectPage() {
             centerLng={analysisState.centerLng}
             zoomUsed={analysisState.zoomUsed}
             otherBuildings={analysisState.otherBuildings}
+            savedBoxes={analysisState.existingCorrections}
             provider={analysisState.provider || 'gemini'}
             modelName={analysisState.modelName}
             latencyMs={analysisState.latencyMs}
