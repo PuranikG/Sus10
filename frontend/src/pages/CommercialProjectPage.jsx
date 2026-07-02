@@ -983,13 +983,26 @@ export default function CommercialProjectPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Location Map</CardTitle>
-                <CardDescription>Satellite view · all buildings in this project</CardDescription>
+                <CardDescription>Satellite view · click an unlocated building chip to pin it on the map</CardDescription>
               </CardHeader>
               <CardContent>
                 <ProjectMap
                   buildings={project?.building_surveys || []}
                   complexLat={project?.complex_latitude}
                   complexLng={project?.complex_longitude}
+                  complexAddress={project?.complex_address}
+                  onBuildingLocated={async (surveyId, lat, lng) => {
+                    try {
+                      await apiRequest(`/vendor/projects/${projectId}/buildings/${surveyId}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ latitude: lat, longitude: lng }),
+                      });
+                      toast.success('Building location saved');
+                      loadProject();
+                    } catch {
+                      toast.error('Failed to save location');
+                    }
+                  }}
                 />
               </CardContent>
             </Card>
