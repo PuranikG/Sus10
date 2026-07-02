@@ -742,6 +742,73 @@ export default function CommercialProjectPage() {
                           </div>
                         )}
 
+                        {/* Geo enrichment strip — Solar API / AQI / Street View */}
+                        {building.geo_enrichment && (() => {
+                          const geo = building.geo_enrichment;
+                          const solar = geo.solar;
+                          const aqi = geo.aqi;
+                          const sv = geo.street_view;
+                          const aqi_color = !aqi?.aqi ? '#93b6a2'
+                            : aqi.aqi <= 50 ? '#4ade80'
+                            : aqi.aqi <= 100 ? '#fbbf24'
+                            : aqi.aqi <= 150 ? '#f97316'
+                            : '#f87171';
+                          return (
+                            <div className="mt-3 pt-3 border-t border-border space-y-2">
+                              {/* Street View image */}
+                              {sv?.primary_url && (
+                                <div className="relative rounded-lg overflow-hidden" style={{ height: '140px' }}>
+                                  <img
+                                    src={sv.primary_url}
+                                    alt={`Street view of ${building.building_name}`}
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                  />
+                                  <div className="absolute bottom-0 left-0 right-0 px-2 py-1 flex gap-1.5 bg-black/50 backdrop-blur-sm">
+                                    {Object.entries(sv.angles || {}).map(([key, url]) => (
+                                      <a key={key} href={url} target="_blank" rel="noreferrer"
+                                        className="text-[9px] text-white/70 hover:text-white font-mono tracking-wider">
+                                        {key === 'h0' ? 'N' : key === 'h90' ? 'E' : key === 'h180' ? 'S' : 'W'}
+                                      </a>
+                                    ))}
+                                    <span className="text-[9px] text-white/40 ml-auto">Street View</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Solar + AQI data row */}
+                              <div className="grid grid-cols-3 gap-2">
+                                {solar?.max_kwp && (
+                                  <div className="bg-yellow-50 dark:bg-yellow-950/20 rounded px-2.5 py-1.5">
+                                    <p className="text-[9px] text-yellow-700 dark:text-yellow-500 font-mono uppercase tracking-wide">Solar API</p>
+                                    <p className="text-sm font-bold text-yellow-800 dark:text-yellow-300">{solar.max_kwp} kWp</p>
+                                    <p className="text-[9px] text-yellow-600 dark:text-yellow-500">{solar.max_panels} panels · {solar.sunshine_hours_per_year?.toLocaleString()} hrs/yr</p>
+                                  </div>
+                                )}
+                                {solar?.annual_kwh_estimate && (
+                                  <div className="bg-amber-50 dark:bg-amber-950/20 rounded px-2.5 py-1.5">
+                                    <p className="text-[9px] text-amber-700 dark:text-amber-500 font-mono uppercase tracking-wide">Est. Generation</p>
+                                    <p className="text-sm font-bold text-amber-800 dark:text-amber-300">{(solar.annual_kwh_estimate / 1000).toFixed(1)}k kWh</p>
+                                    <p className="text-[9px] text-amber-600 dark:text-amber-500">per year</p>
+                                  </div>
+                                )}
+                                {aqi?.aqi != null && (
+                                  <div className="rounded px-2.5 py-1.5" style={{ background: `${aqi_color}15` }}>
+                                    <p className="text-[9px] font-mono uppercase tracking-wide" style={{ color: aqi_color }}>Air Quality</p>
+                                    <p className="text-sm font-bold" style={{ color: aqi_color }}>{aqi.aqi} AQI</p>
+                                    <p className="text-[9px]" style={{ color: aqi_color }}>{aqi.category} · {aqi.dominant_pollutant}</p>
+                                  </div>
+                                )}
+                              </div>
+                              {solar?.fetched_at && (
+                                <p className="text-[9px] text-muted-foreground/50 text-right">
+                                  Google APIs · {new Date(solar.fetched_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()}
+
                         {!hasCoords && !hasAnalysis && (
                           <p className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1">
                             <MapPin className="h-3 w-3" />

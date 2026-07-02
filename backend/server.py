@@ -7597,6 +7597,7 @@ async def check_vendor_user(email: str):
     }
 
 # ==================== VENDOR PROJECTS ====================
+from services.geo_enrichment import enrich_building
 from services.vendor_projects_service import (
     create_vendor_project,
     get_vendor_projects,
@@ -7773,6 +7774,21 @@ async def add_building(vendor_project_id: str, request: Request):
             provider["provider_id"],
             data
         )
+        # Enrich with Solar, AQI, Street View if lat/lng provided
+        lat = data.get("latitude")
+        lng = data.get("longitude")
+        if lat and lng:
+            enrichment = await enrich_building(lat, lng)
+            now = datetime.now(timezone.utc).isoformat()
+            await db.vendor_projects.update_one(
+                {"vendor_project_id": vendor_project_id, "vendor_id": provider["provider_id"]},
+                {"$set": {
+                    "building_surveys.$[s].geo_enrichment": enrichment,
+                    "building_surveys.$[s].updated_at": now,
+                }},
+                array_filters=[{"s.survey_id": survey["survey_id"]}]
+            )
+            survey["geo_enrichment"] = enrichment
         return {"survey": survey, "status": "created"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -7807,6 +7823,21 @@ async def update_building(vendor_project_id: str, survey_id: str, request: Reque
         raise HTTPException(status_code=400, detail="No updatable fields provided")
     set_payload["building_surveys.$[survey].updated_at"] = now
     set_payload["updated_at"] = now
+
+    # Re-fetch enrichment when lat/lng is updated
+    if "latitude" in data or "longitude" in data:
+        # Read current survey to get the complete lat/lng after this patch
+        current = await db.vendor_projects.find_one(
+            {"vendor_project_id": vendor_project_id},
+            {"_id": 0, "building_surveys": 1}
+        )
+        cur_surveys = current.get("building_surveys", []) if current else []
+        cur_survey = next((s for s in cur_surveys if s.get("survey_id") == survey_id), {})
+        lat = data.get("latitude") or cur_survey.get("latitude")
+        lng = data.get("longitude") or cur_survey.get("longitude")
+        if lat and lng:
+            enrichment = await enrich_building(lat, lng)
+            set_payload["building_surveys.$[survey].geo_enrichment"] = enrichment
 
     result = await db.vendor_projects.update_one(
         {"vendor_project_id": vendor_project_id, "vendor_id": provider["provider_id"]},
