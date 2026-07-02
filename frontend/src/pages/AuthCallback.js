@@ -5,11 +5,12 @@ import { Leaf, Loader2 } from 'lucide-react';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+    if (isAuthenticated && user) {
+      const dest = user.user_type === 'provider' ? '/vendor/dashboard' : '/dashboard';
+      navigate(dest, { replace: true });
       return;
     }
     // Cookie is set server-side before redirect — give AuthContext time to load
@@ -17,7 +18,7 @@ export default function AuthCallback() {
       navigate('/?error=auth_failed', { replace: true });
     }, 3000);
     return () => clearTimeout(timer);
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">

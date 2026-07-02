@@ -25,6 +25,13 @@ export default function DashboardPage() {
   const [userLeads, setUserLeads] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Vendors belong on their own dashboard
+  useEffect(() => {
+    if (user?.user_type === 'provider') {
+      navigate('/vendor/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {

@@ -75,12 +75,19 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-// SignInRedirect — /signin triggers the OAuth flow immediately, no UI link needed
+// SignInRedirect — /signin triggers the OAuth flow; if already signed in, routes by user type
 function SignInRedirect() {
-  const { login, loading } = useAuth();
+  const { login, loading, isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
   useEffect(() => {
-    if (!loading) login();
-  }, [loading, login]);
+    if (loading) return;
+    if (isAuthenticated && user) {
+      const dest = user.user_type === 'provider' ? '/vendor/dashboard' : '/dashboard';
+      navigate(dest, { replace: true });
+      return;
+    }
+    login();
+  }, [loading, isAuthenticated, user, login, navigate]);
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
