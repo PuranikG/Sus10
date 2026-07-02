@@ -1267,7 +1267,11 @@ export default function CommercialProjectPage() {
 
       {/* Add Building Dialog */}
       <Dialog open={showAddBuilding} onOpenChange={(open) => { setShowAddBuilding(open); if (!open) setEditingSurveyId(null); }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="max-w-3xl max-h-[90vh] overflow-y-auto"
+          onPointerDownOutside={e => { if (e.target?.closest?.('.pac-container')) e.preventDefault(); }}
+          onInteractOutside={e => { if (e.target?.closest?.('.pac-container')) e.preventDefault(); }}
+        >
           <DialogHeader>
             <DialogTitle>{editingSurveyId ? 'Edit Building' : 'Add Building Survey'}</DialogTitle>
           </DialogHeader>
