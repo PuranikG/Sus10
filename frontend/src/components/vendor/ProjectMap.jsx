@@ -83,20 +83,45 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
       }
     }
 
-    function attachClickHandler(map) {
+    function attachDragPin(map) {
+      // Remove any old click listener
       if (clickListenerRef.current) {
         window.google.maps.event.removeListener(clickListenerRef.current);
         clickListenerRef.current = null;
       }
-      if (!placingId || !onBuildingLocated) return;
+      // Remove any old drag-pin marker stored on the ref
+      if (map._placingMarker) {
+        map._placingMarker.setMap(null);
+        map._placingMarker = null;
+      }
 
-      map.setOptions({ cursor: 'crosshair' });
-      clickListenerRef.current = map.addListener('click', (e) => {
-        const lat = e.latLng.lat();
-        const lng = e.latLng.lng();
-        onBuildingLocated(placingId, lat, lng);
-        setPlacingId(null);
+      if (!placingId || !onBuildingLocated) {
+        map.setOptions({ cursor: '' });
+        return;
+      }
+
+      map.setOptions({ cursor: '' });
+
+      // Drop a draggable marker at the map center
+      const center = map.getCenter();
+      const dragMarker = new window.google.maps.Marker({
+        position: center,
+        map,
+        draggable: true,
+        title: 'Drag to exact location, then click Confirm',
+        animation: window.google.maps.Animation.DROP,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 18,
+          fillColor: '#f59e0b',
+          fillOpacity: 1,
+          strokeColor: '#0d1710',
+          strokeWeight: 2,
+        },
+        label: { text: '📍', fontSize: '16px' },
+        zIndex: 999,
       });
+      map._placingMarker = dragMarker;
     }
 
     function init() {
@@ -104,10 +129,9 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
       if (!window.google?.maps) { setTimeout(init, 300); return; }
 
       if (mapRef.current) {
-        // Map already exists — just redraw markers and click handler
-        attachClickHandler(mapRef.current);
+        // Map already exists — redraw markers and drag pin
+        attachDragPin(mapRef.current);
         drawMarkers(mapRef.current);
-        if (!placingId) mapRef.current.setOptions({ cursor: '' });
         return;
       }
 
@@ -138,7 +162,7 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
       mapRef.current = map;
 
       drawMarkers(map);
-      attachClickHandler(map);
+      attachDragPin(map);
 
       // Geocode complexAddress if still using default center
       if (!complexLat && !complexLng && locatedBuildings.length === 0 && complexAddress) {
@@ -157,16 +181,33 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
 
   const buildingToPlace = unlocatedBuildings.find(b => b.survey_id === placingId);
 
+  const confirmPlacement = () => {
+    const map = mapRef.current;
+    if (!map?._placingMarker) return;
+    const pos = map._placingMarker.getPosition();
+    onBuildingLocated(placingId, pos.lat(), pos.lng());
+    map._placingMarker.setMap(null);
+    map._placingMarker = null;
+    setPlacingId(null);
+  };
+
   return (
     <div className="space-y-3">
       {/* Placing-mode banner */}
       {placingId && buildingToPlace && (
-        <div className="flex items-center gap-3 bg-primary/10 border border-primary/30 rounded-lg px-4 py-2.5 text-sm">
-          <Target className="h-4 w-4 text-primary animate-pulse flex-shrink-0" />
-          <span className="text-primary font-medium">
-            Click anywhere on the map to place <strong>{buildingToPlace.building_name}</strong>
+        <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/40 rounded-lg px-4 py-2.5 text-sm">
+          <Target className="h-4 w-4 text-amber-500 animate-pulse flex-shrink-0" />
+          <span className="text-amber-600 dark:text-amber-400 font-medium flex-1">
+            Drag the <strong>orange pin</strong> to <strong>{buildingToPlace.building_name}</strong>, then confirm
           </span>
-          <Button size="sm" variant="ghost" className="ml-auto h-6 text-xs" onClick={() => setPlacingId(null)}>
+          <Button size="sm" className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-black" onClick={confirmPlacement}>
+            Confirm Location
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => {
+            const map = mapRef.current;
+            if (map?._placingMarker) { map._placingMarker.setMap(null); map._placingMarker = null; }
+            setPlacingId(null);
+          }}>
             Cancel
           </Button>
         </div>
