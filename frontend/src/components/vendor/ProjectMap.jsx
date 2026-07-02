@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { MapPin, Target } from 'lucide-react';
+import { MapPin, Target, Pencil } from 'lucide-react';
 import { Button } from '../ui/button';
 
 /**
@@ -9,7 +9,7 @@ import { Button } from '../ui/button';
  *   buildings          — array of building survey objects
  *   complexLat/Lng     — project-level coords (stored when address was picked with Places)
  *   complexAddress     — fallback: geocode this string if no lat/lng
- *   onBuildingLocated  — (surveyId, lat, lng) => void — called when user clicks map to pin a building
+ *   onBuildingLocated  — (surveyId, lat, lng) => void — called when user confirms a pin
  */
 export default function ProjectMap({ buildings = [], complexLat, complexLng, complexAddress, onBuildingLocated }) {
   const containerRef = useRef(null);
@@ -18,12 +18,15 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
   const infoWindowRef = useRef(null);
   const clickListenerRef = useRef(null);
 
-  const [placingId, setPlacingId] = useState(null); // survey_id of building being pinned
+  const [placingId, setPlacingId] = useState(null); // survey_id of building being pinned/moved
 
   const locatedBuildings = buildings.filter(b => b.latitude && b.longitude);
   const unlocatedBuildings = buildings.filter(b => !b.latitude || !b.longitude);
 
-  // Re-draw markers whenever buildings or placing state changes
+  // The building currently being placed/moved (search all, not just unlocated)
+  const buildingToPlace = buildings.find(b => b.survey_id === placingId);
+  const isMovingExisting = !!(buildingToPlace?.latitude && buildingToPlace?.longitude);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -36,6 +39,9 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
       }
 
       locatedBuildings.forEach((building, idx) => {
+        // Hide the green marker while the orange drag marker is active for this building
+        if (building.survey_id === placingId) return;
+
         const lat = parseFloat(building.latitude);
         const lng = parseFloat(building.longitude);
         const geo = building.geo_enrichment;
@@ -84,12 +90,10 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
     }
 
     function attachDragPin(map) {
-      // Remove any old click listener
       if (clickListenerRef.current) {
         window.google.maps.event.removeListener(clickListenerRef.current);
         clickListenerRef.current = null;
       }
-      // Remove any old drag-pin marker stored on the ref
       if (map._placingMarker) {
         map._placingMarker.setMap(null);
         map._placingMarker = null;
@@ -102,10 +106,14 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
 
       map.setOptions({ cursor: '' });
 
-      // Drop a draggable marker at the map center
-      const center = map.getCenter();
+      // Start the drag marker at existing coords if moving, otherwise at map center
+      const building = buildings.find(b => b.survey_id === placingId);
+      const startPos = building?.latitude && building?.longitude
+        ? { lat: parseFloat(building.latitude), lng: parseFloat(building.longitude) }
+        : map.getCenter();
+
       const dragMarker = new window.google.maps.Marker({
-        position: center,
+        position: startPos,
         map,
         draggable: true,
         title: 'Drag to exact location, then click Confirm',
@@ -122,6 +130,11 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
         zIndex: 999,
       });
       map._placingMarker = dragMarker;
+
+      // Pan to the drag marker if moving an existing pin
+      if (building?.latitude && building?.longitude) {
+        map.panTo(startPos);
+      }
     }
 
     function init() {
@@ -129,13 +142,11 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
       if (!window.google?.maps) { setTimeout(init, 300); return; }
 
       if (mapRef.current) {
-        // Map already exists — redraw markers and drag pin
         attachDragPin(mapRef.current);
         drawMarkers(mapRef.current);
         return;
       }
 
-      // First init: determine center
       const defaultCenter = { lat: 19.076, lng: 72.8777 };
       let center = defaultCenter;
       let zoom = 13;
@@ -164,7 +175,6 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
       drawMarkers(map);
       attachDragPin(map);
 
-      // Geocode complexAddress if still using default center
       if (!complexLat && !complexLng && locatedBuildings.length === 0 && complexAddress) {
         const geocoder = new window.google.maps.Geocoder();
         geocoder.geocode({ address: complexAddress + ', India' }, (results, status) => {
@@ -179,7 +189,11 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
     return () => { cancelled = true; };
   }, [buildings, complexLat, complexLng, complexAddress, placingId]);
 
-  const buildingToPlace = unlocatedBuildings.find(b => b.survey_id === placingId);
+  const cancelPlacing = () => {
+    const map = mapRef.current;
+    if (map?._placingMarker) { map._placingMarker.setMap(null); map._placingMarker = null; }
+    setPlacingId(null);
+  };
 
   const confirmPlacement = () => {
     const map = mapRef.current;
@@ -193,21 +207,20 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
 
   return (
     <div className="space-y-3">
-      {/* Placing-mode banner */}
+      {/* Placing / moving mode banner */}
       {placingId && buildingToPlace && (
         <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/40 rounded-lg px-4 py-2.5 text-sm">
           <Target className="h-4 w-4 text-amber-500 animate-pulse flex-shrink-0" />
           <span className="text-amber-600 dark:text-amber-400 font-medium flex-1">
-            Drag the <strong>orange pin</strong> to <strong>{buildingToPlace.building_name}</strong>, then confirm
+            {isMovingExisting
+              ? <>Drag the <strong>orange pin</strong> to the correct location for <strong>{buildingToPlace.building_name}</strong>, then confirm</>
+              : <>Drag the <strong>orange pin</strong> to <strong>{buildingToPlace.building_name}</strong>, then confirm</>
+            }
           </span>
           <Button size="sm" className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-black" onClick={confirmPlacement}>
             Confirm Location
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => {
-            const map = mapRef.current;
-            if (map?._placingMarker) { map._placingMarker.setMap(null); map._placingMarker = null; }
-            setPlacingId(null);
-          }}>
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={cancelPlacing}>
             Cancel
           </Button>
         </div>
@@ -218,12 +231,31 @@ export default function ProjectMap({ buildings = [], complexLat, complexLng, com
 
       {/* Legend */}
       <div className="flex flex-wrap gap-2">
+        {/* Located buildings — show with move-pin button */}
         {locatedBuildings.map((b, i) => (
-          <div key={b.survey_id} className="flex items-center gap-1.5 text-xs bg-primary/10 text-primary rounded-full px-3 py-1">
-            <span className="h-4 w-4 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-[10px]">{i + 1}</span>
+          <div
+            key={b.survey_id}
+            className={`group flex items-center gap-1.5 text-xs rounded-full px-3 py-1 border transition-colors ${
+              placingId === b.survey_id
+                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/40'
+                : 'bg-primary/10 text-primary border-primary/20'
+            }`}
+          >
+            <span className="h-4 w-4 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-[10px]">
+              {i + 1}
+            </span>
             {b.building_name}
+            <button
+              onClick={() => setPlacingId(b.survey_id === placingId ? null : b.survey_id)}
+              title="Move pin to correct location"
+              className="ml-1 opacity-0 group-hover:opacity-100 hover:text-amber-500 transition-opacity"
+            >
+              <Pencil className="h-2.5 w-2.5" />
+            </button>
           </div>
         ))}
+
+        {/* Unlocated buildings — pin on map */}
         {unlocatedBuildings.map(b => (
           <button
             key={b.survey_id}
