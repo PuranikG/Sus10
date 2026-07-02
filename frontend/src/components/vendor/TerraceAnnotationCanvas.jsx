@@ -313,12 +313,12 @@ export default function TerraceAnnotationCanvas({
   useEffect(() => { vbRef.current = vb; }, [vb]);
 
   const initialBoxes = useMemo(() => {
-    const zoneBoxes = otherBuildingsToZones(otherBuildings, centerLat, centerLng, zoomUsed);
     if (savedBoxes?.boxes?.length) {
-      // Human-corrected boxes exist — use them directly, skip AI re-parse
-      return [...savedBoxes.boxes, ...zoneBoxes];
+      // Saved boxes already include zone boxes from prior save — return as-is
+      return [...savedBoxes.boxes];
     }
     const aiBoxes = analysisToBoxes(analysis, buildingName);
+    const zoneBoxes = otherBuildingsToZones(otherBuildings, centerLat, centerLng, zoomUsed);
     return [...aiBoxes, ...zoneBoxes];
   }, [savedBoxes, analysis, buildingName, otherBuildings, centerLat, centerLng, zoomUsed]);
   const [boxes, setBoxes]               = useState(initialBoxes);
