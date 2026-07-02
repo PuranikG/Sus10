@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 import uuid
 
-from services.gemini_rooftop_analyzer import fetch_satellite_image_base64, analyze_rooftop as analyze_rooftop_gemini
+from services.gemini_rooftop_analyzer import fetch_satellite_image_base64, analyze_rooftop as analyze_rooftop_gemini, auto_zoom
 from services.claude_rooftop_analyzer import analyze_rooftop_claude
 
 logger = logging.getLogger(__name__)
@@ -244,8 +244,16 @@ async def get_production_analysis(
     provider='gemini_with_fallback': Gemini first, Claude if Gemini fails.
     provider='claude_with_fallback': Claude first, Gemini if Claude fails.
     """
+    footprint_sqft = (
+        building.get("building_footprint_sqft")
+        or (building.get("building_footprint_area") or 0) * 10.764
+        or 0
+    )
+    lat = float(building.get("latitude") or 19.0)
+    zoom = auto_zoom(footprint_sqft=footprint_sqft, lat=lat)
+
     img_info = await fetch_satellite_image_base64(
-        building.get("latitude"), building.get("longitude"), zoom=19
+        building.get("latitude"), building.get("longitude"), zoom=zoom
     )
     if not img_info:
         return {"success": False, "error": "Could not fetch satellite image"}

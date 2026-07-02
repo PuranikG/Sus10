@@ -41,6 +41,8 @@
     "date-fns": "^4.1.0",
     "dompurify": "^3.4.1",
     "embla-carousel-react": "^8.6.0",
+    "@turf/boolean-point-in-polygon": "^7.1.0",
+    "@turf/area": "^7.1.0",
     "framer-motion": "^12.34.2",
     "html2canvas": "^1.4.1",
     "input-otp": "^1.4.2",

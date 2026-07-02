@@ -291,10 +291,17 @@ export default function CommercialProjectPage() {
         }),
       });
       if (!result.success) throw new Error(result.error || 'Analysis failed');
+      const otherBuildings = (project?.building_surveys || [])
+        .filter(s => s.survey_id !== survey.survey_id && s.latitude && s.longitude)
+        .map(s => ({ survey_id: s.survey_id, building_name: s.building_name, latitude: s.latitude, longitude: s.longitude }));
       setAnalysisState({
         open: true, loading: false, saving: false,
         surveyId: survey.survey_id,
         buildingName: survey.building_name || '',
+        centerLat: parseFloat(survey.latitude),
+        centerLng: parseFloat(survey.longitude),
+        zoomUsed: result.image_zoom || 20,
+        otherBuildings,
         imageB64: result.satellite_image_b64 || null,
         analysis: result.analysis,
         provider: result.provider_used || (result.model?.includes('gemini') ? 'gemini' : 'claude'),
@@ -322,10 +329,17 @@ export default function CommercialProjectPage() {
       );
       const ta = survey.terrace_analysis;
       const footprintSqft = survey.rooftop?.area_sqft || 5000;
+      const otherBuildings2 = (project?.building_surveys || [])
+        .filter(s => s.survey_id !== survey.survey_id && s.latitude && s.longitude)
+        .map(s => ({ survey_id: s.survey_id, building_name: s.building_name, latitude: s.latitude, longitude: s.longitude }));
       setAnalysisState({
         open: true, loading: false, saving: false,
         surveyId: survey.survey_id,
         buildingName: survey.building_name || '',
+        centerLat: parseFloat(survey.latitude),
+        centerLng: parseFloat(survey.longitude),
+        zoomUsed: imgResult.zoom || 20,
+        otherBuildings: otherBuildings2,
         imageB64: imgResult.image_b64 || null,
         analysis: ta?.corrected_annotations
           ? { ...ta.ai_result, _from_correction: true }
@@ -1226,6 +1240,10 @@ export default function CommercialProjectPage() {
             analysis={analysisState.analysis}
             footprintSqft={analysisState.footprintSqft || 5000}
             buildingName={analysisState.buildingName}
+            centerLat={analysisState.centerLat}
+            centerLng={analysisState.centerLng}
+            zoomUsed={analysisState.zoomUsed}
+            otherBuildings={analysisState.otherBuildings}
             provider={analysisState.provider || 'gemini'}
             modelName={analysisState.modelName}
             latencyMs={analysisState.latencyMs}

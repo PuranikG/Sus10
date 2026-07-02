@@ -4470,6 +4470,23 @@ async def save_terrace_analysis(
     if not terrace_data:
         raise HTTPException(status_code=400, detail="terrace_analysis field required")
 
+    # Use Shapely to validate and annotate polygon areas before storing
+    corrections = terrace_data.get("corrected_annotations", {})
+    if corrections and corrections.get("boxes"):
+        try:
+            from shapely.geometry import Polygon as SPoly
+            for box in corrections["boxes"]:
+                pts = box.get("points")
+                if not pts or len(pts) < 3:
+                    continue
+                poly = SPoly(pts)
+                if not poly.is_valid:
+                    poly = poly.buffer(0)  # fix self-intersections
+                    box["points"] = list(poly.exterior.coords)[:-1]  # update to cleaned coords
+                box["area_px2"] = round(poly.area, 2)
+        except Exception as _shape_err:
+            logger.warning(f"Shapely polygon processing failed (non-fatal): {_shape_err}")
+
     now = datetime.now(timezone.utc)
     terrace_data["saved_at"] = now
 

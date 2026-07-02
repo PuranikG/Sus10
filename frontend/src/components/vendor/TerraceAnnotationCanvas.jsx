@@ -75,6 +75,50 @@ function pointInPolygon([px, py], polygon) {
   return inside;
 }
 
+// ── Per-building zone suggestions ────────────────────────────────────────────
+// Given the other buildings in the project (with lat/lng) and the satellite
+// image center + zoom, compute where each building appears in canvas space
+// (0–1000) and create a labelled boundary zone placeholder for it.
+//
+// Users can then resize these with the N-node polygon tools to trace the
+// actual roof edge, and the Zone filter will correctly isolate each wing's
+// obstacles.
+//
+// Projection math:
+//   Google Maps Static API (scale=2) → 1280 effective pixels → canvas 1000 units
+//   metersPerPixel = earthCirc × cos(lat) / (256 × 2^zoom × 2)
+//   canvasUnitsPerMeter = (1000 / 1280) / metersPerPixel
+function otherBuildingsToZones(otherBuildings, centerLat, centerLng, zoomUsed) {
+  if (!otherBuildings?.length || !centerLat || !centerLng || !zoomUsed) return [];
+  const EARTH_CIRC  = 40_075_017;
+  const GOOGLE_PX   = 640 * 2; // scale=2
+  const latRad      = centerLat * Math.PI / 180;
+  const mPerPx      = EARTH_CIRC * Math.cos(latRad) / (256 * Math.pow(2, zoomUsed) * 2);
+  const cvPerM      = (1000 / GOOGLE_PX) / mPerPx;
+
+  return otherBuildings
+    .filter(b => b.latitude && b.longitude)
+    .map(b => {
+      const lat = parseFloat(b.latitude);
+      const lng = parseFloat(b.longitude);
+      const eastM  = (lng - centerLng) * 111320 * Math.cos(latRad);
+      const northM = (lat - centerLat) * 111320;
+      const px = 500 + eastM * cvPerM;
+      const py = 500 - northM * cvPerM;
+      if (px < -160 || px > 1160 || py < -160 || py > 1160) return null;
+      // 160×160 canvas-unit square, centered on the building pin
+      const h = 80;
+      return {
+        id: `zone_${b.survey_id}`,
+        type: 'boundary',
+        label: b.building_name ? `${b.building_name} Boundary` : 'Building Zone',
+        points: [[px-h,py-h],[px+h,py-h],[px+h,py+h],[px-h,py+h]],
+        isAutoZone: true,
+      };
+    })
+    .filter(Boolean);
+}
+
 // ── Parse AI analysis → box array ───────────────────────────────────────────
 function analysisToBoxes(analysis, buildingName) {
   if (!analysis) return [];
@@ -252,7 +296,11 @@ function AnnotationBox({ box, isActive, isHovered, onDelete }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function TerraceAnnotationCanvas({
   imageB64, analysis, footprintSqft = 0,
-  buildingName,           // e.g. "A Wing" — labels the boundary box and the header
+  buildingName,       // e.g. "A Wing" — labels the boundary box and the header
+  centerLat,          // lat of the satellite image center (= this building's lat)
+  centerLng,          // lng of the satellite image center
+  zoomUsed,           // Google Maps zoom level used when fetching the satellite image
+  otherBuildings,     // [{survey_id, building_name, latitude, longitude}] — other wings
   provider = 'gemini', modelName, latencyMs, costUsd,
   onSave, onClose, saving = false,
 }) {
@@ -263,7 +311,11 @@ export default function TerraceAnnotationCanvas({
   const vbRef = useRef(vb);
   useEffect(() => { vbRef.current = vb; }, [vb]);
 
-  const initialBoxes = useMemo(() => analysisToBoxes(analysis, buildingName), [analysis, buildingName]);
+  const initialBoxes = useMemo(() => {
+    const aiBoxes   = analysisToBoxes(analysis, buildingName);
+    const zoneBoxes = otherBuildingsToZones(otherBuildings, centerLat, centerLng, zoomUsed);
+    return [...aiBoxes, ...zoneBoxes];
+  }, [analysis, buildingName, otherBuildings, centerLat, centerLng, zoomUsed]);
   const [boxes, setBoxes]               = useState(initialBoxes);
   const [activeBoxId, setActiveBoxId]   = useState(null);
   const [hoveredBoxId, setHoveredBoxId] = useState(null);
@@ -587,6 +639,11 @@ export default function TerraceAnnotationCanvas({
             <p className="text-[10px] text-muted-foreground leading-relaxed">
               <strong>Rotate</strong> — drag the yellow ↻ handle above the first edge
             </p>
+            {(otherBuildings?.length > 0) && (
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-relaxed">
+                <strong>~ zones</strong> — other building boundaries are auto-placed from map pins. Resize them to match the actual roof, then use Zone filter.
+              </p>
+            )}
           </div>
         </div>
 
@@ -692,6 +749,9 @@ export default function TerraceAnnotationCanvas({
                     >
                       <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: s.stroke }} />
                       <span className="text-xs capitalize text-foreground truncate flex-1">{box.label}</span>
+                      {box.isAutoZone && (
+                        <span className="text-[10px] text-amber-500" title="Auto-placed from building pin — resize to match actual roof">~</span>
+                      )}
                       {box.confidence != null && (
                         <span className="text-[10px] font-mono text-muted-foreground">{Math.round(box.confidence * 100)}%</span>
                       )}
