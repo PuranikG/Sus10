@@ -34,6 +34,7 @@ export default function CommercialProjectPage() {
   const [showAddBuilding, setShowAddBuilding] = useState(false);
   const [editingSurveyId, setEditingSurveyId] = useState(null);
   const [generatingProposal, setGeneratingProposal] = useState(false);
+  const [recommendedPlants, setRecommendedPlants] = useState([]);
   const [creating, setCreating] = useState(false);
   const [createForm, setCreateForm] = useState({
     name: '',
@@ -112,6 +113,12 @@ export default function CommercialProjectPage() {
       loadProject();
     }
   }, [isAuthenticated, projectId]);
+
+  useEffect(() => {
+    apiRequest('/plants/search?high_rise=true&limit=8')
+      .then(data => setRecommendedPlants(data.plants || []))
+      .catch(() => {});
+  }, []);
 
   const loadProject = async () => {
     try {
@@ -761,7 +768,7 @@ export default function CommercialProjectPage() {
                           <div className="mt-3 pt-3 border-t border-border grid grid-cols-4 gap-3">
                             <div className="bg-muted/40 rounded px-2.5 py-1.5">
                               <p className="text-[10px] text-muted-foreground">Usable Roof</p>
-                              <p className="text-sm font-bold text-foreground">{calcs.usable_pct}% <span className="font-normal text-xs">({calcs.usable_sqm} sqm)</span></p>
+                              <p className="text-sm font-bold text-foreground">{calcs.usable_pct}% <span className="font-normal text-xs">({calcs.usable_sqft?.toLocaleString()} sqft)</span></p>
                             </div>
                             <div className="bg-yellow-50 dark:bg-yellow-950/20 rounded px-2.5 py-1.5">
                               <p className="text-[10px] text-yellow-700 dark:text-yellow-400">Solar</p>
@@ -868,29 +875,261 @@ export default function CommercialProjectPage() {
           </TabsContent>
 
           {/* Tab: Solar */}
-          <TabsContent value="solar" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Solar Analysis</CardTitle>
-                <CardDescription>Coming Soon</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Detailed solar configuration and estimates coming in next update</p>
-              </CardContent>
-            </Card>
+          <TabsContent value="solar" className="mt-6 space-y-6">
+            {(() => {
+              const surveysWithCalcs = project?.building_surveys?.filter(b => b.terrace_analysis?.calculations) || [];
+              if (!project?.building_surveys?.length) {
+                return (
+                  <Card className="text-center py-12">
+                    <CardContent>
+                      <Zap className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
+                      <p className="text-muted-foreground mb-4">No buildings added yet</p>
+                      <Button variant="outline" onClick={() => setActiveTab('buildings')}>Add Buildings</Button>
+                    </CardContent>
+                  </Card>
+                );
+              }
+              const totals = surveysWithCalcs.reduce((acc, b) => {
+                const c = b.terrace_analysis.calculations;
+                return {
+                  solar_kw: acc.solar_kw + (c.solar_kw || 0),
+                  annual_kwh: acc.annual_kwh + (c.annual_kwh || 0),
+                  savings_inr_yr1: acc.savings_inr_yr1 + (c.savings_inr_yr1 || 0),
+                  co2_solar_tonnes_yr: Math.round((acc.co2_solar_tonnes_yr + (c.co2_solar_tonnes_yr || 0)) * 10) / 10,
+                };
+              }, { solar_kw: 0, annual_kwh: 0, savings_inr_yr1: 0, co2_solar_tonnes_yr: 0 });
+              return (
+                <>
+                  {surveysWithCalcs.length > 0 && (
+                    <div className="grid grid-cols-4 gap-4">
+                      {[
+                        { label: 'Total Capacity', value: `${totals.solar_kw.toFixed(1)} kW`, color: 'yellow' },
+                        { label: 'Annual Generation', value: `${totals.annual_kwh.toLocaleString()} kWh`, color: 'amber' },
+                        { label: 'Year 1 Savings', value: `₹${totals.savings_inr_yr1.toLocaleString('en-IN')}`, color: 'blue' },
+                        { label: 'CO₂ Offset', value: `${totals.co2_solar_tonnes_yr} t/yr`, color: 'green' },
+                      ].map(({ label, value, color }) => (
+                        <div key={label} className={`bg-${color}-50 dark:bg-${color}-950/20 rounded-lg p-4`}>
+                          <p className={`text-xs text-${color}-700 dark:text-${color}-400 mb-1`}>{label}</p>
+                          <p className={`text-xl font-bold font-mono text-${color}-800 dark:text-${color}-300`}>{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="space-y-4">
+                    {project.building_surveys.map(building => {
+                      const calcs = building.terrace_analysis?.calculations;
+                      const isVerified = building.terrace_analysis?.corrected_annotations?.is_human_verified;
+                      const solarApi = building.geo_enrichment?.solar;
+                      return (
+                        <Card key={building.survey_id} className={isVerified ? 'border-primary/30' : ''}>
+                          <CardHeader className="pb-3">
+                            <div className="flex justify-between items-center">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                <Building2 className="h-4 w-4" />
+                                {building.building_name}
+                              </CardTitle>
+                              <div className="flex gap-2">
+                                {isVerified && <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">Human Verified</Badge>}
+                                {!isVerified && calcs && <Badge variant="outline" className="text-[10px]">AI Estimate</Badge>}
+                                {!calcs && <Badge variant="secondary" className="text-[10px]">Pending Analysis</Badge>}
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            {calcs ? (
+                              <div className="space-y-3">
+                                <div className="grid grid-cols-4 gap-3 text-sm">
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">Usable Area</Label>
+                                    <p className="font-medium">{calcs.usable_sqft?.toLocaleString()} sqft<span className="text-muted-foreground text-xs"> ({calcs.usable_pct}%)</span></p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">Solar Capacity</Label>
+                                    <p className="font-medium text-yellow-700 dark:text-yellow-400">{calcs.solar_kw} kW</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">Annual Generation</Label>
+                                    <p className="font-medium">{calcs.annual_kwh?.toLocaleString()} kWh</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">Year 1 Savings</Label>
+                                    <p className="font-medium text-primary">₹{calcs.savings_inr_yr1?.toLocaleString('en-IN')}</p>
+                                  </div>
+                                </div>
+                                {solarApi?.max_kwp && (
+                                  <div className="bg-muted/30 rounded p-2.5 text-xs text-muted-foreground">
+                                    <span className="font-medium text-foreground uppercase tracking-wide text-[10px] mr-2">Google Solar API</span>
+                                    {solarApi.max_kwp} kWp · {solarApi.max_panels} panels · {solarApi.sunshine_hours_per_year?.toLocaleString()} hrs/yr sunshine
+                                  </div>
+                                )}
+                                {building.existing_solar?.has_solar && (
+                                  <p className="text-xs text-muted-foreground border-t pt-2">
+                                    Existing: {building.existing_solar.capacity_kw} kW installed
+                                    {building.existing_solar.expansion_possible && ` · Expansion up to ${building.existing_solar.max_expansion_kw} kW`}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 text-sm text-muted-foreground">
+                                Run AI Analysis on this building to get solar estimates
+                                <div className="mt-3">
+                                  <Button size="sm" variant="outline" onClick={() => setActiveTab('buildings')}>Go to Buildings</Button>
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                  {surveysWithCalcs.length < (project?.building_surveys?.length || 0) && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      {(project?.building_surveys?.length || 0) - surveysWithCalcs.length} building(s) pending analysis — numbers will update once canvas is saved
+                    </p>
+                  )}
+                </>
+              );
+            })()}
           </TabsContent>
 
           {/* Tab: Greening */}
-          <TabsContent value="greening" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Greening &amp; Biodiversity</CardTitle>
-                <CardDescription>Coming Soon</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Plant recommendations and greening strategy coming in next update</p>
-              </CardContent>
-            </Card>
+          <TabsContent value="greening" className="mt-6 space-y-6">
+            {(() => {
+              const surveysWithCalcs = project?.building_surveys?.filter(b => b.terrace_analysis?.calculations) || [];
+              if (!project?.building_surveys?.length) {
+                return (
+                  <Card className="text-center py-12">
+                    <CardContent>
+                      <Leaf className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
+                      <p className="text-muted-foreground mb-4">No buildings added yet</p>
+                      <Button variant="outline" onClick={() => setActiveTab('buildings')}>Add Buildings</Button>
+                    </CardContent>
+                  </Card>
+                );
+              }
+              const totals = surveysWithCalcs.reduce((acc, b) => {
+                const c = b.terrace_analysis.calculations;
+                return {
+                  plants: acc.plants + (c.plants || 0),
+                  co2_greening_kg_yr: acc.co2_greening_kg_yr + (c.co2_greening_kg_yr || 0),
+                  usable_sqft: acc.usable_sqft + (c.usable_sqft || 0),
+                };
+              }, { plants: 0, co2_greening_kg_yr: 0, usable_sqft: 0 });
+              return (
+                <>
+                  {surveysWithCalcs.length > 0 && (
+                    <div className="grid grid-cols-3 gap-4">
+                      {[
+                        { label: 'Total Plants', value: totals.plants.toLocaleString(), color: 'green' },
+                        { label: 'CO₂ Sequestered', value: `${totals.co2_greening_kg_yr.toLocaleString()} kg/yr`, color: 'emerald' },
+                        { label: 'Usable Green Area', value: `${totals.usable_sqft.toLocaleString()} sqft`, color: 'teal' },
+                      ].map(({ label, value, color }) => (
+                        <div key={label} className={`bg-${color}-50 dark:bg-${color}-950/20 rounded-lg p-4`}>
+                          <p className={`text-xs text-${color}-700 dark:text-${color}-400 mb-1`}>{label}</p>
+                          <p className={`text-xl font-bold font-mono text-${color}-800 dark:text-${color}-300`}>{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Per-building greening cards */}
+                  <div className="space-y-4">
+                    {project.building_surveys.map(building => {
+                      const calcs = building.terrace_analysis?.calculations;
+                      const isVerified = building.terrace_analysis?.corrected_annotations?.is_human_verified;
+                      return (
+                        <Card key={building.survey_id} className={isVerified ? 'border-primary/30' : ''}>
+                          <CardHeader className="pb-3">
+                            <div className="flex justify-between items-center">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                <Building2 className="h-4 w-4" />
+                                {building.building_name}
+                              </CardTitle>
+                              <div className="flex gap-2">
+                                {isVerified && <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">Human Verified</Badge>}
+                                {!isVerified && calcs && <Badge variant="outline" className="text-[10px]">AI Estimate</Badge>}
+                                {!calcs && <Badge variant="secondary" className="text-[10px]">Pending Analysis</Badge>}
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            {calcs ? (
+                              <div className="grid grid-cols-3 gap-3 text-sm">
+                                <div>
+                                  <Label className="text-xs text-muted-foreground">Usable Green Area</Label>
+                                  <p className="font-medium">{calcs.usable_sqft?.toLocaleString()} sqft</p>
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground">Plants</Label>
+                                  <p className="font-medium text-green-700 dark:text-green-400">{calcs.plants?.toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground">CO₂ Sequestration</Label>
+                                  <p className="font-medium">{calcs.co2_greening_kg_yr?.toLocaleString()} kg/yr</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 text-sm text-muted-foreground">
+                                Run AI Analysis on this building to get greening estimates
+                                <div className="mt-3">
+                                  <Button size="sm" variant="outline" onClick={() => setActiveTab('buildings')}>Go to Buildings</Button>
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+
+                  {/* Recommended species */}
+                  {recommendedPlants.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Leaf className="h-4 w-4 text-green-600" />
+                          Recommended Species for High-Rise Rooftops
+                        </CardTitle>
+                        <CardDescription>Top-rated plants for terrace environments · sorted by terrace suitability</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 gap-3">
+                          {recommendedPlants.map((plant, i) => (
+                            <div key={plant._id || i} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                              <div className="flex-shrink-0 w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-700 dark:text-green-400 text-xs font-bold">
+                                {i + 1}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-foreground leading-tight">{plant.common_name || plant.name}</p>
+                                {plant.scientific_name && (
+                                  <p className="text-xs text-muted-foreground italic">{plant.scientific_name}</p>
+                                )}
+                                <div className="flex gap-2 mt-1 flex-wrap">
+                                  {plant.plant_category && (
+                                    <span className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded capitalize">
+                                      {plant.plant_category.replace(/_/g, ' ')}
+                                    </span>
+                                  )}
+                                  {plant.terrace_suitability_score != null && (
+                                    <span className="text-[10px] text-muted-foreground">Score: {plant.terrace_suitability_score}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {surveysWithCalcs.length < (project?.building_surveys?.length || 0) && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      {(project?.building_surveys?.length || 0) - surveysWithCalcs.length} building(s) pending analysis — numbers will update once canvas is saved
+                    </p>
+                  )}
+                </>
+              );
+            })()}
           </TabsContent>
 
           {/* Tab: Proposal */}
