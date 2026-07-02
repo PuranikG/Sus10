@@ -7812,7 +7812,7 @@ async def update_building(vendor_project_id: str, survey_id: str, request: Reque
 
     # Build $set payload — only update fields that were actually sent
     allowed = {
-        "building_name", "building_type", "latitude", "longitude",
+        "building_name", "building_type", "building_address", "latitude", "longitude",
         "rooftop", "balconies", "walls", "utility", "existing_solar", "notes",
     }
     set_payload = {

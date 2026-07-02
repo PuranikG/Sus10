@@ -18,6 +18,8 @@ import { apiRequest } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import TerraceAnnotationCanvas from '../components/vendor/TerraceAnnotationCanvas';
+import PlacesInput from '../components/vendor/PlacesInput';
+import ProjectMap from '../components/vendor/ProjectMap';
 
 export default function CommercialProjectPage() {
   const { projectId } = useParams();
@@ -38,6 +40,8 @@ export default function CommercialProjectPage() {
     complex_name: '',
     complex_address: '',
     complex_city: '',
+    complex_latitude: null,
+    complex_longitude: null,
     complex_type: 'it_park',
     contact_name: '',
     contact_email: '',
@@ -57,6 +61,7 @@ export default function CommercialProjectPage() {
   const [formData, setFormData] = useState({
     building_name: '',
     building_type: 'office',
+    building_address: '',
     latitude: '',
     longitude: '',
     rooftop: {
@@ -191,6 +196,7 @@ export default function CommercialProjectPage() {
       setFormData({
         building_name: '',
         building_type: 'office',
+        building_address: '',
         latitude: '',
         longitude: '',
         rooftop: { area_sqft: '', condition: 'good', waterproofing: 'present', load_capacity_kg_per_sqm: '', access_type: 'staircase', existing_structures: [], shading_percentage: '' },
@@ -210,6 +216,7 @@ export default function CommercialProjectPage() {
     setFormData({
       building_name: building.building_name || '',
       building_type: building.building_type || 'office',
+      building_address: building.building_address || '',
       latitude: building.latitude != null ? String(building.latitude) : '',
       longitude: building.longitude != null ? String(building.longitude) : '',
       rooftop: { area_sqft: building.rooftop?.area_sqft || '', condition: building.rooftop?.condition || 'good', waterproofing: building.rooftop?.waterproofing || 'present', load_capacity_kg_per_sqm: building.rooftop?.load_capacity_kg_per_sqm || '', access_type: building.rooftop?.access_type || 'staircase', existing_structures: building.rooftop?.existing_structures || [], shading_percentage: building.rooftop?.shading_percentage || '' },
@@ -501,23 +508,36 @@ export default function CommercialProjectPage() {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label>City</Label>
-                      <Input
-                        placeholder="Mumbai"
-                        value={createForm.complex_city}
-                        onChange={e => setCreateForm({ ...createForm, complex_city: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Address</Label>
-                      <Input
-                        placeholder="Street / locality"
-                        value={createForm.complex_address}
-                        onChange={e => setCreateForm({ ...createForm, complex_address: e.target.value })}
-                      />
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label>Address <span className="text-muted-foreground text-xs font-normal">— start typing to search</span></Label>
+                    <PlacesInput
+                      value={createForm.complex_address}
+                      onChange={v => setCreateForm(f => ({ ...f, complex_address: v }))}
+                      onPlaceSelect={({ address, city, lat, lng }) =>
+                        setCreateForm(f => ({
+                          ...f,
+                          complex_address: address,
+                          complex_city: city || f.complex_city,
+                          complex_latitude: lat,
+                          complex_longitude: lng,
+                        }))
+                      }
+                      placeholder="e.g. Mindspace IT Park, Malad West, Mumbai"
+                    />
+                    {createForm.complex_latitude && (
+                      <p className="text-[11px] text-muted-foreground">
+                        📍 {createForm.complex_latitude.toFixed(5)}, {createForm.complex_longitude.toFixed(5)}
+                        {createForm.complex_city && ` · ${createForm.complex_city}`}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>City <span className="text-muted-foreground text-xs font-normal">— auto-filled from address</span></Label>
+                    <Input
+                      placeholder="Mumbai"
+                      value={createForm.complex_city}
+                      onChange={e => setCreateForm({ ...createForm, complex_city: e.target.value })}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
@@ -963,10 +983,14 @@ export default function CommercialProjectPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Location Map</CardTitle>
-                <CardDescription>Coming Soon</CardDescription>
+                <CardDescription>Satellite view · all buildings in this project</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Interactive map with obstacle detection and shadow analysis coming in next update</p>
+                <ProjectMap
+                  buildings={project?.building_surveys || []}
+                  complexLat={project?.complex_latitude}
+                  complexLng={project?.complex_longitude}
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -998,30 +1022,29 @@ export default function CommercialProjectPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <MapPin className="h-3 w-3" /> Latitude
-                    <span className="text-[10px] text-muted-foreground/60">(enables AI analysis)</span>
-                  </Label>
-                  <Input
-                    placeholder="e.g. 19.0760"
-                    type="number"
-                    step="0.0001"
-                    value={formData.latitude}
-                    onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Longitude</Label>
-                  <Input
-                    placeholder="e.g. 72.8777"
-                    type="number"
-                    step="0.0001"
-                    value={formData.longitude}
-                    onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                  />
-                </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <MapPin className="h-3 w-3" /> Building Address
+                  <span className="text-[10px] text-muted-foreground/60">— enables AI analysis, solar &amp; AQI</span>
+                </Label>
+                <PlacesInput
+                  value={formData.building_address}
+                  onChange={v => setFormData(f => ({ ...f, building_address: v }))}
+                  onPlaceSelect={({ address, lat, lng }) =>
+                    setFormData(f => ({
+                      ...f,
+                      building_address: address,
+                      latitude: String(lat),
+                      longitude: String(lng),
+                    }))
+                  }
+                  placeholder="e.g. A Wing, Maheshwari Nagar, Malad East"
+                />
+                {formData.latitude && (
+                  <p className="text-[11px] text-muted-foreground">
+                    📍 {parseFloat(formData.latitude).toFixed(5)}, {parseFloat(formData.longitude).toFixed(5)}
+                  </p>
+                )}
               </div>
             </div>
 
