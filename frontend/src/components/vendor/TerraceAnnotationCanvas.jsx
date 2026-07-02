@@ -4,9 +4,12 @@
  * Interactive satellite image overlay for rooftop AI analysis.
  * Layout: [filter strip | canvas | grouped sidebar]
  *
- * - Left filter strip: building-zone selector + type-visibility toggles
- * - Canvas: free-form polygon boxes, rotation handle, zoom/pan
- * - Right sidebar: items grouped by type, collapsible, hover-to-highlight
+ * Polygon editing:
+ *   - Drag a corner node to move it
+ *   - Click the small square midpoint handle between two nodes to insert a new node
+ *   - Double-click a corner node to remove it (minimum 3 nodes)
+ *   - Yellow ↻ handle above first edge to rotate the entire polygon
+ *   - Drag the polygon body to move the whole shape
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -60,7 +63,7 @@ function ptsStr(pts) {
   return pts.map(([x, y]) => `${x},${y}`).join(' ');
 }
 
-// Point-in-polygon (ray casting) — used for zone filtering
+// Ray-casting point-in-polygon — used for zone filtering
 function pointInPolygon([px, py], polygon) {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
@@ -73,11 +76,16 @@ function pointInPolygon([px, py], polygon) {
 }
 
 // ── Parse AI analysis → box array ───────────────────────────────────────────
-function analysisToBoxes(analysis) {
+function analysisToBoxes(analysis, buildingName) {
   if (!analysis) return [];
   const boxes = [];
   if (analysis.building_boundary_box?.length === 4) {
-    boxes.push({ id: 'boundary', type: 'boundary', label: 'Building Boundary', points: box2dToPoints(analysis.building_boundary_box) });
+    boxes.push({
+      id: 'boundary',
+      type: 'boundary',
+      label: buildingName ? `${buildingName} Boundary` : 'Building Boundary',
+      points: box2dToPoints(analysis.building_boundary_box),
+    });
   }
   (analysis.detected_objects || []).forEach((obj, i) => {
     if (!obj.box_2d?.length) return;
@@ -120,11 +128,17 @@ function recalculate(boxes, footprintSqft) {
 }
 
 // ── AnnotationBox ─────────────────────────────────────────────────────────────
+// Supports N-node freeform polygons.
+// Corner handles:   drag to reposition that node
+// Midpoint handles: click the small square to insert a new node at that edge's midpoint
+// Double-click corner: removes that node (minimum 3 nodes enforced by parent)
 function AnnotationBox({ box, isActive, isHovered, onDelete }) {
   const style = BOX_STYLES[box.type] || BOX_STYLES.obstacle;
   const pts   = box.points;
+  const n     = pts.length;
   const [cx, cy] = centroid(pts);
 
+  // Rotation handle: perpendicular above the midpoint of the first edge
   const edgeDx = pts[1][0] - pts[0][0], edgeDy = pts[1][1] - pts[0][1];
   const edgeLen = Math.hypot(edgeDx, edgeDy) || 1;
   const topMidX = (pts[0][0] + pts[1][0]) / 2;
@@ -132,25 +146,20 @@ function AnnotationBox({ box, isActive, isHovered, onDelete }) {
   const rotHandleX = topMidX + (-edgeDy / edgeLen) * -36;
   const rotHandleY = topMidY + ( edgeDx / edgeLen) * -36;
 
-  const HANDLE_R = 14, ROT_R = 11;
+  const CORNER_R = 13, ROT_R = 11, MID_HALF = 6;
   const strokeW = isActive ? 4 : isHovered ? 3.5 : 3;
   const [lx, ly] = pts[0];
   const labelW   = Math.max(70, box.label.length * 7.5);
 
   return (
     <g filter="url(#box-shadow)">
-      {/* Hovered glow ring */}
+      {/* Hover glow ring */}
       {isHovered && !isActive && (
-        <polygon
-          points={ptsStr(pts)}
-          fill="none"
-          stroke={style.stroke}
-          strokeWidth={8}
-          strokeOpacity={0.3}
-          style={{ pointerEvents: 'none' }}
-        />
+        <polygon points={ptsStr(pts)} fill="none" stroke={style.stroke}
+          strokeWidth={8} strokeOpacity={0.3} style={{ pointerEvents: 'none' }} />
       )}
 
+      {/* Main polygon */}
       <polygon
         points={ptsStr(pts)}
         fill={isHovered && !isActive ? style.fill?.replace('30', '50') || style.fill : style.fill}
@@ -170,10 +179,18 @@ function AnnotationBox({ box, isActive, isHovered, onDelete }) {
         </text>
       )}
 
-      {/* Active handles */}
+      {/* Node count hint when polygon has been extended beyond 4 corners */}
+      {isActive && n > 4 && (
+        <text x={cx} y={cy - 10} fill={style.stroke} fontSize={9} textAnchor="middle"
+          fontFamily="system-ui,sans-serif" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+          {n} nodes
+        </text>
+      )}
+
+      {/* Active-only handles */}
       {isActive && (
         <>
-          {/* Label */}
+          {/* Label + close button */}
           <rect x={lx} y={Math.max(0, ly - 26)} width={labelW} height={20} fill={style.stroke} rx={4} style={{ pointerEvents: 'none' }} />
           <text x={lx + 6} y={Math.max(0, ly - 26) + 14} fill="white" fontSize={11} fontWeight="bold"
             fontFamily="system-ui,sans-serif" style={{ pointerEvents: 'none', userSelect: 'none' }}>
@@ -185,23 +202,45 @@ function AnnotationBox({ box, isActive, isHovered, onDelete }) {
               textAnchor="middle" fontFamily="system-ui,sans-serif" style={{ pointerEvents: 'none', userSelect: 'none' }}>×</text>
           </g>
 
-          {/* Rotation */}
-          <line x1={topMidX} y1={topMidY} x2={rotHandleX} y2={rotHandleY} stroke="white" strokeWidth={1.5} opacity={0.6} style={{ pointerEvents: 'none' }} />
+          {/* Rotation handle */}
+          <line x1={topMidX} y1={topMidY} x2={rotHandleX} y2={rotHandleY}
+            stroke="white" strokeWidth={1.5} opacity={0.6} style={{ pointerEvents: 'none' }} />
           <circle cx={rotHandleX} cy={rotHandleY} r={ROT_R + 4} fill="transparent"
-            data-box-id={box.id} data-handle="rotate" data-center-x={cx} data-center-y={cy} style={{ cursor: 'grab' }} />
+            data-box-id={box.id} data-handle="rotate" style={{ cursor: 'grab' }} />
           <circle cx={rotHandleX} cy={rotHandleY} r={ROT_R} fill="#facc15" stroke="#0d1710" strokeWidth={2}
             style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.9))' }}
-            data-box-id={box.id} data-handle="rotate" data-center-x={cx} data-center-y={cy} />
+            data-box-id={box.id} data-handle="rotate" />
           <text x={rotHandleX} y={rotHandleY + 4} fill="#0d1710" fontSize={10} textAnchor="middle" fontWeight="bold"
             fontFamily="system-ui,sans-serif" style={{ pointerEvents: 'none', userSelect: 'none' }}>↻</text>
 
-          {/* Corner handles */}
+          {/* Midpoint handles — click to insert new node */}
+          {pts.map(([x1, y1], i) => {
+            const [x2, y2] = pts[(i + 1) % n];
+            const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+            return (
+              <g key={`mid${i}`} style={{ cursor: 'copy' }}>
+                <circle cx={mx} cy={my} r={MID_HALF + 6} fill="transparent"
+                  data-box-id={box.id} data-handle={`mid${i}`} data-mid-after={i} />
+                <rect x={mx - MID_HALF} y={my - MID_HALF} width={MID_HALF * 2} height={MID_HALF * 2}
+                  fill="white" stroke={style.stroke} strokeWidth={2} rx={2}
+                  data-box-id={box.id} data-handle={`mid${i}`} data-mid-after={i} />
+              </g>
+            );
+          })}
+
+          {/* Corner handles — drag to move; double-click to remove (if N > 3) */}
           {pts.map(([hx, hy], i) => (
-            <g key={i} data-box-id={box.id} data-handle={`pt${i}`} style={{ cursor: 'crosshair' }}>
-              <circle cx={hx} cy={hy} r={ROT_R + 8} fill="transparent" data-box-id={box.id} data-handle={`pt${i}`} />
-              <circle cx={hx} cy={hy} r={HANDLE_R} fill="white" stroke={style.stroke} strokeWidth={3}
+            <g key={`pt${i}`} style={{ cursor: 'crosshair' }}>
+              <circle cx={hx} cy={hy} r={CORNER_R + 8} fill="transparent"
+                data-box-id={box.id} data-handle={`pt${i}`} />
+              <circle cx={hx} cy={hy} r={CORNER_R} fill="white" stroke={style.stroke} strokeWidth={3}
                 style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.9))' }}
                 data-box-id={box.id} data-handle={`pt${i}`} />
+              {n > 3 && (
+                <text x={hx} y={hy + 4} fill={style.stroke} fontSize={11} fontWeight="bold"
+                  textAnchor="middle" fontFamily="system-ui,sans-serif"
+                  style={{ pointerEvents: 'none', userSelect: 'none' }}>·</text>
+              )}
             </g>
           ))}
         </>
@@ -213,6 +252,7 @@ function AnnotationBox({ box, isActive, isHovered, onDelete }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function TerraceAnnotationCanvas({
   imageB64, analysis, footprintSqft = 0,
+  buildingName,           // e.g. "A Wing" — labels the boundary box and the header
   provider = 'gemini', modelName, latencyMs, costUsd,
   onSave, onClose, saving = false,
 }) {
@@ -223,43 +263,35 @@ export default function TerraceAnnotationCanvas({
   const vbRef = useRef(vb);
   useEffect(() => { vbRef.current = vb; }, [vb]);
 
-  const initialBoxes = useMemo(() => analysisToBoxes(analysis), [analysis]);
-  const [boxes, setBoxes]             = useState(initialBoxes);
-  const [activeBoxId, setActiveBoxId] = useState(null);
+  const initialBoxes = useMemo(() => analysisToBoxes(analysis, buildingName), [analysis, buildingName]);
+  const [boxes, setBoxes]               = useState(initialBoxes);
+  const [activeBoxId, setActiveBoxId]   = useState(null);
   const [hoveredBoxId, setHoveredBoxId] = useState(null);
-  const [isDirty, setIsDirty]         = useState(false);
+  const [isDirty, setIsDirty]           = useState(false);
 
-  // Filter state
   const [hiddenTypes, setHiddenTypes]         = useState(new Set());
-  const [zoneId, setZoneId]                   = useState(null); // boundary box id to zone-filter by
+  const [zoneId, setZoneId]                   = useState(null);
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
 
-  // All boundary boxes (for zone selector)
   const boundaries = useMemo(() => boxes.filter(b => b.type === 'boundary'), [boxes]);
 
-  // Visible boxes after zone + type filters
   const visibleBoxes = useMemo(() => {
     let result = boxes;
-    // Zone filter: only show boxes whose centroid is inside the selected boundary
     if (zoneId) {
       const zone = boxes.find(b => b.id === zoneId);
       if (zone) {
         result = result.filter(b => {
           if (b.id === zoneId) return true;
-          if (b.type === 'boundary') return false; // hide other boundaries
-          const c = centroid(b.points);
-          return pointInPolygon(c, zone.points);
+          if (b.type === 'boundary') return false;
+          return pointInPolygon(centroid(b.points), zone.points);
         });
       }
     }
-    // Type filter
-    result = result.filter(b => !hiddenTypes.has(b.type));
-    return result;
+    return result.filter(b => !hiddenTypes.has(b.type));
   }, [boxes, zoneId, hiddenTypes]);
 
   const calculations = useMemo(() => recalculate(visibleBoxes, footprintSqft || 5000), [visibleBoxes, footprintSqft]);
 
-  // Grouped sidebar list (from visible boxes)
   const groupedBoxes = useMemo(() => {
     const groups = {};
     visibleBoxes.forEach(b => {
@@ -310,25 +342,55 @@ export default function TerraceAnnotationCanvas({
   const handlePointerDown = useCallback(e => {
     const boxId  = e.target.dataset.boxId;
     const handle = e.target.dataset.handle;
+
     if (!boxId || !handle) {
       setActiveBoxId(null);
       panRef.current = { active: true, startX: e.clientX, startY: e.clientY, startVb: { ...vbRef.current } };
       e.currentTarget.setPointerCapture(e.pointerId);
       return;
     }
+
     e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
     setActiveBoxId(boxId);
+
+    // Midpoint click → insert a new node between the two adjacent corners, then drag it
+    if (handle.startsWith('mid')) {
+      const afterIdx = parseInt(e.target.dataset.midAfter, 10);
+      const box = boxes.find(b => b.id === boxId);
+      if (!box) return;
+      const pts = box.points;
+      const insertAt = afterIdx + 1;
+      const mx = (pts[afterIdx][0] + pts[insertAt % pts.length][0]) / 2;
+      const my = (pts[afterIdx][1] + pts[insertAt % pts.length][1]) / 2;
+      const newPoints = [
+        ...pts.slice(0, insertAt),
+        [mx, my],
+        ...pts.slice(insertAt),
+      ];
+      setBoxes(prev => prev.map(b => b.id === boxId ? { ...b, points: newPoints } : b));
+      setIsDirty(true);
+      e.currentTarget.setPointerCapture(e.pointerId);
+      const coords = getSVGCoords(e);
+      dragRef.current = {
+        active: true, boxId, handle: `pt${insertAt}`,
+        startX: coords.x, startY: coords.y,
+        originalPoints: newPoints.map(p => [...p]),
+        centerX: mx, centerY: my, startAngle: 0,
+      };
+      return;
+    }
+
+    e.currentTarget.setPointerCapture(e.pointerId);
     const coords = getSVGCoords(e);
     const box    = boxes.find(b => b.id === boxId);
     if (!box) return;
-    const [cx, cy] = centroid(box.points);
+    const [cxc, cyc] = centroid(box.points);
     dragRef.current = {
       active: true, boxId, handle,
       startX: coords.x, startY: coords.y,
       originalPoints: box.points.map(p => [...p]),
-      centerX: cx, centerY: cy,
-      startAngle: handle === 'rotate' ? Math.atan2(coords.y - cy, coords.x - cx) : 0,
+      centerX: cxc, centerY: cyc,
+      startAngle: handle === 'rotate' ? Math.atan2(coords.y - cyc, coords.x - cxc) : 0,
     };
   }, [boxes, getSVGCoords]);
 
@@ -373,6 +435,19 @@ export default function TerraceAnnotationCanvas({
   const handlePointerUp = useCallback(() => {
     dragRef.current.active = false;
     panRef.current.active  = false;
+  }, []);
+
+  // Double-click a corner node → remove it (if N > 3)
+  const handleDoubleClick = useCallback(e => {
+    const boxId  = e.target.dataset.boxId;
+    const handle = e.target.dataset.handle;
+    if (!handle?.startsWith('pt') || !boxId) return;
+    const ptIdx = parseInt(handle.replace('pt', ''), 10);
+    setBoxes(prev => prev.map(box => {
+      if (box.id !== boxId || box.points.length <= 3) return box;
+      return { ...box, points: box.points.filter((_, i) => i !== ptIdx) };
+    }));
+    setIsDirty(true);
   }, []);
 
   const handleDelete = useCallback(id => {
@@ -424,7 +499,9 @@ export default function TerraceAnnotationCanvas({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card flex-shrink-0">
         <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold">Rooftop Analysis</span>
+          <span className="text-sm font-semibold">
+            Rooftop Analysis{buildingName ? ` — ${buildingName}` : ''}
+          </span>
           {isDirty
             ? <Badge variant="outline" className="text-amber-600 border-amber-400 text-[10px]">✎ Edited — not yet saved</Badge>
             : <Badge variant="outline" className="text-blue-500 border-blue-400 text-[10px]">{PROVIDER_ICON[provider]} AI Generated ({modelName || provider})</Badge>
@@ -434,7 +511,9 @@ export default function TerraceAnnotationCanvas({
           {costUsd   && <span className="text-[10px] text-muted-foreground hidden md:inline">${costUsd.toFixed(4)}</span>}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleReset} disabled={!isDirty && vb.w === 1000 && !zoneId && hiddenTypes.size === 0} className="gap-1.5 text-xs h-7">
+          <Button variant="outline" size="sm" onClick={handleReset}
+            disabled={!isDirty && vb.w === 1000 && !zoneId && hiddenTypes.size === 0}
+            className="gap-1.5 text-xs h-7">
             <RotateCcw className="h-3 w-3" /> Reset
           </Button>
           <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5 text-xs h-7">
@@ -445,13 +524,12 @@ export default function TerraceAnnotationCanvas({
         </div>
       </div>
 
-      {/* Body: left filters | canvas | right sidebar */}
+      {/* Body */}
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Left filter strip ─────────────────────────────────────────── */}
         <div className="w-44 flex-shrink-0 border-r border-border bg-card overflow-y-auto">
 
-          {/* Zone / building selector */}
           {boundaries.length > 0 && (
             <div className="p-3 border-b border-border">
               <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-2">Building Zone</p>
@@ -462,7 +540,7 @@ export default function TerraceAnnotationCanvas({
                 >
                   All Buildings
                 </button>
-                {boundaries.map((b, i) => (
+                {boundaries.map(b => (
                   <button
                     key={b.id}
                     onClick={() => setZoneId(zoneId === b.id ? null : b.id)}
@@ -475,7 +553,6 @@ export default function TerraceAnnotationCanvas({
             </div>
           )}
 
-          {/* Type visibility toggles */}
           <div className="p-3">
             <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-2">Layers</p>
             <div className="space-y-1">
@@ -500,10 +577,15 @@ export default function TerraceAnnotationCanvas({
             </div>
           </div>
 
-          {/* Hint */}
-          <div className="px-3 pb-3">
+          <div className="px-3 pb-3 space-y-2 border-t border-border pt-3">
             <p className="text-[10px] text-muted-foreground leading-relaxed">
-              Click a boundary on the canvas to select it, then use Zone filter to show only its obstacles.
+              <strong>Add node</strong> — click the ▪ square handle on any polygon edge
+            </p>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              <strong>Remove node</strong> — double-click any corner handle (min 3 nodes)
+            </p>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              <strong>Rotate</strong> — drag the yellow ↻ handle above the first edge
             </p>
           </div>
         </div>
@@ -512,7 +594,7 @@ export default function TerraceAnnotationCanvas({
         <div className="flex-1 bg-black flex items-center justify-center overflow-hidden relative">
           <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 text-[10px] text-white/70 bg-black/60 rounded px-2 py-1 backdrop-blur-sm">
             <Info className="h-3 w-3 flex-shrink-0" />
-            Scroll to zoom · Drag canvas to pan · Drag corners to reshape · Yellow ↻ to rotate
+            Scroll to zoom · Drag to pan · Drag corners · ▪ midpoint adds node · Dbl-click node removes it
           </div>
 
           <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
@@ -539,6 +621,7 @@ export default function TerraceAnnotationCanvas({
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerLeave={handlePointerUp}
+              onDoubleClick={handleDoubleClick}
             >
               <defs>
                 <filter id="box-shadow" x="-15%" y="-15%" width="130%" height="130%">
@@ -568,17 +651,16 @@ export default function TerraceAnnotationCanvas({
         {/* ── Right sidebar ─────────────────────────────────────────────── */}
         <div className="w-64 flex-shrink-0 border-l border-border bg-card overflow-y-auto">
 
-          {/* Grouped item list */}
           <div className="border-b border-border">
             <div className="px-3 py-2 flex items-center justify-between">
               <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 Detected ({visibleBoxes.length}{visibleBoxes.length < boxes.length ? `/${boxes.length}` : ''})
               </p>
               {(zoneId || hiddenTypes.size > 0) && (
-                <button
-                  className="text-[10px] text-primary hover:underline"
-                  onClick={() => { setZoneId(null); setHiddenTypes(new Set()); }}
-                >clear filters</button>
+                <button className="text-[10px] text-primary hover:underline"
+                  onClick={() => { setZoneId(null); setHiddenTypes(new Set()); }}>
+                  clear filters
+                </button>
               )}
             </div>
 
@@ -587,7 +669,6 @@ export default function TerraceAnnotationCanvas({
               const collapsed = collapsedGroups.has(type);
               return (
                 <div key={type}>
-                  {/* Group header */}
                   <button
                     onClick={() => toggleGroup(type)}
                     className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/50 transition-colors border-t border-border/50"
@@ -599,7 +680,6 @@ export default function TerraceAnnotationCanvas({
                     <span className="text-[10px] font-mono text-muted-foreground bg-muted rounded-full px-1.5">{typeBoxes.length}</span>
                   </button>
 
-                  {/* Items */}
                   {!collapsed && typeBoxes.map(box => (
                     <div
                       key={box.id}
@@ -611,16 +691,13 @@ export default function TerraceAnnotationCanvas({
                       onMouseLeave={() => setHoveredBoxId(null)}
                     >
                       <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: s.stroke }} />
-                      <span className="text-xs capitalize text-foreground truncate flex-1">{box.label.replace(s.label.toLowerCase(), '').trim() || box.label}</span>
+                      <span className="text-xs capitalize text-foreground truncate flex-1">{box.label}</span>
                       {box.confidence != null && (
                         <span className="text-[10px] font-mono text-muted-foreground">{Math.round(box.confidence * 100)}%</span>
                       )}
-                      <button
-                        className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={e => { e.stopPropagation(); handleDelete(box.id); }}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+                      {box.points.length > 4 && (
+                        <span className="text-[10px] text-muted-foreground">{box.points.length}pt</span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -628,7 +705,6 @@ export default function TerraceAnnotationCanvas({
             })}
           </div>
 
-          {/* AI notes */}
           {analysis?.data_quality_notes && (
             <div className="p-3 border-b border-border">
               <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1.5">AI Notes</p>
@@ -636,7 +712,6 @@ export default function TerraceAnnotationCanvas({
             </div>
           )}
 
-          {/* Calculations */}
           {calculations && (
             <div className="p-3 space-y-3">
               <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -689,7 +764,7 @@ export default function TerraceAnnotationCanvas({
           <div className="p-3 border-t border-border">
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
               {provider === 'claude' ? <Cpu className="h-3 w-3" /> : <Brain className="h-3 w-3" />}
-              <span>{modelName || provider} · drag corners to reshape</span>
+              <span>{modelName || provider} · N-node polygons · click ▪ to add node</span>
             </div>
           </div>
         </div>

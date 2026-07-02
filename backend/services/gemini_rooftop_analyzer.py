@@ -47,7 +47,7 @@ def auto_zoom(footprint_sqft: float = 0, lat: float = 19.0) -> int:
     We want that dimension to be ~35% of image width → ideal coverage ≈ dim / 0.35.
     """
     if footprint_sqft <= 0:
-        return 19  # safe default
+        return 20  # zoom 20 ≈ 90 m coverage → one building wing fits; 19 was too wide (180 m shows neighbours)
 
     sqm = footprint_sqft / 10.764
     dim_m = sqm ** 0.5            # approximate building linear dimension

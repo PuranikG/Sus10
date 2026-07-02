@@ -294,6 +294,7 @@ export default function CommercialProjectPage() {
       setAnalysisState({
         open: true, loading: false, saving: false,
         surveyId: survey.survey_id,
+        buildingName: survey.building_name || '',
         imageB64: result.satellite_image_b64 || null,
         analysis: result.analysis,
         provider: result.provider_used || (result.model?.includes('gemini') ? 'gemini' : 'claude'),
@@ -324,6 +325,7 @@ export default function CommercialProjectPage() {
       setAnalysisState({
         open: true, loading: false, saving: false,
         surveyId: survey.survey_id,
+        buildingName: survey.building_name || '',
         imageB64: imgResult.image_b64 || null,
         analysis: ta?.corrected_annotations
           ? { ...ta.ai_result, _from_correction: true }
@@ -1223,7 +1225,7 @@ export default function CommercialProjectPage() {
             imageB64={analysisState.imageB64}
             analysis={analysisState.analysis}
             footprintSqft={analysisState.footprintSqft || 5000}
-            city={project?.complex_city || ''}
+            buildingName={analysisState.buildingName}
             provider={analysisState.provider || 'gemini'}
             modelName={analysisState.modelName}
             latencyMs={analysisState.latencyMs}
